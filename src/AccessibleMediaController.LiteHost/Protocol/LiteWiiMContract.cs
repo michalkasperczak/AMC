@@ -204,11 +204,13 @@ public static class LiteWiiMContract
         WiiMDeviceSettings device,
         WiiMDeviceSnapshot snapshot,
         string? message = null,
-        string? networkStreamTitle = null)
+        string? networkStreamTitle = null,
+        IReadOnlyList<WiiMNetworkStreamSettings>? networkStreams = null)
     {
         var track = snapshot.Track;
         var playback = snapshot.Playback;
         var selectedStreamTitle = Useful(networkStreamTitle);
+        var observed = ResolveObservedNetworkStream(networkStreams, playback.ContentUri);
         return new
         {
             itemId = "wiim:" + device.Id.Trim(),
@@ -232,10 +234,27 @@ public static class LiteWiiMContract
             durationSeconds = playback.Duration > TimeSpan.Zero
                 ? playback.Duration.TotalSeconds
                 : (double?)null,
+            observedMaterialId = observed is null ? null : "wiim-stream:" + observed.Id,
+            identityProvenance = observed is null ? null : "uriMatch",
             message = string.IsNullOrWhiteSpace(message)
                 ? SnapshotAnnouncement(device, snapshot, selectedStreamTitle)
                 : message.Trim()
         };
+    }
+
+    private static WiiMNetworkStreamSettings? ResolveObservedNetworkStream(
+        IReadOnlyList<WiiMNetworkStreamSettings>? streams,
+        string? contentUri)
+    {
+        if (streams is null
+            || !WiiMPlaybackUriPolicy.TryNormalize(contentUri, out var currentUri))
+            return null;
+        var matches = streams.Where(stream =>
+                !string.IsNullOrWhiteSpace(stream.Id)
+                && WiiMPlaybackUriPolicy.TryNormalize(stream.StreamUrl, out var savedUri)
+                && string.Equals(savedUri, currentUri, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        return matches.Length == 1 ? matches[0] : null;
     }
 
     public static object CreatePresetsResult(

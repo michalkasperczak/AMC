@@ -15,6 +15,8 @@ internal static class SonosContractTests
         PendingLoginExplainsTheHouseholdAccountMismatch();
         TargetLabelsNeverUseTechnicalIdentifiers();
         SnapshotUsesOnlyExplicitUserFacingFields();
+        SnapshotDefaultsObservedMaterialIdentityToNull();
+        SnapshotObservesOnlyMatchingOwnStreamPlaybackItem();
         TransportAcceptsOnlyTheNarrowAllowlist();
         LibraryAndMaterialLabelsNeverExposeIds();
         MaterialRequestsAcceptOnlyKnownKinds();
@@ -293,6 +295,81 @@ internal static class SonosContractTests
               && !message.Contains("opaque-item", StringComparison.Ordinal)
               && !message.Contains("queue-item", StringComparison.Ordinal),
             "techniczna tożsamość materiału wyciekła do komunikatu");
+    }
+
+    private static void SnapshotDefaultsObservedMaterialIdentityToNull()
+    {
+        var group = new SonosGroup(
+            "group-1", "Salon", "player-1", ["player-1"], SonosPlaybackState.Idle);
+        var playback = new SonosGroupPlaybackStatus(
+            SonosPlaybackState.Idle, null, null, null, null, null, null, null, null);
+
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(
+            LiteSonosContract.CreateSnapshotResult(
+                "home-1", group, playback, null, null, DateTime.UtcNow)));
+        var root = document.RootElement;
+        Check(root.GetProperty("observedMaterialId").ValueKind == JsonValueKind.Null,
+            "brak tożsamości Sonos musi pozostać null");
+        Check(root.GetProperty("identityProvenance").ValueKind == JsonValueKind.Null,
+            "brak pochodzenia tożsamości Sonos musi pozostać null");
+    }
+
+    private static void SnapshotObservesOnlyMatchingOwnStreamPlaybackItem()
+    {
+        var group = new SonosGroup(
+            "group-1", "Salon", "player-1", ["player-1"], SonosPlaybackState.Playing);
+        var ownStreams = new[]
+        {
+            new SonosOwnStreamSettings
+            {
+                Id = "stream-a", Name = "Radio A", StreamUrl = "https://radio.example/a"
+            },
+            new SonosOwnStreamSettings
+            {
+                Id = "stream-b", Name = "Radio B", StreamUrl = "https://radio.example/b"
+            }
+        };
+        var matchingItemId = SonosOwnStreamIdentity.TryComputeItemId(
+            ownStreams[1].Id, ownStreams[1].StreamUrl);
+        var playing = new SonosGroupPlaybackStatus(
+            SonosPlaybackState.Playing, null, null, matchingItemId, null, null, null, null, null);
+
+        using var matched = JsonDocument.Parse(JsonSerializer.Serialize(
+            LiteSonosContract.CreateSnapshotResult(
+                "home-1", group, playing, null, null, DateTime.UtcNow, ownStreams: ownStreams)));
+        Check(matched.RootElement.GetProperty("observedMaterialId").GetString()
+              == "sonos-stream:stream-b",
+            "potwierdzone itemId Sonos nie wskazało własnej stacji AMC");
+        Check(matched.RootElement.GetProperty("identityProvenance").GetString()
+              == "playbackItemId",
+            "Sonos nie podał pochodzenia playbackItemId");
+
+        var staleA = new SonosGroupPlaybackStatus(
+            SonosPlaybackState.Playing, null, null,
+            SonosOwnStreamIdentity.TryComputeItemId(ownStreams[0].Id, ownStreams[0].StreamUrl),
+            null, null, null, null, null);
+        using var stale = JsonDocument.Parse(JsonSerializer.Serialize(
+            LiteSonosContract.CreateSnapshotResult(
+                "home-1", group, staleA, null, null, DateTime.UtcNow, ownStreams: ownStreams)));
+        Check(stale.RootElement.GetProperty("observedMaterialId").GetString()
+              == "sonos-stream:stream-a",
+            "odczyt A po przełączeniu nie może zgadywać ostatnio żądanego B");
+
+        var mismatch = new SonosGroupPlaybackStatus(
+            SonosPlaybackState.Playing, null, null, "not-an-amc-stream", null, null, null, null, null);
+        using var unknown = JsonDocument.Parse(JsonSerializer.Serialize(
+            LiteSonosContract.CreateSnapshotResult(
+                "home-1", group, mismatch, null, null, DateTime.UtcNow, ownStreams: ownStreams)));
+        Check(unknown.RootElement.GetProperty("observedMaterialId").ValueKind == JsonValueKind.Null,
+            "niezgodny itemId Sonos nie może dostać tożsamości AMC");
+
+        var idle = new SonosGroupPlaybackStatus(
+            SonosPlaybackState.Idle, null, null, matchingItemId, null, null, null, null, null);
+        using var stopped = JsonDocument.Parse(JsonSerializer.Serialize(
+            LiteSonosContract.CreateSnapshotResult(
+                "home-1", group, idle, null, null, DateTime.UtcNow, ownStreams: ownStreams)));
+        Check(stopped.RootElement.GetProperty("observedMaterialId").ValueKind == JsonValueKind.Null,
+            "stan idle Sonos nie może ogłaszać tożsamości materiału");
     }
 
     private static void TransportAcceptsOnlyTheNarrowAllowlist()

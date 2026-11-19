@@ -40,6 +40,7 @@ internal static class Program
         ("--wiim-profile", WiiMProfileMutationTests.Run),
         ("--frontier-smart", FrontierSmartContractTests.Run),
         ("--sonos", SonosContractTests.Run),
+        ("--sonos-observed-material", SonosObservedMaterialCoordinatorTests.Run),
         ("--sonos-profile", SonosOwnStreamsMutationTests.Run),
     ];
 
