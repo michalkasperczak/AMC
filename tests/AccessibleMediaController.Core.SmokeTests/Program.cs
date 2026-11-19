@@ -27,6 +27,16 @@ if (args.Length == 1 && args[0] == "--podcast-download-naming")
     try { TestPodcastDownloadNaming(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--podcast-library-update")
+{
+    try { TestPodcastLibraryUpdate(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
+if (args.Length == 1 && args[0] == "--podcast-targeted-refresh")
+{
+    try { PodcastTargetedRefreshStoreTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Length == 1 && args[0] == "--local-folder-library")
 {
     try
@@ -1968,6 +1978,7 @@ static void TestYouTubeSubscriptionFileImport()
 static void TestPodcastLibraryUpdate()
 {
     var settings = new PodcastSettings();
+    var initialRefreshUtc = new DateTime(2026, 9, 1, 13, 0, 0, DateTimeKind.Utc);
     var feedUri = new Uri("https://example.test/feed.xml");
     var first = new PodcastFeedDocument(
         "podcast-a",
@@ -1988,7 +1999,7 @@ static void TestPodcastLibraryUpdate()
             null,
             "audio/mpeg",
             100)]);
-    var initial = PodcastLibraryUpdater.Apply(settings, first, "Moja nazwa", DateTime.UtcNow);
+    var initial = PodcastLibraryUpdater.Apply(settings, first, "Moja nazwa", initialRefreshUtc);
     Equal(true, initial.AddedSubscription);
     Equal(true, settings.Episodes[0].IsNew);
     settings.Episodes[0].ResumePositionTicks = TimeSpan.FromMinutes(5).Ticks;
@@ -2007,11 +2018,12 @@ static void TestPodcastLibraryUpdate()
                 Id = "episode-2",
                 SourceIdentifier = "guid-2",
                 Title = "Nowy odcinek",
+                Published = new DateTimeOffset(2026, 9, 2, 12, 0, 0, TimeSpan.Zero),
                 MediaUri = new Uri("https://cdn.example.test/2.mp3")
             }
         ]
     };
-    var update = PodcastLibraryUpdater.Apply(settings, second, null, DateTime.UtcNow.AddMinutes(1));
+    var update = PodcastLibraryUpdater.Apply(settings, second, null, initialRefreshUtc.AddMinutes(1));
     Equal(1, update.AddedEpisodes);
     Equal(1, update.RetainedEpisodesAbsentFromFeed);
     Equal(2, settings.Episodes.Count);
@@ -2032,7 +2044,7 @@ static void TestPodcastLibraryUpdate()
             second.Episodes[0]
         ]
     };
-    var reappeared = PodcastLibraryUpdater.Apply(settings, third, null, DateTime.UtcNow.AddMinutes(2));
+    var reappeared = PodcastLibraryUpdater.Apply(settings, third, null, initialRefreshUtc.AddMinutes(2));
     Equal(0, reappeared.AddedEpisodes);
     Equal(0, reappeared.RetainedEpisodesAbsentFromFeed);
     Equal(2, settings.Episodes.Count);
@@ -2070,7 +2082,7 @@ static void TestPodcastLibraryUpdate()
         settings,
         expanded,
         null,
-        DateTime.UtcNow.AddMinutes(3));
+        initialRefreshUtc.AddMinutes(3));
     Equal(2, expandedResult.AddedEpisodes);
     Equal(true, settings.Episodes.Single(item => item.Id == "episode-3").IsNew);
     Equal(false, settings.Episodes.Single(item => item.Id == "episode-0").IsNew);
@@ -2101,6 +2113,64 @@ static void TestPodcastLibraryUpdate()
         sourceKind: PodcastSourceKind.YouTubeChannel);
     Equal(PodcastSourceKind.YouTubeChannel, youtubeSettings.Subscriptions.Single().SourceKind);
     Equal("AbCdEf12345", youtubeSettings.Episodes.Single().SourceIdentifier);
+
+    // Gdy po zmianie okna YouTube nie ma żadnego wspólnego identyfikatora,
+    // kolejność sama nie dowodzi nowości. Tylko pozycja z datą po poprzednim
+    // udanym odświeżeniu może wejść do Skrzynki; stary i niedatowany materiał
+    // nie mogą odtworzyć zalewu flag „nowe”.
+    var noOverlapSettings = new PodcastSettings();
+    var initialYouTubeRefreshUtc = new DateTime(2026, 11, 10, 12, 0, 0, DateTimeKind.Utc);
+    PodcastLibraryUpdater.Apply(
+        noOverlapSettings,
+        youtubeFeed,
+        null,
+        initialYouTubeRefreshUtc,
+        sourceKind: PodcastSourceKind.YouTubeChannel);
+    var noOverlapFeed = youtubeFeed with
+    {
+        Episodes =
+        [
+            youtubeFeed.Episodes[0] with
+            {
+                Id = "youtube-channel:test:PublishedAfterRefresh",
+                SourceIdentifier = "PublishedAfterRefresh",
+                Title = "Nowy po udanym odświeżeniu",
+                Published = new DateTimeOffset(2026, 11, 11, 12, 0, 0, TimeSpan.Zero),
+                MediaUri = new Uri("https://www.youtube.com/watch?v=PublishedAfterRefresh"),
+                PageUri = new Uri("https://www.youtube.com/watch?v=PublishedAfterRefresh")
+            },
+            youtubeFeed.Episodes[0] with
+            {
+                Id = "youtube-channel:test:PublishedBeforeRefresh",
+                SourceIdentifier = "PublishedBeforeRefresh",
+                Title = "Stary z nowego okna",
+                Published = new DateTimeOffset(2026, 10, 1, 12, 0, 0, TimeSpan.Zero),
+                MediaUri = new Uri("https://www.youtube.com/watch?v=PublishedBeforeRefresh"),
+                PageUri = new Uri("https://www.youtube.com/watch?v=PublishedBeforeRefresh")
+            },
+            youtubeFeed.Episodes[0] with
+            {
+                Id = "youtube-channel:test:WithoutPublishedDate",
+                SourceIdentifier = "WithoutPublishedDate",
+                Title = "Niedatowany materiał z nowego okna",
+                Published = null,
+                MediaUri = new Uri("https://www.youtube.com/watch?v=WithoutPublishedDate"),
+                PageUri = new Uri("https://www.youtube.com/watch?v=WithoutPublishedDate")
+            }
+        ]
+    };
+    PodcastLibraryUpdater.Apply(
+        noOverlapSettings,
+        noOverlapFeed,
+        null,
+        initialYouTubeRefreshUtc.AddDays(2),
+        sourceKind: PodcastSourceKind.YouTubeChannel);
+    Equal(true, noOverlapSettings.Episodes.Single(item =>
+        item.SourceIdentifier == "PublishedAfterRefresh").IsNew);
+    Equal(false, noOverlapSettings.Episodes.Single(item =>
+        item.SourceIdentifier == "PublishedBeforeRefresh").IsNew);
+    Equal(false, noOverlapSettings.Episodes.Single(item =>
+        item.SourceIdentifier == "WithoutPublishedDate").IsNew);
 }
 
 static void TestYouTubeCollectionOrdering()

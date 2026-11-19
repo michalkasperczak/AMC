@@ -1646,43 +1646,257 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
         if (requests.Count == 0) return [];
         lock (_gate)
         {
-            var settings = new PodcastSettings();
-            LoadInto(settings);
+            // Wynik każdego kanału musi trafić do własnej transakcji. LiteHost
+            // przechodzi do następnego pobrania dopiero po jej commicie, więc
+            // zamknięcie procesu nie cofa poprzednich kanałów. Ważne: ta pętla
+            // celowo nie materializuje całej biblioteki przed każdym zapisem.
             var results = new List<PodcastRefreshResult>(requests.Count);
             foreach (var request in requests)
             {
-                ArgumentException.ThrowIfNullOrWhiteSpace(request.SubscriptionId);
-                ArgumentNullException.ThrowIfNull(request.Feed);
-                var selected = settings.Subscriptions.FirstOrDefault(subscription =>
-                    subscription.IsInLibrary
-                    && string.Equals(subscription.Id, request.SubscriptionId, StringComparison.Ordinal));
-                if (selected is null)
-                    throw new KeyNotFoundException("Tego podcastu nie ma już w Bibliotece.");
-                if (!IsRefreshable(selected.SourceKind))
-                {
-                    throw new InvalidOperationException(
-                        "Publiczne medium internetowe jest sprawdzane ponownie przy każdym odtwarzaniu.");
-                }
-
-                var update = PodcastLibraryUpdater.Apply(
-                    settings,
-                    request.Feed,
-                    selected.HasCustomTitle ? selected.Title : null,
-                    refreshUtc,
-                    bookmarks,
-                    selected.SourceKind,
-                    addToLibrary: false);
-                results.Add(new PodcastRefreshResult(
-                    update.Subscription.Title,
-                    update.AddedEpisodes,
-                    update.UpdatedEpisodes,
-                    update.RetainedEpisodesAbsentFromFeed,
-                    0));
+                results.Add(ApplyTargetedRefresh(request, refreshUtc, bookmarks));
             }
-            Save(settings);
+
+            // Kontrakt batcha zwraca końcową liczbę skrzynki dla wszystkich
+            // wyników, mimo że każdy cel jest utrwalany niezależnie.
             var inboxCount = GetInboxCount();
             return results.Select(result => result with { InboxCount = inboxCount }).ToArray();
         }
+    }
+
+    private PodcastRefreshResult ApplyTargetedRefresh(
+        PodcastRefreshRequest request,
+        DateTime refreshUtc,
+        BookmarkSettings? bookmarks)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.SubscriptionId);
+        ArgumentNullException.ThrowIfNull(request.Feed);
+        using var connection = OpenConnection();
+        EnsureSchema(connection);
+        using var transaction = connection.BeginTransaction();
+
+        var selected = ReadRefreshSubscription(connection, transaction, request.SubscriptionId,
+            out var subscriptionOrdinal, out var storedSubscriptionHash);
+        if (!selected.IsInLibrary)
+            throw new KeyNotFoundException("Tego podcastu nie ma już w Bibliotece.");
+        if (!IsRefreshable(selected.SourceKind))
+        {
+            throw new InvalidOperationException(
+                "Publiczne medium internetowe jest sprawdzane ponownie przy każdym odtwarzaniu.");
+        }
+
+        var settings = new PodcastSettings
+        {
+            Subscriptions = [selected],
+            Episodes = []
+        };
+        var storedEpisodes = new Dictionary<string, StoredFingerprint>(StringComparer.Ordinal);
+        using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = """
+                SELECT id, ordinal, content_hash, payload_json
+                FROM podcast_episodes
+                WHERE subscription_id = $subscription
+                ORDER BY ordinal;
+                """;
+            command.Parameters.AddWithValue("$subscription", selected.Id);
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var episode = JsonSerializer.Deserialize<PodcastEpisodeSettings>(
+                    reader.GetString(3), PayloadJsonOptions)
+                    ?? throw new InvalidDataException("Nie można odczytać zapisanego stanu odcinka.");
+                settings.Episodes.Add(episode);
+                storedEpisodes.Add(
+                    reader.GetString(0),
+                    new StoredFingerprint(reader.GetInt32(1), reader.GetString(2)));
+            }
+        }
+
+        var update = PodcastLibraryUpdater.Apply(
+            settings,
+            request.Feed,
+            selected.HasCustomTitle ? selected.Title : null,
+            refreshUtc,
+            bookmarks,
+            selected.SourceKind,
+            addToLibrary: false);
+
+        var subscriptionHash = Fingerprint(update.Subscription);
+        if (!string.Equals(subscriptionHash, storedSubscriptionHash, StringComparison.Ordinal))
+        {
+            Execute(
+                connection,
+                transaction,
+                """
+                UPDATE podcast_subscriptions SET
+                    title = $title,
+                    feed_url = $feed,
+                    is_in_library = $library,
+                    last_refresh_utc_ticks = $refresh,
+                    content_hash = $hash,
+                    payload_json = $payload
+                WHERE id = $id AND ordinal = $ordinal;
+                """,
+                ("$title", update.Subscription.Title),
+                ("$feed", update.Subscription.FeedUrl),
+                ("$library", update.Subscription.IsInLibrary),
+                ("$refresh", update.Subscription.LastRefreshUtcTicks),
+                ("$hash", subscriptionHash),
+                ("$payload", JsonSerializer.Serialize(update.Subscription, PayloadJsonOptions)),
+                ("$id", update.Subscription.Id),
+                ("$ordinal", subscriptionOrdinal));
+        }
+
+        var nextEpisodeOrdinal = ReadNextEpisodeOrdinal(connection, transaction);
+        foreach (var episode in settings.Episodes)
+        {
+            // Usunięcie materiału jest trwałą decyzją użytkownika. Zwykły
+            // refresh nie może przywrócić tombstone'a nawet wtedy, gdy feed
+            // zawiera go ponownie.
+            if (IsRemovedEpisode(connection, transaction, episode.Id)) continue;
+
+            var episodeHash = Fingerprint(episode);
+            if (storedEpisodes.TryGetValue(episode.Id, out var stored))
+            {
+                if (string.Equals(stored.Hash, episodeHash, StringComparison.Ordinal)) continue;
+                WriteTargetedEpisode(connection, transaction, episode, stored.Ordinal, episodeHash);
+                continue;
+            }
+
+            // ID odcinka jest kluczem globalnym. Nie wolno nadpisać rekordu
+            // innego kanału tylko dlatego, że zewnętrzny feed zwrócił kolizję.
+            if (ReadEpisodeSubscriptionId(connection, transaction, episode.Id) is not null)
+            {
+                throw new InvalidDataException(
+                    "Feed zawiera identyfikator odcinka należący do innego źródła.");
+            }
+            WriteTargetedEpisode(connection, transaction, episode, nextEpisodeOrdinal++, episodeHash);
+        }
+
+        Execute(
+            connection,
+            transaction,
+            """
+            INSERT INTO metadata(key, value) VALUES('last_saved_utc', $value)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+            """,
+            ("$value", DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)));
+        transaction.Commit();
+        return new PodcastRefreshResult(
+            update.Subscription.Title,
+            update.AddedEpisodes,
+            update.UpdatedEpisodes,
+            update.RetainedEpisodesAbsentFromFeed,
+            0);
+    }
+
+    private static PodcastSubscriptionSettings ReadRefreshSubscription(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string subscriptionId,
+        out int ordinal,
+        out string hash)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            SELECT ordinal, content_hash, payload_json
+            FROM podcast_subscriptions
+            WHERE id = $id;
+            """;
+        command.Parameters.AddWithValue("$id", subscriptionId);
+        using var reader = command.ExecuteReader();
+        if (!reader.Read()) throw new KeyNotFoundException("Tego podcastu nie ma już w Bibliotece.");
+        ordinal = reader.GetInt32(0);
+        hash = reader.GetString(1);
+        return JsonSerializer.Deserialize<PodcastSubscriptionSettings>(
+                   reader.GetString(2), PayloadJsonOptions)
+               ?? throw new InvalidDataException("Nie można odczytać zapisanego stanu podcastu.");
+    }
+
+    private static int ReadNextEpisodeOrdinal(
+        SqliteConnection connection,
+        SqliteTransaction transaction)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT COALESCE(MAX(ordinal), -1) + 1 FROM podcast_episodes;";
+        return Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+    }
+
+    private static bool IsRemovedEpisode(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string episodeId)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT 1 FROM podcast_removed_episodes WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", episodeId);
+        return command.ExecuteScalar() is not null;
+    }
+
+    private static string? ReadEpisodeSubscriptionId(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string episodeId)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT subscription_id FROM podcast_episodes WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", episodeId);
+        return command.ExecuteScalar() as string;
+    }
+
+    private static void WriteTargetedEpisode(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        PodcastEpisodeSettings episode,
+        int ordinal,
+        string hash)
+    {
+        Execute(
+            connection,
+            transaction,
+            """
+            INSERT INTO podcast_episodes(
+                id, ordinal, subscription_id, title, published_utc_ticks,
+                is_new, is_started, is_played, is_favorite, is_in_queue,
+                is_play_next, download_path, content_hash, payload_json)
+            VALUES(
+                $id, $ordinal, $subscription, $title, $published,
+                $new, $started, $played, $favorite, $queue,
+                $playNext, $download, $hash, $payload)
+            ON CONFLICT(id) DO UPDATE SET
+                ordinal = excluded.ordinal,
+                subscription_id = excluded.subscription_id,
+                title = excluded.title,
+                published_utc_ticks = excluded.published_utc_ticks,
+                is_new = excluded.is_new,
+                is_started = excluded.is_started,
+                is_played = excluded.is_played,
+                is_favorite = excluded.is_favorite,
+                is_in_queue = excluded.is_in_queue,
+                is_play_next = excluded.is_play_next,
+                download_path = excluded.download_path,
+                content_hash = excluded.content_hash,
+                payload_json = excluded.payload_json;
+            """,
+            ("$id", episode.Id),
+            ("$ordinal", ordinal),
+            ("$subscription", episode.SubscriptionId),
+            ("$title", episode.Title),
+            ("$published", episode.PublishedUtcTicks),
+            ("$new", episode.IsNew),
+            ("$started", episode.IsStarted),
+            ("$played", episode.IsPlayed),
+            ("$favorite", episode.IsFavorite),
+            ("$queue", episode.IsInQueue),
+            ("$playNext", episode.IsPlayNext),
+            ("$download", episode.DownloadPath),
+            ("$hash", hash),
+            ("$payload", JsonSerializer.Serialize(episode, PayloadJsonOptions)));
     }
 
     private static bool IsRefreshable(PodcastSourceKind sourceKind) => sourceKind is

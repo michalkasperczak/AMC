@@ -170,6 +170,28 @@ internal static class PodcastProgressStoreTests
                 Assert.True(dueTargets.Count == 1
                     && dueTargets[0].SubscriptionId == "sub-1",
                     "automat wybiera zrodlo bez poprzedniego odswiezenia");
+                // Ustalony sukces daje punkt odniesienia dla późniejszego
+                // całkiem innego okna RSS. Bez niego bezpieczna polityka nie
+                // może nazwać nieznanego archiwum nowością.
+                store.ApplyRefresh("sub-1", new PodcastFeedDocument(
+                    "sub-1",
+                    "Podcast",
+                    "Autor",
+                    "Opis",
+                    new Uri("https://example.invalid/feed.xml"),
+                    null,
+                    [new PodcastFeedEpisode(
+                        "ep-1",
+                        "source-1",
+                        "Odcinek",
+                        "Autor",
+                        "Opis",
+                        DateTimeOffset.UtcNow.AddHours(-1),
+                        TimeSpan.FromMinutes(10),
+                        new Uri("https://example.invalid/episode.mp3"),
+                        null,
+                        "audio/mpeg",
+                        null)]));
                 var feed = new PodcastFeedDocument(
                     "sub-1",
                     "Podcast po odswiezeniu",
@@ -386,6 +408,7 @@ internal static class PodcastProgressStoreTests
             Assert.True(configureRefused,
                 "dzialajace glowne AMC musi zablokowac zmiane ustawien podcastow");
             TestAutomaticRefreshVisitsEveryDueSource(root);
+            TestAutomaticRefreshPersistsCompletedSourceBeforeInterruption(root);
         }
         finally
         {
@@ -520,6 +543,92 @@ internal static class PodcastProgressStoreTests
             "automat powinien przejsc przez wszystkie nalezne zrodla kolejnymi partiami");
         Assert.True(store.GetDueRefreshTargets().Count == 0,
             "po pelnym przebiegu zadne swiezo sprawdzone zrodlo nie powinno byc od razu nalezne");
+    }
+
+    private static void TestAutomaticRefreshPersistsCompletedSourceBeforeInterruption(string root)
+    {
+        var database = Path.Combine(root, "automatic-refresh-persistence", "podcasts.db");
+        Directory.CreateDirectory(Path.GetDirectoryName(database)!);
+        CreateDatabase(database);
+        var secondFeed = new PodcastFeedDocument(
+            "sub-2",
+            "Drugie źródło",
+            "Autor",
+            string.Empty,
+            new Uri("https://example.invalid/feed-2.xml"),
+            null,
+            [new PodcastFeedEpisode(
+                "sub-2-initial",
+                "sub-2-initial",
+                "Początkowy drugi odcinek",
+                "Autor",
+                string.Empty,
+                new DateTimeOffset(2026, 11, 1, 12, 0, 0, TimeSpan.Zero),
+                TimeSpan.FromMinutes(5),
+                new Uri("https://example.invalid/sub-2-initial.mp3"),
+                null,
+                "audio/mpeg",
+                null)]);
+        var completedFirstFeed = new PodcastFeedDocument(
+            "sub-1",
+            "Podcast",
+            "Autor",
+            string.Empty,
+            new Uri("https://example.invalid/feed.xml"),
+            null,
+            [new PodcastFeedEpisode(
+                "sub-1-after-refresh",
+                "sub-1-after-refresh",
+                "Zapisany przed przerwaniem",
+                "Autor",
+                string.Empty,
+                new DateTimeOffset(2026, 11, 2, 12, 0, 0, TimeSpan.Zero),
+                TimeSpan.FromMinutes(5),
+                new Uri("https://example.invalid/sub-1-after-refresh.mp3"),
+                null,
+                "audio/mpeg",
+                null)]);
+
+        using (var store = LitePodcastProgressStore.Open(database, () => false))
+        {
+            store.AddSource(secondFeed, null, PodcastSourceKind.Rss);
+            var dueSecond = ReadSubscription(database, "sub-2");
+            dueSecond.LastRefreshUtcTicks = 0;
+            using (var connection = new SqliteConnection($"Data Source={database};Pooling=False"))
+            {
+                connection.Open();
+                using var resetDue = connection.CreateCommand();
+                resetDue.CommandText = """
+                    UPDATE podcast_subscriptions
+                    SET last_refresh_utc_ticks = 0, payload_json = $payload
+                    WHERE id = 'sub-2';
+                    """;
+                resetDue.Parameters.AddWithValue("$payload", JsonSerializer.Serialize(dueSecond));
+                resetDue.ExecuteNonQuery();
+            }
+            store.ConfigureGlobalSettings(null, 60, 60, 2);
+            using var coordinator = new LitePodcastRefreshCoordinator(
+                store,
+                null,
+                target => target.SubscriptionId == "sub-1"
+                    ? Task.FromResult(completedFirstFeed)
+                    : throw new InvalidOperationException("symulowane nagłe zamknięcie po pierwszym sukcesie"));
+            var interrupted = false;
+            try
+            {
+                coordinator.RefreshAutomatic();
+            }
+            catch (InvalidOperationException)
+            {
+                interrupted = true;
+            }
+            Assert.True(interrupted,
+                "test musi przerwać przebieg dopiero po pobraniu pierwszego źródła");
+        }
+
+        using var reopened = LitePodcastProgressStore.Open(database, () => false);
+        Assert.True(EpisodeExists(database, "sub-1-after-refresh"),
+            "wynik pierwszego kanału musi przetrwać ponowne otwarcie bazy po przerwaniu N-elementowego przebiegu");
     }
 
     private static void TestInboxSourceChoice(string root)

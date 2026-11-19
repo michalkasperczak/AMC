@@ -14,7 +14,8 @@ internal static class YouTubeSubscriptionSyncApplyTests
         KeepsFailedAutomaticRefreshFairAndPersistent();
         DeletesOnlyExpiredOrExplicitAccountData();
         RefreshesSeveralSourcesWithOneDurableSave();
-        Console.WriteLine("OK: atomowy zapis subskrypcji YouTube i seria podcastów (8 scenariuszy)");
+        PodcastTargetedRefreshStoreTests.Run();
+        Console.WriteLine("OK: atomowy zapis subskrypcji YouTube i seria podcastów (9 scenariuszy)");
     }
 
     private static void NewAccountChannelsStayOutsideCustomizedInboxSelection()
@@ -48,6 +49,15 @@ internal static class YouTubeSubscriptionSyncApplyTests
                 new PodcastSubscriptionSettings {
                     Id = "batch-b", Title = "Drugi", FeedUrl = "https://example.invalid/b.xml",
                     SourceKind = PodcastSourceKind.Rss, IsInLibrary = true }
+            ],
+            Episodes =
+            [
+                new PodcastEpisodeSettings {
+                    Id = "batch-a:known", SubscriptionId = "batch-a", SourceIdentifier = "batch-a:known",
+                    Title = "Znany A", MediaUrl = "https://example.invalid/a-known.mp3", IsNew = false },
+                new PodcastEpisodeSettings {
+                    Id = "batch-b:known", SubscriptionId = "batch-b", SourceIdentifier = "batch-b:known",
+                    Title = "Znany B", MediaUrl = "https://example.invalid/b-known.mp3", IsNew = false }
             ]
         };
         WithDatabase(settings, (database, store) =>
@@ -62,6 +72,12 @@ internal static class YouTubeSubscriptionSyncApplyTests
                         "Autor", "Opis", DateTimeOffset.UtcNow,
                         TimeSpan.FromMinutes(5),
                         new Uri($"https://example.invalid/{suffix}.mp3"),
+                        null, "audio/mpeg", null),
+                     new PodcastFeedEpisode(
+                        $"{id}:known", $"{id}:known", $"Znany {suffix}",
+                        "Autor", "Opis", DateTimeOffset.UtcNow.AddDays(-1),
+                        TimeSpan.FromMinutes(5),
+                        new Uri($"https://example.invalid/{suffix}-known.mp3"),
                         null, "audio/mpeg", null)]));
 
             var requests = new[] { Request("batch-a", "a"), Request("batch-b", "b") };
@@ -69,12 +85,15 @@ internal static class YouTubeSubscriptionSyncApplyTests
             Assert(first.Count == 2 && first.All(result => result.AddedEpisodes == 1),
                 "Seria nie dodała po jednym odcinku do obu źródeł.");
             Assert(first.All(result => result.InboxCount == 2),
-                "Wyniki serii nie zawierają końcowej liczby nowych odcinków.");
+                "Wyniki serii nie zawierają końcowej liczby nowych odcinków: "
+                + string.Join(", ", first.Select(result => result.InboxCount)));
             var reopened = new PodcastSettings();
             database.LoadInto(reopened);
             Assert(reopened.Episodes.Select(item => item.Id).ToHashSet(StringComparer.Ordinal)
-                       .SetEquals(["batch-a:episode", "batch-b:episode"]),
-                "Ponowny odczyt nie zachował obu źródeł serii.");
+                       .SetEquals([
+                           "batch-a:episode", "batch-a:known",
+                           "batch-b:episode", "batch-b:known"]),
+                "Ponowny odczyt nie zachował nowych i archiwalnych odcinków obu źródeł serii.");
             var again = store.ApplyRefreshBatch(requests, DateTime.UtcNow);
             Assert(again.All(result => result.AddedEpisodes == 0)
                    && store.GetInboxCount() == 2,
