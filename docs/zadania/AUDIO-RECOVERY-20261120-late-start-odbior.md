@@ -2,8 +2,45 @@
 
 ## Werdykt rodzica — 20.11.2026
 
-**Przyczyna nieudanego wznowienia jest potwierdzona. Funkcja nadal nie jest
-naprawiona ani zintegrowana; trwa osobny minimalny RED/GREEN.**
+**Minimalny kandydat `7b0a60b` przeszedł kontrolowany GREEN również u rodzica.
+Nie jest jeszcze przyjęty do integracji: trwa niezależny review granic hosta.**
+
+## Wynik minimalnej poprawki i bramka przed integracją
+
+Codex `deleg_de2324a4` zakończył jeden celowany cykl commitem
+`7b0a60b8566fc68673969505e955658dd499c0cf`. Produkcyjnie zmienił tylko
+`LiteEngineHandlers.cs`: nowa flaga `_filesStartStateLocked` blokuje zmianę
+stanu przez spóźniony start po nowszej decyzji pauzy, fallbacku, końca lub Stop;
+start i wznowienie mają ją odblokować. Nie zmieniono czerwonej sondy/asercji.
+
+Rodzic przeczytał diff, raport i pełny `result.json` wykonawcy. Ten zapis
+potwierdza exit 0 dla restore/build Release hosta, normalnego i późnego trybu
+HandlerTests, buildów Windows i smoke oraz `--protected-output-recovery-only`.
+Buildy mają 0 ostrzeżeń i 0 błędów. Sąsiednie testy ochrony/pauzy/Stop dotyczą
+**silnika WindowsMediaOutput**, nie są pełnym pokryciem nowej flagi hosta.
+
+**Własny odbiór krytycznego scenariusza rodzica, 20.11 około 00:22 CET:**
+porównanie 749 źródeł/projektów stagingu z dokładnym `7b0a60b`, zero różnic;
+sprawdzenie SHA DLL
+`dc8edf8270b1ae20c3190f55446a5250663d0fee9d7a09247467d17e7bc14ce7`;
+faktyczny run `--late-initial-playback-started` — **exit 0 po 1,847 s**,
+`LiteHost automatic refresh dispatcher and protected output transport: OK`,
+stderr pusty. Jest para RED/GREEN dla niezmienionego krytycznego scenariusza.
+Nie powtarzano mechanicznie wszystkich testów wykonawcy.
+
+Dowody rodzica w `amc-output-late-start-parent-20261120/`:
+`green-source-verification.json`, `verify_green.py`, `green.json`, raw stdout/stderr.
+Dowody wykonawcy: `amc-output-late-start-fix-20261120-evidence-c1/result.json`.
+
+Niezależny review `deleg_9a50915b`, `sa-0-09aa1278`, bada tylko granice nowej
+flagi: wszystkie starty hosta, automatyczny koniec/przejście kolejki, pauzę
+użytkownika i Stop/nowy Play. Szczególnie czy blokada po końcu jest zdejmowana
+przed zdrowym następnym startem; to **hipoteza do sprawdzenia**, nie wykryta
+regresja. Bez nowych poprawek, szerokiego audytu ani powtarzania całej macierzy.
+Przed werdyktem nie scalać kandydata do canonical. #26 i cofnięta wcześniejsza
+integracja pozostają nietknięte; Spotify nadal osobno.
+
+## Zakończona diagnoza przed poprawką
 
 Codex `deleg_12ac386e` zakończył etap diagnostyczny commitem
 `6c701411dfdcf923e64c68ff827104a0581c4641`. Zmieniono wyłącznie test hosta i
@@ -62,9 +99,9 @@ Faktyczne położenie dowodów wykonawcy po przeniesieniu:
 commicie wskazuje dawne położenie wewnątrz worktree; nie używać go jako
 aktualnego adresu plików dowodowych.
 
-## Rozpoczęta minimalna poprawka
+## Zakres zleconej minimalnej poprawki — zakończona implementacja, trwa review
 
-Codex `deleg_de2324a4`, `sa-0-fcabf63e`, pracuje w osobnym worktree
+Codex `deleg_de2324a4`, `sa-0-fcabf63e`, zakończył implementację w osobnym worktree
 `amc-output-late-start-fix-20261120`, gałąź
 `codex/amc-output-late-start-fix-20261120`, baza `6c70141`.
 
@@ -86,5 +123,6 @@ następne i nie jest przez tę diagnozę rozwiązane.
 
 Znaleziono przyczynę sytuacji, w której po utracie wyjścia AMC pozostaje cichy,
 lecz następna Spacja zachowuje się jak ponowna pauza: spóźnione potwierdzenie
-startu nadpisuje ochronny stan. Trwa minimalna poprawka tego porządku. Nie jest
-to jeszcze nowa wersja do instalacji ani potwierdzenie działania na sprzęcie.
+startu nadpisuje ochronny stan. Minimalna poprawka przechodzi kontrolowany test
+również u rodzica; trwa sprawdzenie sąsiednich granic hosta przed integracją.
+Nie jest to jeszcze nowa wersja do instalacji ani potwierdzenie działania na sprzęcie.

@@ -22,8 +22,9 @@ Końcowy test `3948aec` przeszedł Debug u rodzica (747 źródeł zgodnych), ale
 nowy wspólny Release `aef4626` ponownie upadł na wznowieniu. Próbne scalenie
 cofnięto w `8d1da71`; brak końcowego odbioru lokalnego audio. Michał potem
 zlecił dalsze badanie: `6c70141` potwierdził wyścig spóźnionego PlaybackStarted
-nadpisującego pauzę ochronną. Rodzic odtworzył kontrolowany RED; teraz
-`deleg_de2324a4` prowadzi minimalny RED/GREEN w osobnym worktree.
+nadpisującego pauzę ochronną. Rodzic odtworzył RED, a następnie GREEN `7b0a60b`
+na tej samej późnej kolejności. Review `deleg_9a50915b` granic flagi hosta
+trwa przed akceptacją integracji; bez scalania i publikacji.
 [Odbiór diagnozy i etap poprawki](AUDIO-RECOVERY-20261120-late-start-odbior.md).
 Spotify `7a26f3a` rodzic potwierdził świeżym Release i adapter/polityką offline
 exit 0, nadal bez wspólnej integracji. [Szczegóły](AUDIO-RECOVERY-20261119-spotify-parent-check.md).

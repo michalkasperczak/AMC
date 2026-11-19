@@ -82,8 +82,9 @@ ponownie daje test hosta exit 1 na wznowieniu. Próbne scalenie cofnięto w
 nie odebrano; poprzedni limit cykli wyczerpano bez ponowień w ciemno.
 Michał ponownie polecił badać przełączanie audio. `deleg_12ac386e` dowiódł
 w `6c70141`, że spóźniony PlaybackStarted nadpisuje ochronną pauzę hosta;
-rodzic potwierdził kontrolowany RED i 749 źródeł. Teraz `deleg_de2324a4`
-wykonuje minimalny RED/GREEN w osobnym worktree.
+rodzic potwierdził kontrolowany RED i późniejszy GREEN kandydata `7b0a60b`,
+po sprawdzeniu 749 źródeł. Przed akceptacją integracji trwa review
+`deleg_9a50915b` nowej flagi hosta na granicach zwykłego startu i kolejki.
 [Dowód przyczyny i bieżący etap](AUDIO-RECOVERY-20261120-late-start-odbior.md).
 Polityka Spotify `7a26f3a` ma niezależny świeży Release i adapter/politykę offline
 exit 0 u rodzica, ale nie została zintegrowana. Native callback/Denon/Chrome
