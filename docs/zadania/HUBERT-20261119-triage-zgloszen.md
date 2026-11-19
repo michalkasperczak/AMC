@@ -108,10 +108,23 @@ Celowana kontrola Python `test_podcast_refresh.py -k 'startup_catch_up or record
 5 PASS, 13 poza wyborem. Obejmuje zmieniony termin i sąsiednie blokady nagrywania,
 nie odbiór żywego GUI/NVDA.
 
-**Jeszcze nie integrować:** trwa jeden niezależny, ograniczony przegląd
-zamrożonego delta-diff `c3e1404` (harmonogram, granice anulowania i zgodność
-wywołań). Nie zlecono powtórzenia pełnej suite. Po jego odebraniu zintegrować
-etap albo zapisać konkretny bloker; dopiero potem rozpocząć #26.
+**Odbiór wstrzymany:** niezależny przegląd `c3e1404` zakończony wskazaniem
+niezgodności no-arg API: wrapper i dyspozytor hosta przypisują brakowi kadencji
+nowe 60 s, choć stara ścieżka bez argumentu oznaczała pełny zapisany limit.
+Adaptacyjna kadencja ma obowiązywać po jawnym przekazaniu jej przez GUI;
+wywołanie bez argumentów ma zachować zgodność. Rodzic potwierdził ten przepływ
+w niezmiennym kodzie. Recenzent uruchomił jedynie celowany test jawnej kadencji,
+nie odtworzył jeszcze funkcjonalnego RED dla ścieżki no-arg.
+
+Druga uwaga dotyczy wyścigu między sprawdzeniem budżetu a zapisem próby.
+To na razie statyczna hipoteza, nie zmierzony błąd ani dowód utraty danych.
+Trzeba rozróżnić przyjęcie źródła przed terminem od przyjęcia po terminie;
+samo dodanie kolejnego sprawdzenia tokenu nie dowodzi usunięcia wyścigu.
+Zlecono wąski RED/GREEN no-arg API oraz deterministyczną próbę tej granicy
+w osobnym `codex/amc-hubert25-schedule-correction-20261119`, baza `c3e1404`.
+Naprawiać drugą ścieżkę tylko po potwierdzeniu problemu; bez nowego globalnego
+potoku lub zarządzania anulowaniem. Frozen `c3e1404` i kanoniczna produkcja
+pozostają nietknięte. Po odbiorze korekty zakończyć #25; #26 nadal następne.
 
 ## Przygotowawczy przegląd kolejnych etapów — bez zmiany kolejności
 
