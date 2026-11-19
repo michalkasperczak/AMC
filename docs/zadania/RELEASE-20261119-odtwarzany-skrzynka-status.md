@@ -47,6 +47,11 @@ wspólne funkcje materiału skończonego. Jeśli czegoś brakuje, minimalnie uzu
 istniejący mechanizm z funkcjonalnym RED/GREEN, bez odrębnego odtwarzacza.
 [Szczegółowy zakres i faktyczne wyniki](RARCH-PLAYER-20261119-kontrakt.md).
 
+Ograniczony odbiór kodu/offline zakończono: nie wykryto funkcjonalnego braku
+wymagającego zmiany produkcji. Testy i raport przyjęto jako `8ff468c` po
+niezależnym odczycie; rodzic po integracji 41 testów Python i 3 zestawy C# PASS.
+Nie jest to odbiór GUI/NVDA/audio ani zgłoszenia o utracie wyjścia.
+
 Na liście audycji ma działać zwykły wybór po nazwie literami i cyframi;
 nie tworzyć selektora godzin ani aliasu 7 → 07. Cyfry przewijają procentowo
 wyłącznie we właściwym kontekście odtwarzacza, nie podczas nawigacji listy.

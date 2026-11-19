@@ -91,3 +91,38 @@ Nie zmieniono kodu produkcyjnego. Nie uruchomiono GUI, NVDA, audio ani odtwarzan
 ## Integracja
 
 Nie ma zmiany wspólnej metody do ręcznej integracji z pracą nawigacji listy ani rozdziałów YouTube. Zmiany testów i dokumentu można brać niezależnie; funkcjonalny routing klawiszy godzinowych nie został dotknięty.
+
+## Niezależny odbiór rodzica i integracja — 19.11.2026
+
+Rodzic odczytał pełny diff zamrożonego `c3f2eb92831caddfb2279221fdc0970a448a8467`
+oraz raport. Potwierdził brak różnic kodu produkcyjnego względem bieżącej
+bazy. Zintegrowano wyłącznie dwa pliki testów i dokument jako `8ff468c`.
+Konflikt dotyczył wyłącznie nieaktualnego akapitu dokumentacji o wykonawcy
+„w toku”; nie było konfliktu ani zmiany produkcji.
+
+Niezależnie wykonano dwa zmienione moduły Python przed integracją:
+**41 passed in 0.41s**, a po integracji **41 passed in 0.86s**, exit 0.
+To nakładające się wybory, nie dodatkowe 82 scenariusze i nie pełna suite.
+Polecenie po integracji:
+
+```text
+PYTHONPATH=wxlite:wxlite/tests uv run --offline --with pytest python -m pytest wxlite/tests/test_radioarchiwista_followup.py wxlite/tests/test_transport_parity_gui_wiring.py -q --tb=short --basetemp /home/michal/.hermes/profiles/amc/cache/scratch/rarch-player-parent-integrated -p no:cacheprovider
+```
+
+Porównano bajtowo 744 śledzone pliki `.cs`/`.csproj` z `src` i `tests`
+między kanonicznym repo a stagingiem Windows
+`C:\Users\Michal\AppData\Local\AMC-AgentStaging\rarch-player-7bebd004`:
+zero różnic. Rodzic uruchomił rzeczywisty runner
+`tests\AccessibleMediaController.LiteHost.ProtocolTests\bin\Debug\net8.0\amc_lite_protocol_tests.dll`
+prywatnym `dotnet.exe` z flagami
+`--transport-routing --bookmarks --playback-history`: **3 zestawy PASS**, exit 0.
+Nie ponawiano całej kompilacji; jej wynik pozostaje dowodem wykonawcy.
+Początkowe szukanie DLL po nazwie projektu, a nie jawnym `AssemblyName`,
+nie znalazło runnera; po odczycie csproj użyto poprawnej nazwy. Nie był to
+nieudany test produktu.
+
+Przyjęto ograniczony kontrakt kodu/offline, nie fizyczne odtwarzanie,
+GUI/NVDA, natywny Windows typeahead, instalację ani publikację. Nie wykryto
+potwierdzonego braku wymagającego zmiany produkcji. Nowa praca nad utratą
+wyjścia audio ma osobny kontrakt AUDIO-RECOVERY-20261119 i nie jest odebrana
+przez powyższe testy.

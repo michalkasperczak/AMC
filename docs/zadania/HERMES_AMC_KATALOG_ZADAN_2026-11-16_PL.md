@@ -19,8 +19,9 @@ Dwie izolowane ścieżki Codex w toku, bez odbioru sprzętu, GUI i instalatora.
 — Ctrl+F w źródłach, 10 testów PASS; po korekcie Michała zwykła lista plików,
 bez specjalnego aliasu 7 → 07. Test 18.11, 03:37 nadal najnowszy opublikowany.
 [Pełny kontrakt odtwarzacza: historia, zakładki, procenty](RARCH-PLAYER-20261119-kontrakt.md)
-— weryfikacja i uzupełnienie tylko potwierdzonych braków; pierwszy moduł 11 PASS,
-1 FAIL wyposażenia atrapy zmiany języka do diagnozy. Bez GUI/instalacji/publikacji.
+— ograniczony odbiór offline zakończony; nie wykryto luki produkcji, poprawiono
+niepełne atrapy i dodano regresje handlerów. Integracja `8ff468c`; rodzic po
+integracji 41 Python i 3 zestawy C# PASS. Bez GUI/instalacji/publikacji.
 
 [Zgłoszenia Huberta: #11, #25, #26, #28 — ocena i rekomendowana kolejność](HUBERT-20261119-triage-zgloszen.md).
 Analiza zakończona; Michał następnie zatwierdził realizację po kolei.
