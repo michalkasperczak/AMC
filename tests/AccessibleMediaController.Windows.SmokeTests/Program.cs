@@ -3205,14 +3205,34 @@ static void TestYouTubeCollectionResults()
         && completedLargeChannel.Feed.Episodes.Take(20).All(episode =>
             episode.SourceIdentifier.StartsWith("Video", StringComparison.Ordinal)),
         "Ponad sto datowanych starych transmisji obcięło niedatowane filmy przed nałożeniem dat RSS.");
+    var emptyRssLargeChannel = YouTubeCollectionClient.CompleteFromChannelFeed(
+        YouTubeCollectionClient.MergeChannelDocuments(largeVideosDocument, largeStreamsDocument),
+        new Dictionary<string, YouTubeFeedEntry>(StringComparer.Ordinal));
+    Assert(
+        emptyRssLargeChannel.Feed.Episodes.Count == YouTubeCollectionClient.MaximumItems
+        && emptyRssLargeChannel.Feed.Episodes.Select(episode => episode.SourceIdentifier)
+            .SequenceEqual(oldArchivedStreams
+                .OrderByDescending(episode => episode.Published)
+                .Select(episode => episode.SourceIdentifier))
+        && emptyRssLargeChannel.Feed.Title == largeVideosDocument.Feed.Title
+        && emptyRssLargeChannel.Feed.Description == largeVideosDocument.Feed.Description,
+        "Pusty RSS po scaleniu kanału nie zachował limitu 100, kolejności yt-dlp albo metadanych kanału.");
     var playlist = YouTubeCollectionClient.ParseResult(
         playlistAddress,
         PodcastSourceKind.YouTubePlaylist,
         json);
+    var emptyRssPlaylist = YouTubeCollectionClient.CompleteFromChannelFeed(
+        playlist,
+        new Dictionary<string, YouTubeFeedEntry>(StringComparer.Ordinal));
     Assert(
         playlist.Feed.Title == "TyfloPodcast - Videos"
-        && playlist.Feed.HomepageUri == playlistAddress,
-        "Playlista YouTube nie zachowuje własnego stabilnego adresu strony.");
+        && playlist.Feed.HomepageUri == playlistAddress
+        && emptyRssPlaylist.SourceKind == PodcastSourceKind.YouTubePlaylist
+        && emptyRssPlaylist.Feed.Title == playlist.Feed.Title
+        && emptyRssPlaylist.Feed.HomepageUri == playlist.Feed.HomepageUri
+        && emptyRssPlaylist.Feed.Episodes.Select(episode => episode.SourceIdentifier)
+            .SequenceEqual(playlist.Feed.Episodes.Select(episode => episode.SourceIdentifier)),
+        "Pusty RSS nie może normalizować playlisty jak kanału ani zmieniać jej metadanych.");
     var directDescription = YouTubeDescriptionClient.ParseResult(
         "{\"description\":\"  Pełny opis.\\r\\nDrugi   akapit.  \"}");
     Assert(

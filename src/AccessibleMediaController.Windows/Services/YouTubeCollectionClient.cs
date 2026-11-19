@@ -597,7 +597,14 @@ internal sealed class YouTubeCollectionClient
         YouTubeCollectionDocument document,
         IReadOnlyDictionary<string, YouTubeFeedEntry> feedEntries)
     {
-        if (feedEntries.Count == 0) return document;
+        if (feedEntries.Count == 0)
+        {
+            if (document.SourceKind != PodcastSourceKind.YouTubeChannel)
+                return document;
+            return new YouTubeCollectionDocument(
+                document.Feed with { Episodes = OrderChannelEpisodes(document.Feed.Episodes) },
+                document.SourceKind);
+        }
 
         var completed = new List<PodcastFeedEpisode>(document.Feed.Episodes.Count);
         foreach (var episode in document.Feed.Episodes)

@@ -115,3 +115,40 @@ Wyniki końcowe:
 Nie testowano żywego YouTube, logowania, GUI, audio, instalatora ani głównego
 komputera; nie są one objęte tym etapem. Nie pushowano i nie zmieniano issue
 ani wspólnych rejestrów.
+
+## Aneks — pusty lub niedostępny RSS po scaleniu kanału
+
+### Zakres
+
+- Worktree: `/home/michal/.hermes/profiles/amc/cache/scratch/amc-hubert25-rss-fallback-20261119`
+- Branch: `codex/amc-hubert25-rss-fallback-20261119`
+- Baza: `6f55a14b53703201ecf30da793e23e39e2e9c28b`
+- Windowsowy staging należący do tego etapu:
+  `C:\Users\Michal\AppData\Local\AMC-Hermes-Build\hubert25-rss-fallback`
+
+`MergeChannelDocuments` dalej zwraca komplet kandydatów do późniejszego
+uzupełnienia RSS. Gdy RSS jest pusty albo niedostępny,
+`CompleteFromChannelFeed` przywraca dla **kanału** końcowe uporządkowanie oraz
+limit 100 na danych yt-dlp. Nie zmienia playlist: pusta odpowiedź RSS zwraca
+jej oryginalny dokument i metadane.
+
+### TDD i weryfikacja Windows
+
+Nowy test `Windows.SmokeTests --youtube-collection-normalization` scala 100
+niedatowanych `/videos` i 100 datowanych `/streams`, następnie przekazuje
+pusty RSS. Sprawdza końcową liczbę 100, kolejność dat yt-dlp oraz metadane
+kanału. W tym samym przebiegu pozostaje istniejący wariant z uzupełnionymi
+datami RSS, a nowa asercja pilnuje, że playlista przy pustym RSS zachowuje
+typ, kolejność i metadane.
+
+- **RED:** Windowsowy command zwrócił kod `1` z komunikatem
+  `Pusty RSS po scaleniu kanału nie zachował limitu 100, kolejności yt-dlp albo metadanych kanału.`
+- **GREEN:** ten sam command zwrócił kod `0` i
+  `OK: ograniczone kanały i playlisty publicznego YouTube`.
+- **Konsument LiteHost:** `dotnet build
+  src\AccessibleMediaController.LiteHost\AccessibleMediaController.LiteHost.csproj
+  --no-restore --nologo` zwrócił kod `0`, `Ostrzeżenia: 0`, `Liczba błędów: 0`.
+
+Zmodyfikowano wyłącznie helper produkcyjny, celowany test Windows oraz ten
+aneks. Nie wykonywano instalacji, publikacji, GUI, audio, NVDA ani żywego
+YouTube; nie pushowano i nie zmieniano issue ani wspólnych rejestrów.
