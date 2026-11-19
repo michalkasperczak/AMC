@@ -46,6 +46,12 @@ internal static class PodcastChapterCoordinatorTests
                         "Odcinek ze stroną",
                         "Opis bez znaczników czasu",
                         new Uri("https://example.invalid/ep-page"),
+                        null),
+                    Episode(
+                        "ep-youtube",
+                        "Film z rozdziałami",
+                        "",
+                        new Uri("https://www.youtube.com/watch?v=fixture0001"),
                         null)
                 ]);
             podcasts.AddSource(feed, null, PodcastSourceKind.Rss);
@@ -72,6 +78,11 @@ internal static class PodcastChapterCoordinatorTests
                 (address, _, _) =>
                 {
                     pageCalls++;
+                    if (address.Host.EndsWith("youtube.com", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Zwykły parser strony celowo nie czyta skryptów watch YouTube.
+                        return Task.FromResult<IReadOnlyList<ProviderChapterPoint>>([]);
+                    }
                     Assert.Equal(
                         "https://example.invalid/ep-page",
                         address.AbsoluteUri,
@@ -111,6 +122,12 @@ internal static class PodcastChapterCoordinatorTests
                 TimeSpan.FromMinutes(20));
             Assert.True(page.ChapterCount == 2 && pageCalls == 1,
                 "gdy JSON i opis nie wystarczają, host używa strony bieżącego odcinka");
+
+            var youtube = coordinator.Prepare(
+                Item("ep-youtube", "Film z rozdziałami"),
+                TimeSpan.FromMinutes(20));
+            Assert.True(youtube.ChapterCount == 2,
+                "film YouTube bez opisu importuje rozdziały twórcy, a nie pustą stronę watch");
         }
         finally
         {
