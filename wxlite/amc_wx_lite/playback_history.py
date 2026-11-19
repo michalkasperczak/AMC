@@ -13,6 +13,7 @@ from dataclasses import replace
 
 from .list_model import Row
 from .radio_activity import join_spoken_prefix, normalize_state_position
+from .playback_activity import row_matches_material
 
 
 MAX_ITEMS_PER_SESSION = 500
@@ -249,21 +250,30 @@ def activity_rows(
     current_item_id: str,
     playback_state: object,
     position: object = "after",
+    session_id: str | None = None,
 ) -> list[Row]:
     """Nałóż wspólną, krótką informację o odtwarzaniu na listę streamera."""
 
     state = _text(playback_state).casefold()
     label = (
         "odtwarzane"
-        if state in {"playing", "play", "buffering", "odtwarzanie"}
+        if state in {"playing", "play", "odtwarzanie"}
         else "odtwarzanie wstrzymane"
-        if state in {"paused", "pause", "wstrzymane"}
+        if state in {"paused", "pause", "pauza", "wstrzymane"}
         else ""
     )
+    audible = state in {"playing", "play", "odtwarzanie"}
     placement = normalize_state_position(position)
     result: list[Row] = []
     for row in rows:
-        active = bool(label and current_item_id and row.item_id == current_item_id)
+        active = bool(
+            label
+            and row_matches_material(
+                row,
+                current_item_id=current_item_id,
+                session_id=session_id,
+            )
+        )
         prefix = (
             join_spoken_prefix([label])
             if active and placement == "before"
@@ -278,13 +288,13 @@ def activity_rows(
             if (
                 row.state_prefix == prefix
                 and row.state_detail == detail
-                and row.playback_activity == active
+                and row.playback_activity == (active and audible)
             )
             else replace(
                 row,
                 state_prefix=prefix,
                 state_detail=detail,
-                playback_activity=active,
+                playback_activity=active and audible,
             )
         )
     return result

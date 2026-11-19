@@ -487,6 +487,8 @@ def _bookmark_row(record) -> BookmarkRow:
             title=label,
             kind="track",
             detail="",
+            material_id=str(record["item_id"]),
+            material_session_id=str(record["session_id"]),
         ),
         bookmark_id=bookmark_id,
         item_id=str(record["item_id"]),

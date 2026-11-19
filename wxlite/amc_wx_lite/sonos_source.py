@@ -64,6 +64,9 @@ def snapshot(payload: object) -> dict:
             "itemId", "householdId", "groupId", "groupTitle", "title",
             "source", "stateText", "volumeText", "positionText",
             "playbackState", "message",
+            # This is an optional host contract, not a source of spoken text.
+            # The GUI accepts it only for a matching group and own-stream ID.
+            "observedMaterialId", "identityProvenance",
         )
     }
     for name in ("muted", "fixedVolume"):

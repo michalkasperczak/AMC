@@ -172,6 +172,32 @@ def test_aggregate_episode_plays_and_load_more_keeps_aggregate_identity() -> Non
     assert play.item_id == "new"
 
 
+def test_inbox_remembers_selected_episode_after_return_to_podcast_library() -> None:
+    """Ctrl+I -> Ctrl+L -> Ctrl+I restores by ID even after order changes."""
+    nav = Navigator()
+    nav.switch_session(SessionId.PODCASTS)
+    nav.apply_podcast_aggregate(
+        LibraryView.PODCAST_INBOX,
+        "Nowe odcinki i materiały",
+        [_episode("first"), _episode("remembered"), _episode("last")],
+        preferred_id="remembered",
+    )
+
+    # Ctrl+L loads the podcast library through this production navigator path.
+    nav.apply_podcast_library([Row("source", "Audycja", "podcast")])
+    assert nav.session.view_selected_ids[LibraryView.PODCAST_INBOX.value] == "remembered"
+
+    # A later Ctrl+I can return a reordered batch; the stable ID, not index,
+    # decides the restored focus.
+    nav.apply_podcast_aggregate(
+        LibraryView.PODCAST_INBOX,
+        "Nowe odcinki i materiały",
+        [_episode("last"), _episode("remembered"), _episode("first")],
+    )
+
+    assert nav.session.model.selected_id == "remembered"
+
+
 def test_empty_aggregate_messages_are_intentional_user_facing_labels() -> None:
     nav = Navigator()
     inbox = nav.apply_podcast_aggregate(

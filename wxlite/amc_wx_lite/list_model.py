@@ -84,6 +84,14 @@ class Row:
     # tekstem dostepnosciowym i nie ujawniaja technicznego stanu hosta.
     playback_activity: bool = False
     recording_activity: bool = False
+    # Tożsamość materiału, gdy własne ``item_id`` wiersza jest wyłącznie
+    # identyfikatorem prezentacji (np. ``bookmark:<id>``). Nie trafia do
+    # kolumn ani mowy; renderer aktywności używa jej wyłącznie po potwierdzeniu
+    # tej samej sesji i tego samego rzeczywistego materiału.
+    material_id: str | None = None
+    # Sesja materiału dla wiersza prezentacyjnego. ``None`` oznacza bieżącą
+    # sesję listy; jawna wartość broni przed zbieżnymi Id z innej sesji.
+    material_session_id: str | None = None
     # Punkt wznowienia podcastu lub innego dlugiego materialu. W modelu zostaje
     # liczba; czytnik dostaje tylko przygotowany wyzej tekst ``detail``.
     position_seconds: float = 0.0

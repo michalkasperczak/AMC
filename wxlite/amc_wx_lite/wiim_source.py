@@ -124,6 +124,10 @@ def snapshot(payload: object) -> dict:
         for name in (
             "itemId", "deviceId", "deviceTitle", "title", "subtitle",
             "artist", "album", "source", "playbackState", "message",
+            # Stable identity is deliberately separate from user-facing text.
+            # It is consumed only after the GUI verifies its provenance and
+            # device context; stream URLs never leave the host payload.
+            "observedMaterialId", "identityProvenance",
         )
     }
     result["muted"] = payload.get("muted") is True

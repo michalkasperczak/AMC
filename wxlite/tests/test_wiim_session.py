@@ -90,6 +90,8 @@ def test_wiim_payload_is_allowlisted_for_accessible_text() -> None:
         "title": "Audycja",
         "artist": "Radio Poznań",
         "playbackState": "odtwarzanie",
+        "observedMaterialId": "wiim-stream:stream-7",
+        "identityProvenance": "uriMatch",
         "volume": 35,
         "muted": False,
         "positionSeconds": 61,
@@ -97,6 +99,7 @@ def test_wiim_payload_is_allowlisted_for_accessible_text() -> None:
         "bitrateKbps": 192,
         "message": "Audycja, odtwarzanie, głośność 35%",
         "address": "192.168.1.40",
+        "streamUrl": "https://secret.example/live",
         "runtimeObject": "WiiMDeviceSettings { Address = 192.168.1.40 }",
     })
 
@@ -104,6 +107,9 @@ def test_wiim_payload_is_allowlisted_for_accessible_text() -> None:
     assert "address" not in state
     assert "runtimeObject" not in state
     assert "192.168.1.40" not in repr(state)
+    assert state["observedMaterialId"] == "wiim-stream:stream-7"
+    assert state["identityProvenance"] == "uriMatch"
+    assert "streamUrl" not in state
 
 
 def test_wiim_command_gate_blocks_local_audio_features() -> None:
