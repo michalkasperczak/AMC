@@ -12,6 +12,7 @@ from dataclasses import replace
 from typing import Iterable
 
 from .list_model import Row
+from .radio_activity import normalize_state_position
 
 
 PLAYABLE_KINDS = frozenset((
@@ -80,7 +81,7 @@ def activity_rows(
     playing: bool,
     paused: bool,
     session_id: str | None = None,
-    show_text: bool = True,
+    position: object = "before",
 ) -> list[Row]:
     """Ustaw stan tylko na dokładnie jednym, potwierdzonym materiale.
 
@@ -91,6 +92,7 @@ def activity_rows(
 
     item_id = (current_item_id or "").strip()
     label = playback_state_label(playing=playing, paused=paused)
+    placement = normalize_state_position(position)
     result: list[Row] = []
     marked = False
     for row in rows:
@@ -101,18 +103,25 @@ def activity_rows(
                 row, current_item_id=item_id, session_id=session_id
             )
         )
-        state = ""
+        prefix = ""
+        detail = ""
         if active:
             marked = True
-            if show_text:
-                state = label
+            if placement == "before":
+                # ``playback_state`` is the legacy primary-column prefix used
+                # by list reading; the underlying title stays untouched.
+                prefix = label
+            elif placement == "after":
+                detail = label
         result.append(
             row if (
-                row.playback_state == state
+                row.playback_state == prefix
+                and row.state_detail == detail
                 and row.playback_activity == active
             ) else replace(
                 row,
-                playback_state=state,
+                playback_state=prefix,
+                state_detail=detail,
                 playback_activity=active,
             )
         )

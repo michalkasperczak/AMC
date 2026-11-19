@@ -5,6 +5,9 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from test_gui_logic import install_wx_stub
+
+install_wx_stub()
 
 from amc_wx_lite.gui import LiteFrame
 from amc_wx_lite.list_model import Row
@@ -69,7 +72,9 @@ def test_saved_stream_keeps_enter_view_after_device_reply(open_player: bool) -> 
     expected = View.PLAYER if open_player else View.LIST
     assert nav.view is expected
     frame, synced = _frame(nav, SimpleNamespace(
-        wiim_play_network_stream=lambda *_args: {"deviceId": "device-1"},
+        wiim_play_network_stream=lambda *_args: {
+            "deviceId": "device-1", "itemId": "wiim:device-1"
+        },
     ))
 
     LiteFrame._activate_wiim_network_stream(frame, intent)
@@ -77,6 +82,31 @@ def test_saved_stream_keeps_enter_view_after_device_reply(open_player: bool) -> 
     assert nav.view is expected
     assert nav.session.now_playing_id == "wiim-stream:1"
     assert synced == [expected]
+
+
+def test_wiim_requested_b_clears_previous_material_when_snapshot_names_only_device() -> None:
+    nav = _navigator()
+    nav.apply_wiim_network_streams([
+        Row("wiim-stream:a", "A", "wiimNetworkStream", parent_id="device-1",
+            service_id="stream-a", service_kind="wiimNetworkStream"),
+        Row("wiim-stream:b", "B", "wiimNetworkStream", parent_id="device-1",
+            service_id="stream-b", service_kind="wiimNetworkStream"),
+    ], device_id="device-1", return_id="wiim:device-1")
+    nav.session.model.select_id("wiim-stream:b")
+    nav.session.current_material_id = "wiim-stream:a"
+    nav.session.pending_material_id = "wiim-stream:b"
+    intent = nav.activate_selected()[0]
+    frame, _synced = _frame(nav, SimpleNamespace(
+        wiim_play_network_stream=lambda *_args: {
+            "deviceId": "device-1", "itemId": "wiim:device-1",
+            "playbackState": "playing",
+        },
+    ))
+
+    LiteFrame._activate_wiim_network_stream(frame, intent)
+
+    assert nav.session.current_material_id == ""
+    assert nav.session.pending_material_id == ""
 
 
 @pytest.mark.parametrize("open_player", [False, True])

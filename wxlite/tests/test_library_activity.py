@@ -32,6 +32,8 @@ from amc_wx_lite.library_activity import (  # noqa: E402
     saved_queue_rows,
 )
 from amc_wx_lite.library_db import LibraryDatabase  # noqa: E402
+from amc_wx_lite.library_views import all_files_rows, playlist_contents_rows  # noqa: E402
+from amc_wx_lite.playback_activity import activity_rows  # noqa: E402
 
 FIXTURE = Path(
     os.environ.get(
@@ -229,6 +231,45 @@ class _SyntheticCase(unittest.TestCase):
         db = LibraryDatabase(self.path)
         self.addCleanup(db.close)
         return db
+
+
+class PlaybackActivityProductionRows(_SyntheticCase):
+    """Apply the marker to rows made by the production view constructors."""
+
+    def test_main_queue_playlist_history_and_bookmark_resolve_one_material(self):
+        material_id = self.build.item("local-7", "Materiał", "C:/m/7.mp3")
+        self.build.history(material_id)
+        self.build.queue(material_id)
+        self.build.queue_regular(material_id)
+        self.build.bookmark("bookmark-7", material_id, 1, 1)
+        self.build.connection.executescript("""
+            CREATE TABLE playlists (
+                id TEXT PRIMARY KEY, session_id TEXT NOT NULL, name TEXT NOT NULL,
+                ordinal INTEGER NOT NULL
+            );
+            CREATE TABLE playlist_items (
+                playlist_id TEXT NOT NULL, ordinal INTEGER NOT NULL,
+                item_id TEXT NOT NULL
+            );
+            INSERT INTO playlists VALUES ('playlist-7', 'local', 'Lista', 0);
+            INSERT INTO playlist_items VALUES ('playlist-7', 0, 'local-7');
+        """)
+        db = self.open_db()
+        produced_views = {
+            "główna": all_files_rows(db).rows,
+            "kolejka": saved_queue_rows(db).rows,
+            "zawartość playlisty": playlist_contents_rows(db, "playlist-7").rows,
+            "historia": history_rows(db).rows,
+            "zakładka": bookmark_rows(db, item_id=material_id).rows,
+        }
+
+        for view, rows in produced_views.items():
+            marked = activity_rows(
+                rows, current_item_id=material_id, playing=True, paused=False,
+                session_id="files", position="after",
+            )
+            self.assertEqual(sum(row.playback_activity for row in marked), 1, view)
+            self.assertEqual(marked[0].state_detail, "Odtwarzane", view)
 
 
 # ---------------------------------------------------------------- 1. historia

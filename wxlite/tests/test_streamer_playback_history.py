@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from test_gui_logic import install_wx_stub
+
+install_wx_stub()
+
 from amc_wx_lite.gui import LiteFrame
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import Announce, LibraryView, Navigator, SessionId, View
@@ -75,6 +79,17 @@ def test_streamer_list_marks_only_confirmed_material_as_playing() -> None:
     )
     assert all(not row.state_detail for row in cleared)
     assert all(not row.playback_activity for row in cleared)
+
+
+def test_sonos_playlist_container_is_never_the_playing_material() -> None:
+    rows = [Row("sonos-playlist:1", "Lista", "sonosPlaylist")]
+
+    marked = activity_rows(
+        rows, current_item_id="sonos-playlist:1", playback_state="playing"
+    )
+
+    assert marked[0].playback_activity is False
+    assert marked[0].state_detail == ""
 
 
 def test_confirmed_sonos_material_is_saved_as_replayable_history() -> None:

@@ -3,6 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 from types import MethodType, SimpleNamespace
 
+from test_gui_logic import install_wx_stub
+
+install_wx_stub()
+
 from amc_wx_lite import gui as gui_module
 from amc_wx_lite.gui import LiteFrame
 from amc_wx_lite.host_client import HostError, LiteHostClient
@@ -238,7 +242,12 @@ def test_sonos_material_uses_active_group_and_stays_on_one_request_lane() -> Non
         ),
         announcer=SimpleNamespace(say=lambda _text: None),
         runner=SimpleNamespace(submit=lambda *args: submissions.append(args)),
-        navigator=SimpleNamespace(active=SessionId.SONOS),
+        navigator=SimpleNamespace(
+            active=SessionId.SONOS,
+            sessions={SessionId.SONOS: SimpleNamespace(
+                current_material_id="", pending_material_id="",
+            )},
+        ),
         _sonos_active_household_id="house-1",
         _sonos_active_group_id="group-1",
         _sonos_request_pending=False,
@@ -257,6 +266,44 @@ def test_sonos_material_uses_active_group_and_stays_on_one_request_lane() -> Non
     assert frame._sonos_request_pending is True
     work()
     assert calls == [("house-1", "group-1", "favorite", "favorite-1")]
+
+
+def test_sonos_requested_b_does_not_replace_a_from_group_snapshot() -> None:
+    submissions: list = []
+    session = SimpleNamespace(
+        current_material_id="sonos-favorite:a",
+        pending_material_id="sonos-favorite:b",
+    )
+    frame = SimpleNamespace(
+        client=SimpleNamespace(sonos_load_material=lambda *_args: {}),
+        announcer=SimpleNamespace(say=lambda _text: None),
+        runner=SimpleNamespace(submit=lambda *args: submissions.append(args)),
+        navigator=SimpleNamespace(
+            active=SessionId.SONOS, sessions={SessionId.SONOS: session},
+        ),
+        _sonos_active_household_id="house-1",
+        _sonos_active_group_id="group-1",
+        _sonos_request_pending=False,
+        _sonos_retry_pending=False,
+        _sonos_pending_material=None,
+        _sonos_last_material=None,
+        _sonos_snapshot={},
+        _finish_sonos_request=lambda: None,
+        _apply_sonos_snapshot=lambda _state, **_kwargs: None,
+    )
+    intent = PlaySonosMaterial(
+        "sonos-favorite:b", "B", "house-1", "favorite", "favorite-b"
+    )
+
+    LiteFrame._play_sonos_material(frame, intent)
+    _stream, _work, done, _failed = submissions[0]
+    done({
+        "householdId": "house-1", "groupId": "group-1",
+        "itemId": "sonos:house-1:group-1", "playbackState": "playing",
+    })
+
+    assert session.current_material_id == ""
+    assert session.pending_material_id == ""
 
 
 def test_sonos_activation_separates_labels_from_internal_ids() -> None:

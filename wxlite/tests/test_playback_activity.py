@@ -7,7 +7,7 @@ from test_gui_logic import install_wx_stub
 
 install_wx_stub()
 
-from amc_wx_lite.gui import LiteFrame
+from amc_wx_lite.gui import LiteFrame, SearchDialog
 from amc_wx_lite.list_model import ListModel, Row
 from amc_wx_lite.navigation import SessionId
 from amc_wx_lite.playback_activity import activity_rows
@@ -31,17 +31,76 @@ def test_activity_marks_exact_playable_row_and_preserves_details() -> None:
     assert model.text_for(1, 2) == "25 minut"
 
 
-def test_activity_keeps_confirmed_cue_flag_when_text_is_disabled() -> None:
-    decorated = activity_rows(
-        [Row("current", "Bieżący", "track")],
-        current_item_id="current",
-        playing=True,
-        paused=False,
-        show_text=False,
+def test_real_activity_setting_renders_before_after_and_off_without_losing_cue() -> None:
+    files = SimpleNamespace(
+        model=ListModel([Row("current", "Bieżący", "track")]),
+        current_material_id="current",
+    )
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(sessions={SessionId.FILES: files}),
+        _playing_sessions={SessionId.FILES},
+        _transport_status_by_session={SessionId.FILES: {"paused": False}},
+        options=SimpleNamespace(radio_playback_state_position="before"),
+    )
+    frame._native_playback_snapshot = lambda session: (
+        LiteFrame._native_playback_snapshot(frame, session)
     )
 
-    assert decorated[0].playback_state == ""
-    assert decorated[0].playback_activity is True
+    LiteFrame._apply_native_playback_activity_status(frame, SessionId.FILES)
+    assert files.model.text_for(0, 0) == "Odtwarzane, Bieżący"
+    assert files.model.text_for(0, 2) == ""
+
+    frame.options.radio_playback_state_position = "after"
+    LiteFrame._apply_native_playback_activity_status(frame, SessionId.FILES)
+    assert files.model.text_for(0, 0) == "Bieżący"
+    assert files.model.text_for(0, 2) == "Odtwarzane"
+
+    frame.options.radio_playback_state_position = "off"
+    LiteFrame._apply_native_playback_activity_status(frame, SessionId.FILES)
+    assert files.model.text_for(0, 0) == "Bieżący"
+    assert files.model.text_for(0, 2) == ""
+    assert files.model.rows[0].playback_activity is True
+
+
+def test_shared_setting_refreshes_each_loaded_native_and_streamer_list() -> None:
+    native = (
+        SessionId.FILES, SessionId.PODCASTS, SessionId.SPOTIFY,
+        SessionId.TIDAL, SessionId.RADIOARCHIWISTA,
+    )
+    sessions = {
+        session_id: SimpleNamespace(
+            model=ListModel([Row(f"{session_id.value}:1", "Materiał", "track")]),
+            current_material_id=f"{session_id.value}:1",
+        )
+        for session_id in native
+    }
+    for session_id in (SessionId.WIIM, SessionId.SONOS):
+        sessions[session_id] = SimpleNamespace(
+            model=ListModel([Row(f"{session_id.value}:1", "Materiał", "track")]),
+            current_material_id=f"{session_id.value}:1",
+        )
+    radio_refreshed: list[bool] = []
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(active=SessionId.FILES, sessions=sessions),
+        options=SimpleNamespace(radio_playback_state_position="after"),
+        _playing_sessions=set(native),
+        _transport_status_by_session={session_id: {"paused": False} for session_id in native},
+        _wiim_snapshot={"playbackState": "playing"},
+        _sonos_snapshot={"playbackState": "playing"},
+        _apply_radio_activity_status=lambda: radio_refreshed.append(True),
+    )
+    frame._native_playback_snapshot = lambda session: (
+        LiteFrame._native_playback_snapshot(frame, session)
+    )
+
+    LiteFrame._refresh_playback_activity_presentations(frame)
+
+    assert radio_refreshed == [True]
+    for session_id, session in sessions.items():
+        assert session.model.text_for(0, 0) == "Materiał"
+        expected = "Odtwarzane" if session_id in native else "odtwarzane"
+        assert session.model.text_for(0, 2) == expected
+        assert session.model.rows[0].playback_activity is True
 
 
 def test_activity_pause_transition_and_a_to_b_clear_old_state() -> None:
@@ -202,6 +261,30 @@ def test_search_label_requires_same_session_and_same_stable_id() -> None:
     assert LiteFrame._search_playback_label(
         frame, SearchEntry(SessionId.PODCASTS, row)
     ) == ""
+
+
+def test_search_honours_off_and_focus_callback_cues_confirmed_material() -> None:
+    entry = SearchEntry(
+        SessionId.FILES, Row("shared", "Ten sam identyfikator", "track")
+    )
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(sessions={SessionId.FILES: _session_state("shared")}),
+        _playing_sessions={SessionId.FILES},
+        _transport_status_by_session={SessionId.FILES: {"paused": False}},
+        options=SimpleNamespace(radio_playback_state_position="off"),
+    )
+    frame._native_playback_snapshot = lambda session: (
+        LiteFrame._native_playback_snapshot(frame, session)
+    )
+
+    assert LiteFrame._search_playback_label(frame, entry) == ""
+
+    cued: list[SearchEntry] = []
+    dialog = SimpleNamespace(_entries=[entry], _playback_cue=cued.append)
+    SearchDialog._on_result_focused(
+        dialog, SimpleNamespace(GetIndex=lambda: 0, Skip=lambda: None)
+    )
+    assert cued == [entry]
 
 
 def test_apply_activity_skips_work_when_rows_and_playback_are_unchanged(monkeypatch) -> None:
