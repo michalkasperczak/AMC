@@ -32,6 +32,11 @@ if (args.Length == 1 && args[0] == "--podcast-library-update")
     try { TestPodcastLibraryUpdate(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Length == 1 && args[0] == "--podcast-targeted-refresh")
+{
+    try { PodcastTargetedRefreshStoreTests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Length == 1 && args[0] == "--local-folder-library")
 {
     try
