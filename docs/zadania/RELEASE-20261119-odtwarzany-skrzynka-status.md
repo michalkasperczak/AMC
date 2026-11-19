@@ -79,10 +79,13 @@ Końcowy `3948aec` poprawił synchronizację testu, Debug u rodzica exit 0 po
 porównaniu 747 źródeł. Jednak świeża wspólna kompilacja Release `aef4626`
 ponownie daje test hosta exit 1 na wznowieniu. Próbne scalenie cofnięto w
 `8d1da71`, przywracając wcześniejsze źródła i zachowując #26. Lokalnego audio
-nie odebrano; limit cykli wyczerpany, bez dalszych ponowień w ciemno.
-Nowa polityka Chrome `06bb4b0` przechodzi osobny celowany odbiór
-`deleg_fd64ca45`: zwykła zmiana domyślnego a utrata urządzenia oraz sygnał
-utraty ręcznego endpointu, gdy domyślne ID się nie zmienia.
+nie odebrano; poprzedni limit cykli wyczerpano bez ponowień w ciemno.
+Michał ponownie polecił badać przełączanie audio: nowy ograniczony etap
+`deleg_12ac386e` ma rozstrzygnąć przyczynę przed dalszą zmianą produktu.
+[Zakres diagnozy](AUDIO-RECOVERY-20261119-diagnoza2.md).
+Polityka Spotify `7a26f3a` ma niezależny świeży Release i adapter/politykę offline
+exit 0 u rodzica, ale nie została zintegrowana. Native callback/Denon/Chrome
+pozostają niezmierzone; [dokładny odbiór](AUDIO-RECOVERY-20261119-spotify-parent-check.md).
 Kandydaci nie rozstrzygają #28/PR #29; pozostaje sprawdzenie nakładających się
 zmian WindowsMediaOutput. Pozostałe bramki i ograniczenia wydania bez zmian.
 

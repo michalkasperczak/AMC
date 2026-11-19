@@ -20,9 +20,12 @@ ochronna zostaje, ponowna Spacja/Enter bez zmiany stacji ma odzyskać wyjście.
 Niezależny `4a791c2` naprawił potwierdzoną ciszę przy wyłączonej ochronie.
 Końcowy test `3948aec` przeszedł Debug u rodzica (747 źródeł zgodnych), ale
 nowy wspólny Release `aef4626` ponownie upadł na wznowieniu. Próbne scalenie
-cofnięto w `8d1da71`; brak końcowego odbioru lokalnego audio. Politykę Chrome
-`06bb4b0` celowanie odbiera `deleg_fd64ca45`: zwykła zmiana a utrata wyjścia
-oraz sygnał utraty ręcznego endpointu. Bez odbioru sprzętu, GUI i instalatora.
+cofnięto w `8d1da71`; brak końcowego odbioru lokalnego audio. Michał potem
+zlecił dalsze badanie: [ograniczona diagnoza](AUDIO-RECOVERY-20261119-diagnoza2.md),
+`deleg_12ac386e`, najpierw przyczyna, bez zgadywanej zmiany produktu.
+Spotify `7a26f3a` rodzic potwierdził świeżym Release i adapter/polityką offline
+exit 0, nadal bez wspólnej integracji. [Szczegóły](AUDIO-RECOVERY-20261119-spotify-parent-check.md).
+Bez odbioru sprzętu, GUI i instalatora.
 
 [Radio Archiwista: Ctrl+F i zwykły wybór po nazwie](RARCH-HOURS-20261119-diagnoza.md)
 — Ctrl+F w źródłach, 10 testów PASS; po korekcie Michała zwykła lista plików,

@@ -8,6 +8,15 @@ Poprawiona aparatura `3948aec` przeszła w Debug u wykonawcy i rodzica, lecz
 Nie ustalono ostatecznej przyczyny. Werdykt wykonawcy „TAK” nie jest odbiorem
 zintegrowanego kodu; szczegółowy końcowy wynik jest poniżej.
 
+## Nowe polecenie Michała — dalsze badanie
+
+Po powyższej blokadzie Michał wyraźnie zlecił dalsze badanie przełączania audio.
+Trwa nowy ograniczony etap `deleg_12ac386e`, bez kolejnej poprawki produktu
+przed rozstrzygającym pomiarem. To nie unieważnia zapisanych FAIL ani revertu.
+[Aktualny zakres, wykonawca i kryteria](AUDIO-RECOVERY-20261119-diagnoza2.md).
+Spotify `7a26f3a` ma osobny potwierdzony Release offline, bez integracji
+[raport rodzica](AUDIO-RECOVERY-20261119-spotify-parent-check.md).
+
 ## Końcowy cykl i wspólna kompilacja — 19.11 po 23:03
 
 1. Codex `deleg_96958dcb` dostarczył `3948aecc0aac374da79120ba205829d791799222`,

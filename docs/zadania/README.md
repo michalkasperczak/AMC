@@ -20,9 +20,14 @@ bez różnic i Debug exit 0. Jednak świeży wspólny Release `aef4626` ponownie
 zwrócił exit 1 na `transport.pauseResume`. Integrację cofnięto w `8d1da71`;
 przyczyna ostatniego upadku pozostaje otwarta, limit cykli wyczerpany.
 Nie ponawiać w ciemno ani nie przyjmować tej integracji jako odebranej.
-Przyrost Chrome `06bb4b0` osobno odbiera `deleg_fd64ca45`: odróżnienie zwykłej
-zmiany domyślnego od utraty oraz sygnał utraty ręcznego wyjścia bez zmiany
-systemowego domyślnego. Brak API sinka Soloist pozostaje jawnym ograniczeniem.
+Michał następnie polecił dalej badać przełączanie audio: `deleg_12ac386e`
+wykonuje nową ograniczoną diagnozę przyczyny, bez kolejnej zmiany produktu
+przed dowodem. [Bieżący etap](AUDIO-RECOVERY-20261119-diagnoza2.md).
+Spotify `7a26f3a` ma potwierdzony przez rodzica świeży build i test Release
+adaptera/polityki offline. Kandydat pozostaje osobno, bez wspólnej integracji.
+Wpięcie natywnych callbacków przeczytano w kodzie, nie wykonano zdarzenia
+fizycznego odłączenia. [Odbiór i granice](AUDIO-RECOVERY-20261119-spotify-parent-check.md).
+Brak API sinka Soloist pozostaje jawnym ograniczeniem.
 Bez GUI i zmian głównego PC.
 [Kontrakt, zakres adapterów i kryteria](AUDIO-RECOVERY-20261119-kontrakt.md).
 

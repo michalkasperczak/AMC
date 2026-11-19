@@ -7,7 +7,12 @@
 lecz świeżo zbudowany wspólny Release `aef4626` ponownie daje HandlerTests exit 1
 na wznowieniu. Revert `8d1da71` przywrócił wcześniejsze `src/tests`, zachowując
 odebrany #26. Przyczyna ostatniego upadku nierozstrzygnięta; nie ma trzeciego
-cyklu zmian ani retry-until-green. Polityka Chrome nadal ma osobny odbiór.
+cyklu zmian ani retry-until-green w poprzednim etapie. Po nowym poleceniu
+Michała trwa [osobny etap rozstrzygający przyczynę](AUDIO-RECOVERY-20261119-diagnoza2.md),
+`deleg_12ac386e`: bez poprawiania produkcji przed dowodem. Polityka Spotify
+`7a26f3a` ma potwierdzony przez rodzica build i test Release offline,
+ale pozostaje odrębnym kandydatem bez integracji.
+[Odbiór Spotify i granice dowodu](AUDIO-RECOVERY-20261119-spotify-parent-check.md).
 Bez instalacji, publikacji i GUI w tym etapie.
 
 Michał 19.11.2026 polecił wdrożyć zmianę ze zgłoszenia Huberta #30/PR #31 we wszystkich odpowiednich sesjach, w tym TIDAL i Spotify. Następnie zgłosił dokładny scenariusz: po wyłączeniu zapamiętanego interfejsu Denon poprawna jest cisza wynikająca z opcji wstrzymania po utracie urządzenia, ale późniejsza Spacja lub Enter na tej samej stacji nie odzyskuje odtwarzania. Dopiero wybór innej stacji i powrót przywracają dźwięk na domyślnych głośnikach. Wspomniał także odciszanie sesji: należy prześledzić tę ścieżkę bez utożsamiania wyciszenia z pauzą.
@@ -103,10 +108,12 @@ Rodzic odczytał diffy i logi, porównał 747 źródeł stagingu z Git `4a791c2`
 bez różnic, lecz własne uruchomienie HandlerTests zakończyło się exit 1:
 `transport.pauseResume nie zwrócił wznowionego stanu po ochronnym fallbacku`.
 Nie uznano tego za flaky ani za potwierdzony błąd aparatury. `deleg_96958dcb`
-rozstrzyga granicę gotowości testu i stanu hosta w jednym końcowym cyklu.
-Przyrost Chrome celowanie odbiera `deleg_fd64ca45`: brak rozróżnienia zwykłej
-zmiany domyślnego a utraty oraz brak sygnału utraty ręcznego endpointu bez
-zmiany systemowego domyślnego ID wymagają odtworzenia funkcjonalnego.
+dostarczył `3948aec`: Debug rodzica PASS, lecz świeży wspólny Release znów FAIL.
+Próbę integracji cofnięto; szczegóły są w parent-check. Po kolejnym poleceniu
+Michała `deleg_12ac386e` diagnozuje przyczynę, nie wprowadza dalszej zgadywanej
+poprawki. Codex Spotify zakończył osobny odbiór jako `7a26f3a`; rodzic zbudował
+zamrożony commit w Release i potwierdził adapter/politykę offline exit 0.
+Zdarzeń natywnego odłączenia ani pełnego wspólnego kandydata nie odebrano.
 
 [Dokładne polecenie, wynik, logi, hipotezy i granice](AUDIO-RECOVERY-20261119-parent-check.md).
 Do ich rozstrzygnięcia produkcja kanoniczna pozostaje bez tych przyrostów.
