@@ -1,5 +1,7 @@
 # Rejestr zadań AMC
 
+- `INBOX-PLAYING-20261119` — **Źródła i celowane testy headless gotowe w osobnym worktree; czeka na review/integrację parenta, bez buildu, instalacji i publikacji.** `Ctrl+I` zapamiętuje stabilną pozycję agregatów Podcastów, w tym Skrzynki. Oznaczenie odtwarzanego materiału używa wspólnego material-ID/sesji dla list natywnych, wyszukiwania, zakładek oraz historii streamerów i nie myli ID zakładki z utworem. WiiM/Sonos działają tylko z istniejącym potwierdzonym ID; Frontier Smart i Apple Music wymagają jeszcze kontraktu hosta z tożsamością materiału, więc nie są oznaczane na podstawie tytułu lub samego `play`. [Zakres, wynik i ograniczenia](INBOX-PLAYING-20261119-fokus-i-odtwarzany.md).
+
 **Wyszukiwanie — 18.11.2026, zintegrowane w źródłach (`bb3fdcd`):** dodano
 `Ctrl+F` Radio Archiwisty i wybór usług dla `Ctrl+Shift+F` w Ogólnych.
 Aktywność sesji i zgoda na wyszukiwanie to osobne warunki; czasowo wyłączona

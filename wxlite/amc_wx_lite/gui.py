@@ -174,7 +174,7 @@ from .playback_history import (
 from .playback_activity import (
     activity_rows as playback_activity_rows,
     playback_state_label,
-    row_can_show_playback_state,
+    row_matches_material,
 )
 from . import profile_presets
 from .navigation import (
@@ -17402,6 +17402,7 @@ class LiteFrame(wx.Frame):
             current_item_id=session.current_material_id,
             playback_state=snapshot.get("playbackState"),
             position=self.options.radio_playback_state_position,
+            session_id=session_id.value,
         )
         if rows == session.model.rows:
             return
@@ -19887,15 +19888,14 @@ class LiteFrame(wx.Frame):
         if item_id is not None:
             self.navigator.session.model.select_id(item_id)
             self._refresh_menu_state()
-            self._play_radio_activity_cue(self.navigator.session.model.selected_row)
+            self._play_activity_cue(self.navigator.session.model.selected_row)
         event.Skip()
 
-    def _play_radio_activity_cue(self, row: Row | None) -> None:
-        """Opcjonalny, krotki sygnal stanu. Nie dotyka hosta ani audio AMC."""
+    def _play_activity_cue(self, row: Row | None) -> None:
+        """Opcjonalny sygnał potwierdzonego stanu, niezależny od sesji listy."""
         if (
             row is None
-            or row.kind != "station"
-            or getattr(self.navigator, "active", None) is not SessionId.RADIO
+            or (not row.playback_activity and not row.recording_activity)
         ):
             return
         playback = bool(
@@ -19923,6 +19923,12 @@ class LiteFrame(wx.Frame):
             # Sygnal jest dodatkiem. Jego brak nie moze zepsuc strzalek ani
             # wypowiadania nazwy stacji przez natywna liste.
             return
+
+    # Zachowuje nazwę używaną przez starsze lekkie atrapy i testy. Implementacja
+    # nie jest już ograniczona do Radia: ten sam potwierdzony stan dotyczy
+    # materiałów na każdej właściwej liście.
+    def _play_radio_activity_cue(self, row: Row | None) -> None:
+        self._play_activity_cue(row)
 
     def _on_item_selected(self, event: wx.ListEvent) -> None:
         """Zaznaczenie z klawiatury/myszy wraca do modelu, zeby ID pozostal
@@ -36379,6 +36385,7 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.TIDAL,
             SessionId.RADIOARCHIWISTA,
         ):
             return
@@ -36401,6 +36408,14 @@ class LiteFrame(wx.Frame):
             current_item_id=state.current_material_id,
             playing=playing,
             paused=paused,
+            session_id=session_id.value,
+            show_text=(
+                getattr(
+                    getattr(self, "options", None),
+                    "radio_playback_state_position",
+                    "before",
+                ) != "off"
+            ),
         )
         if rows != state.model.rows:
             state.model.replace(rows, preferred_id=state.model.selected_id)
@@ -36424,6 +36439,7 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.TIDAL,
             SessionId.RADIOARCHIWISTA,
         ):
             return
@@ -36443,13 +36459,15 @@ class LiteFrame(wx.Frame):
             SessionId.FILES,
             SessionId.PODCASTS,
             SessionId.SPOTIFY,
+            SessionId.TIDAL,
             SessionId.RADIOARCHIWISTA,
         ):
             return ""
         state = self.navigator.sessions[entry.session_id]
-        if (
-            entry.row.item_id != state.current_material_id
-            or not row_can_show_playback_state(entry.row)
+        if not row_matches_material(
+            entry.row,
+            current_item_id=state.current_material_id,
+            session_id=entry.session_id.value,
         ):
             return ""
         playing, paused = self._native_playback_snapshot(entry.session_id)

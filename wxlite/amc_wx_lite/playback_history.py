@@ -13,6 +13,7 @@ from dataclasses import replace
 
 from .list_model import Row
 from .radio_activity import join_spoken_prefix, normalize_state_position
+from .playback_activity import row_matches_material
 
 
 MAX_ITEMS_PER_SESSION = 500
@@ -249,6 +250,7 @@ def activity_rows(
     current_item_id: str,
     playback_state: object,
     position: object = "after",
+    session_id: str | None = None,
 ) -> list[Row]:
     """Nałóż wspólną, krótką informację o odtwarzaniu na listę streamera."""
 
@@ -263,7 +265,14 @@ def activity_rows(
     placement = normalize_state_position(position)
     result: list[Row] = []
     for row in rows:
-        active = bool(label and current_item_id and row.item_id == current_item_id)
+        active = bool(
+            label
+            and row_matches_material(
+                row,
+                current_item_id=current_item_id,
+                session_id=session_id,
+            )
+        )
         prefix = (
             join_spoken_prefix([label])
             if active and placement == "before"

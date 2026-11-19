@@ -3289,6 +3289,20 @@ class Navigator:
         state = self.sessions[SessionId.PODCASTS]
         if state.library_view is LibraryView.PODCAST_EPISODES and state.model.selected_id:
             state.view_selected_ids[state.library_playlist_id or ""] = state.model.selected_id
+        elif (
+            state.library_view in (
+                LibraryView.PODCAST_FAVORITES,
+                LibraryView.PODCAST_HISTORY,
+                LibraryView.PODCAST_QUEUE,
+                LibraryView.PODCAST_INBOX,
+                LibraryView.PODCAST_DOWNLOADS,
+            )
+            and state.model.selected_id
+        ):
+            # Ctrl+L leaves a flat aggregate for the source library. Keep its
+            # own stable cursor so the next shortcut can restore it even when
+            # the returned batch changed order or has a different size.
+            state.view_selected_ids[state.library_view.value] = state.model.selected_id
         state.library_view = LibraryView.PODCAST_LIBRARY
         state.library_playlist_id = None
         state.library_return_view = None
