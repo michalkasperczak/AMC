@@ -171,7 +171,12 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
                 }
                 try
                 {
-                    if (automatic) _podcasts.MarkRefreshAttempt(target.SubscriptionId);
+                    if (automatic && !_podcasts.TryMarkRefreshAttempt(
+                            target.SubscriptionId, cancellationToken))
+                    {
+                        budgetExpired = true;
+                        break;
+                    }
                     requested++;
                     var feed = _fetch(target, cancellationToken).GetAwaiter().GetResult();
                     var hasChapters = feed.Episodes.Any(episode =>

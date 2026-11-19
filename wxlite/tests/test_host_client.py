@@ -366,6 +366,7 @@ def test_podcast_refresh_uses_one_narrow_host_operation() -> None:
 def test_podcast_automatic_refresh_and_global_settings_use_named_operations() -> None:
     client = make_client()
     try:
+        legacy_automatic = client.refresh_podcasts_automatically()
         automatic = client.refresh_podcasts_automatically(5)
         loaded = client.podcast_global_settings()
         saved = client.configure_podcast_global_settings(
@@ -374,6 +375,8 @@ def test_podcast_automatic_refresh_and_global_settings_use_named_operations() ->
             youtube_refresh_interval_minutes=180,
             automatic_refresh_batch_size=7,
         )
+        assert legacy_automatic["op"] == "podcast.refreshAutomatic"
+        assert legacy_automatic["args"] == {}
         assert automatic["op"] == "podcast.refreshAutomatic"
         assert automatic["args"] == {"cadenceSeconds": 300}
         assert loaded["op"] == "podcast.settingsGet"

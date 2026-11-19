@@ -32,6 +32,12 @@ public sealed class PodcastLibraryMutationStore(string databasePath)
     public void MarkRefreshAttempt(string subscriptionId, DateTime utcNow) =>
         _database.MarkRefreshAttempt(subscriptionId, utcNow);
 
+    public bool TryMarkRefreshAttempt(
+        string subscriptionId,
+        DateTime utcNow,
+        CancellationToken cancellationToken) =>
+        _database.TryMarkRefreshAttempt(subscriptionId, utcNow, cancellationToken);
+
     public PodcastGlobalSettingsSnapshot GetGlobalSettings() =>
         _database.GetGlobalSettings();
 

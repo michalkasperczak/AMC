@@ -143,6 +143,16 @@ internal sealed class LiteEngineHandlers : IDisposable
     {
     }
 
+    // Test kontraktowy wywołuje Build() rzeczywistego hosta z kontrolowanym
+    // odświeżaczem; produkcyjny konstruktor i rejestr handlerów pozostają te same.
+    internal LiteEngineHandlers(
+        int timeshiftMinutes,
+        LitePodcastRefreshCoordinator podcastRefresh)
+        : this(timeshiftMinutes, (LiteQueueStore?)null)
+    {
+        _podcastRefresh = podcastRefresh ?? throw new ArgumentNullException(nameof(podcastRefresh));
+    }
+
     /// <summary>
     /// <paramref name="queueStore"/> jest JEDYNYM wlascicielem zapisu kolejki.
     /// <c>null</c> znaczy "host bez profilu": kolejka dziala w pamieci procesu,
@@ -3586,6 +3596,13 @@ internal sealed class LiteEngineHandlers : IDisposable
         {
             throw new LiteRequestException(
                 "Host nie dostał bazy Podcastów i YouTube. Automatyczne odświeżanie jest niedostępne.");
+        }
+        if (args.ValueKind != JsonValueKind.Object
+            || !args.TryGetProperty("cadenceSeconds", out _))
+        {
+            // Brak pola pozostaje kontraktem starszego klienta: pełny
+            // automatic_refresh_batch_size, nie domyślny takt adaptacyjny.
+            return _podcastRefresh.RefreshAutomatic();
         }
         var cadenceSeconds = LiteArgs.ReadInt(args, "cadenceSeconds", 60, 1, 86_400);
         return _podcastRefresh.RefreshAutomatic(TimeSpan.FromSeconds(cadenceSeconds));

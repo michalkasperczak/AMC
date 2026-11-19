@@ -410,6 +410,7 @@ internal static class PodcastProgressStoreTests
             TestAutomaticRefreshVisitsEveryDueSource(root);
             TestAdaptiveScheduleBoundsCatchUpAndAvoidsStarvation(root);
             TestAutomaticRefreshDeadlineDefersRemainingSources(root);
+            TestAutomaticAdmissionDoesNotPersistAfterDeadlineDuringWriteLock(root);
             TestAutomaticRefreshPersistsCompletedSourceBeforeInterruption(root);
         }
         finally
@@ -678,6 +679,37 @@ internal static class PodcastProgressStoreTests
             && payload.Contains("\"deferredDueSources\":1", StringComparison.Ordinal)
             && payload.Contains("\"budgetExpired\":true", StringComparison.Ordinal),
             "deadline musi anulować rzeczywiste pobieranie tokenem i pozostawić następne źródło jawnie należne");
+    }
+
+    private static void TestAutomaticAdmissionDoesNotPersistAfterDeadlineDuringWriteLock(string root)
+    {
+        var database = Path.Combine(root, "automatic-admission-deadline", "podcasts.db");
+        Directory.CreateDirectory(Path.GetDirectoryName(database)!);
+        CreateDatabase(database);
+        using var store = LitePodcastProgressStore.Open(database, () => false);
+        using var blocker = new SqliteConnection($"Data Source={database};Pooling=False");
+        blocker.Open();
+        using var beginExclusive = blocker.CreateCommand();
+        beginExclusive.CommandText = "BEGIN EXCLUSIVE;";
+        beginExclusive.ExecuteNonQuery();
+        using var budget = new CancellationTokenSource();
+        var admission = Task.Run(() => store.TryMarkRefreshAttempt("sub-1", budget.Token));
+        Assert.True(!admission.Wait(TimeSpan.FromMilliseconds(25)),
+            "test musi zatrzymać rzeczywiste przyjęcie próby na blokadzie zapisu bazy");
+        budget.Cancel();
+        using (var release = blocker.CreateCommand())
+        {
+            release.CommandText = "COMMIT;";
+            release.ExecuteNonQuery();
+        }
+        Assert.True(!admission.GetAwaiter().GetResult(),
+            "po wygaśnięciu budżetu podczas oczekiwania przyjęcie nie może zostać zapisane");
+        using var check = new SqliteConnection($"Data Source={database};Pooling=False");
+        check.Open();
+        using var attempts = check.CreateCommand();
+        attempts.CommandText = "SELECT COUNT(*) FROM podcast_refresh_attempts WHERE subscription_id = 'sub-1';";
+        Assert.True(Convert.ToInt32(attempts.ExecuteScalar()) == 0,
+            "odroczony cel nie może dostać trwałego znacznika próby");
     }
 
     private static void TestAutomaticRefreshPersistsCompletedSourceBeforeInterruption(string root)

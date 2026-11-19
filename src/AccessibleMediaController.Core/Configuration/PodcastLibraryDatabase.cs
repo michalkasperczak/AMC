@@ -592,6 +592,51 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
         }
     }
 
+    public bool TryMarkRefreshAttempt(
+        string subscriptionId,
+        DateTime utcNow,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(subscriptionId))
+            throw new ArgumentException("Nie wskazano źródła do odświeżenia.", nameof(subscriptionId));
+        if (cancellationToken.IsCancellationRequested) return false;
+        var now = utcNow.Kind == DateTimeKind.Utc
+            ? utcNow
+            : utcNow.ToUniversalTime();
+        lock (_gate)
+        {
+            using var connection = OpenConnection();
+            EnsureSchema(connection);
+            // Admission jest zamkniętą transakcją jednego znacznika. Sprawdzamy
+            // token dopiero po realnym oczekiwaniu na SQLite i jeszcze raz
+            // przed commitem; nie cofamy ani nie nadpisujemy prób innego procesu.
+            if (cancellationToken.IsCancellationRequested) return false;
+            using var transaction = connection.BeginTransaction();
+            using (var probe = connection.CreateCommand())
+            {
+                probe.Transaction = transaction;
+                probe.CommandText = "SELECT 1 FROM podcast_subscriptions WHERE id = $id;";
+                probe.Parameters.AddWithValue("$id", subscriptionId);
+                if (probe.ExecuteScalar() is null)
+                    throw new KeyNotFoundException("Nie znaleziono wybranego źródła.");
+            }
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = """
+                INSERT INTO podcast_refresh_attempts(subscription_id, last_attempt_utc_ticks)
+                VALUES($id, $ticks)
+                ON CONFLICT(subscription_id) DO UPDATE SET
+                    last_attempt_utc_ticks = excluded.last_attempt_utc_ticks;
+                """;
+            command.Parameters.AddWithValue("$id", subscriptionId);
+            command.Parameters.AddWithValue("$ticks", now.Ticks);
+            command.ExecuteNonQuery();
+            if (cancellationToken.IsCancellationRequested) return false;
+            transaction.Commit();
+            return true;
+        }
+    }
+
     public void MarkRefreshAttempt(string subscriptionId, DateTime utcNow)
     {
         if (string.IsNullOrWhiteSpace(subscriptionId))
