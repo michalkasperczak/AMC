@@ -126,6 +126,41 @@ Naprawiać drugą ścieżkę tylko po potwierdzeniu problemu; bez nowego globaln
 potoku lub zarządzania anulowaniem. Frozen `c3e1404` i kanoniczna produkcja
 pozostają nietknięte. Po odbiorze korekty zakończyć #25; #26 nadal następne.
 
+### Korekta dostarczona — `5f0242f`, jeszcze bez integracji
+
+Wykonawca dostarczył czysty `5f0242ff5e20c0c51999438349c4688407f9bf6d`
+na bazie `c3e1404`. No-arg wrapper i rzeczywisty dyspozytor zachowują stary
+pełny limit; jawna kadencja jest adaptacyjna, również jawne 0 nadal podlega
+walidacji do co najmniej 1 s. Nowy fixture referencjonuje rzeczywisty LiteHost
+z kontrolowanym transportem, a nie zastępczy dyspozytor.
+
+Zapis znacznika próby jest teraz transakcją `TryMarkRefreshAttempt` z kontrolą
+tokenu po dostępie do SQLite i przed commitem. Wykonawca odtworzył RED przy
+starej ścieżce, następnie GREEN: po anulowaniu pod blokadą `BEGIN EXCLUSIVE`
+nie zostaje utrwalona próba odroczonego źródła. Dokładna granica admission
+pozostaje opisana w `HUBERT25-SCHEDULE-CORRECTION-20261119-wdrozenie.md`:
+to nie wspólna atomowa operacja SQLite/token ani gwarancja natychmiastowego
+przerwania oczekiwania na SQLite. Schemat bazy nadal 4.
+
+Rodzic odczytał pełny diff 12 plików korekty i raport, uzupełnił w stagingu
+brakujący końcowy raport (nie kod), potwierdził obecność 3048 śledzonych plików
+oraz bajtową zgodność wszystkich 13 zmienionych plików kodu/testów od `ac203b6`.
+Uruchomiony przez rodzica rzeczywisty HandlerTests: exit 0,
+„LiteHost automatic refresh dispatcher: OK” (no-arg 4, jawne 60/0 po 1).
+Hash DLL `fe2f64ed235007beb37dd382ede23b968c063385e6746e351ddec82dd5507a92`.
+Wybrany pytest kontraktu wrappera legacy/jawna kadencja/settings: 1 PASS.
+Kwity: staging `hubert25-schedule-correction-20261119/.amc-parent-acceptance/handler-parent.json`.
+
+Wykonawca zgłosił 62 Python PASS, Core 9 PASS, prawdziwy LiteHost build 0/0
+oraz dwa końcowe Protocol PASS. **Nie oznacza to zamknięcia odbioru:** podczas
+wcześniejszego uruchomienia test 25 ms limitu automatu raz upadł. Przyczyna
+nie może zostać uznana za niepowiązaną na podstawie dwóch późniejszych PASS.
+Równolegle trwają: ograniczony niezależny review delty `5f0242f` oraz wyłącznie
+naprawa aparatury tego testu w `codex/amc-hubert25-deadline-test-20261119`
+(baza `5f0242f`). Oczekiwany kontrolowany timer ma sprawdzać anulowanie po
+przyjęciu pierwszego źródła, bez zależności od zimnego JIT/tempa CPU i bez
+zmiany produkcji. Nie zlecono ponownej szerokiej suite ani budowy produktu.
+
 ## Przygotowawczy przegląd kolejnych etapów — bez zmiany kolejności
 
 Przegląd #27/#29 zakończony: przed integracją rozdziałów trzeba odróżnić awarię
