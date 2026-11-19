@@ -224,19 +224,37 @@ ani nie dodawać aliasów w ciemno. Ponadto host dla Sonos kasuje ID w pauzie,
 a WiiM wystawia je także przy idle; ujednolicić confirmed playing/paused,
 bez cue/historii przy pauzie i bez oznaczenia podczas idle/buffering.
 
-Trwa ostatnia ograniczona korekta w dwóch dotychczasowych zakresach autorów.
-Wspólny dowód ma użyć rzeczywistych niesekretnych wyników wykonanych mapperów
-C# jako wejścia produkcyjnych parserów/loaderów/handlerów Python, a nie
-osobno wymyślonych ID obu zestawów testów. Wejścia fixture są fikcyjne;
-wykonanie mappera nie jest testem żywego urządzenia, GUI ani NVDA.
+Ostatnie ograniczone korekty wykonawców są gotowe: Python
+`40a24341116386f6caccda38ea706c258deec276` i host
+`f4747db4dbdc13aa2f250e5c98961ad507c40bcd`. Rodzic rzeczywiście uruchomił
+cztery zestawy C# i ponownie wygenerował eksport dziesięciu przypadków
+(pięć WiiM, pięć Sonos): playing, paused, idle, mismatch, ambiguous dla obu
+sesji. Wyniki mapperów C# przeszły produkcyjne parsery/loadery/handlery
+Python; dziewięć celowanych testów korekty zaliczono.
+
+Rozszerzenie tego samego testu o zastosowanie dekoracji na głównej liście
+wykryło jeszcze brak etykiety hostowego `pauza` i flagę sygnału przy pauzie
+w dekoratorze natywnym. Rodzic uzyskał funkcjonalne RED dla obu granic,
+minimalnie poprawił wspólne dekoratory i zapisał
+`a5caacd9711fd4e38ca4c9941a900f19cec0085a`. Tekst pauzy pozostaje,
+flaga sygnału jest wyłączona. Cztery celowane moduły: **51 passed in 0.50s**
+z rzeczywistym eksportem C#, bez pominięcia kontraktu. Nie sumować tego
+wyboru z wcześniejszymi nakładającymi się wynikami. Zlecono ostatni,
+ograniczony odczyt zamknięcia konkretnych blockerów; nie nowy szeroki audyt.
+Wejścia fixture są fikcyjne; wykonanie mappera nie jest testem żywego
+urządzenia, GUI ani NVDA.
+
+Przygotowanie chronionej budowy `18452db` zintegrowano osobno do głównej
+gałęzi. Po integracji **18 passed in 0.22s** dla kontraktów workflow i
+publishera, diff bez błędów, drzewo czyste. Nadal bez pushu, uruchomienia
+Actions, Windows builda ani publikacji. Nie zamrożono jeszcze source SHA.
 
 ## Znane ograniczenia i następny krok
 
-Następny krok: odebrać dwie ograniczone korekty, sprawdzić krytyczny wspólny
-kontrakt host → GUI oraz usunięcie konkretnych blockerów review, następnie
-zintegrować wyłącznie przyjęte źródła z już przyjętym NVDA+End. Nie powtarzać
-całych baterii niezmienionych kandydatów. Braki obserwowalności usług
-pozostają jawne i nie oznaczają realizacji wszystkich uzgodnionych usług.
+Następny krok: odebrać ograniczony końcowy przegląd `a5caacd`/`f4747db`,
+następnie zintegrować wyłącznie przyjęte źródła z już przyjętym NVDA+End.
+Nie powtarzać całych baterii niezmienionych kandydatów. Braki obserwowalności
+usług pozostają jawne i nie oznaczają realizacji wszystkich uzgodnionych usług.
 Przygotowanie chronionej drogi wydania nie
 upoważnia jeszcze do pushu uruchamiającego budowę ani publikacji.
 
