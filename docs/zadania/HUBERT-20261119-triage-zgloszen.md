@@ -81,6 +81,38 @@ Wszystkie 12 przeniesionych plików jest bajtowo zgodnych z przetestowanym
 Następny etap to ograniczony catch-up i harmonogram #25; po nim #26/#28.
 Nie rozpoczynano tych wdrożeń przed odbiorem danych/trwałości.
 
+## Etap #25 harmonogram — kandydat w odbiorze
+
+Wykonawca dostarczył czysty `c3e140401aad1eb08bfee8a597cc073abcb50ef8`,
+baza `ac203b6`, w izolowanym `codex/amc-hubert25-schedule-20261119`.
+Kandydat dodaje jeden startowy termin nadrabiania do 30 s, dobór porcji
+z kadencji i interwałów (z ustawioną liczbą źródeł jako twardym maksimum),
+75-sekundowy budżet anulowania pobrania i telemetrię odroczonych źródeł.
+Token jest przekazywany rzeczywistym klientom RSS/YouTube/Facebook;
+rodzic sprawdził również połączenie tokenu z zakończeniem własnego procesu
+yt-dlp. Nie oznacza to pomiaru obciążenia ani czasu na bibliotece użytkownika.
+Zachowano zapisane interwały, wyłączenie przez 0, blokady nagrywania oraz
+brak równoległego automatycznego/ręcznego odświeżania.
+
+Wykonawca podał 62 testy Python PASS, Protocol `--podcast-progress` PASS,
+Core `--youtube-subscription-sync-apply` PASS i build LiteHost bez błędów
+oraz ostrzeżeń. Szczegółowy raport pozostaje w worktree kandydata:
+`docs/zadania/HUBERT25-SCHEDULE-20261119-wdrozenie.md`.
+
+Rodzic odczytał pełny diff wszystkich 11 plików oraz raport. Bajtowo
+porównał 10 zmienionych plików źródeł/testów stagingu z `c3e1404`,
+a następnie niezależnie uruchomił Windows Protocol `--podcast-progress`:
+exit 0, „Wszystkie zestawy przeszly (1).” Hash DLL:
+`ce263be483cca3c9143d143e1bf93f5df21734245e5ef3b4fbb792d0b643e44b`.
+Celowana kontrola Python `test_podcast_refresh.py -k 'startup_catch_up or recording'`:
+5 PASS, 13 poza wyborem. Obejmuje zmieniony termin i sąsiednie blokady nagrywania,
+nie odbiór żywego GUI/NVDA.
+
+**Jeszcze nie integrować:** trwa jeden niezależny, ograniczony przegląd
+zamrożonego delta-diff `c3e1404` (harmonogram, granice anulowania i zgodność
+wywołań). Nie zlecono powtórzenia pełnej suite. Po jego odebraniu zintegrować
+etap albo zapisać konkretny bloker; dopiero potem rozpocząć #26.
+
 ## Przygotowawczy przegląd kolejnych etapów — bez zmiany kolejności
 
 Przegląd #27/#29 zakończony: przed integracją rozdziałów trzeba odróżnić awarię
