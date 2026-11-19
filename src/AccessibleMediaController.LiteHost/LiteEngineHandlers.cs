@@ -103,6 +103,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private MediaItem? _radioItem;
     private readonly Dictionary<string, string?> _outputDeviceIdsBySession =
         new(StringComparer.Ordinal);
+    private readonly DefaultAudioOutputWatcher? _defaultOutputWatcher;
 
     /// <summary>
     /// Czas trwania ZMIERZONY przez dekoder, nie wziety z <see cref="MediaItem"/>.
@@ -442,6 +443,9 @@ internal sealed class LiteEngineHandlers : IDisposable
             Publish("audio.outputFallback",
                 new { engine = "radio", id = e.Item.Id, title = e.Item.Title, paused });
         };
+        // Bez tego podłączenie słuchawek nie przenosi dźwięku: stare wyjście
+        // na głośnikach dalej działa, zmienia się tylko domyślne w Windows.
+        _defaultOutputWatcher = DefaultAudioOutputWatcher.TryStart(FollowDefaultAudioOutput);
     }
 
     private void Publish(string name, object data) => _events?.Publish(name, data);
@@ -4212,6 +4216,73 @@ internal sealed class LiteEngineHandlers : IDisposable
         };
     }
 
+    /// <summary>
+    /// Zmiana domyślnego urządzenia Windows (np. podłączenie słuchawek).
+    /// Przenosi tylko wyjścia sesji bez wybranego urządzenia, które grają na
+    /// innym, nadal działającym urządzeniu; odłączenie urządzenia obsługuje
+    /// odzyskiwanie po jego utracie. Przenoszone jest samo wyjście, bez
+    /// ponownego otwierania materiału, więc nie potrzeba blokady edycji klipów.
+    /// </summary>
+    private void FollowDefaultAudioOutput(string newDefaultId)
+    {
+        string? radioDeviceId;
+        string? filesSessionId;
+        string? filesDeviceId = null;
+        lock (_gate)
+        {
+            _outputDeviceIdsBySession.TryGetValue("radio", out radioDeviceId);
+            filesSessionId = _filesSessionId;
+            if (filesSessionId is not null)
+                _outputDeviceIdsBySession.TryGetValue(filesSessionId, out filesDeviceId);
+        }
+
+        var radioEndpoint = _radio.DefaultOutputEndpointInUse;
+        if (DefaultAudioOutputWatcher.ShouldFollow(
+                radioDeviceId,
+                radioEndpoint,
+                AudioOutputDeviceCatalog.IsEndpointActive(radioEndpoint),
+                newDefaultId))
+        {
+            DiagnosticLog.Info("audio-device", "Radio przechodzi na nowe domyślne urządzenie Windows.");
+            _radio.RestartPlaybackOutput();
+        }
+
+        var filesEndpoint = _files.DefaultOutputEndpointInUse;
+        if (filesSessionId is not null
+            && DefaultAudioOutputWatcher.ShouldFollow(
+                filesDeviceId,
+                filesEndpoint,
+                AudioOutputDeviceCatalog.IsEndpointActive(filesEndpoint),
+                newDefaultId))
+        {
+            DiagnosticLog.Info(
+                "audio-device",
+                $"Sesja {filesSessionId} przechodzi na nowe domyślne urządzenie Windows.");
+            // W tle: zamknięcie starego wyjścia czeka na koniec jego wątku, a przy
+            // zawieszonym strumieniu to może potrwać; obserwator ma dalej działać.
+            // Gdy nowego wyjścia nie da się otworzyć, stare gra dalej; ponowne
+            // otwieranie materiału trafiłoby na to samo niedziałające urządzenie.
+            var sessionId = filesSessionId;
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    if (_files.MoveOutputToConfiguredDevice()) return;
+                    DiagnosticLog.Warning(
+                        "audio-device",
+                        $"Sesja {sessionId} zostaje na dotychczasowym urządzeniu.");
+                }
+                catch (Exception exception) when (exception is not OutOfMemoryException)
+                {
+                    DiagnosticLog.Error(
+                        "audio-device",
+                        $"Nie przeniesiono wyjścia sesji {sessionId}.",
+                        exception);
+                }
+            });
+        }
+    }
+
     private object ListOutputs(JsonElement args)
     {
         if (string.Equals(
@@ -4254,6 +4325,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         // Librespot jest osobnym procesem potomnym. Odłączamy jego zdarzenia i
         // kończymy go, zanim wspólny kanał protokołu przestanie istnieć.
         _spotifyPlayback?.Dispose();
+        _defaultOutputWatcher?.Dispose();
         _files.Dispose();
         _radio.Dispose();
         // Blokada wlasnosci MUSI pasc razem z hostem. Bez tego kolejny host na
