@@ -28,6 +28,30 @@ Zachować AV, konta i nagrania. Wykonanie przez Codex w ramach konta,
 bez osobno płatnego API. Rodzic prowadzi wspólne rejestry; wykonawcy mają
 izolowane worktree i nie nadpisują pięciu wcześniejszych zmian dokumentacji.
 
+## Etap #25 P0 — kandydat i kontrola przed integracją
+
+Wykonawca dostarczył `6f55a14b53703201ecf30da793e23e39e2e9c28b`
+(gałąź `codex/amc-hubert25-data-20261119`, baza `80c2576`). Zmiany: bezpieczna
+flaga „nowe” przy braku wspólnych ID, daty RSS przed limitem scalonej listy,
+zapis ukończonego kanału przed pobieraniem następnego. Trzy regresje przeszły
+rzeczywiste RED → GREEN na Windows; rzeczywisty LiteHost zbudowany bez błędów
+ani ostrzeżeń. Nie wykonano masowego czyszczenia starych flag użytkownika.
+
+Rodzic odczytał wszystkie trzy zmiany produkcji, diff testów i surowe kwity
+RED/GREEN. Niezależnie uruchomił `--podcast-progress` na stagingu Windows:
+`Wszystkie zestawy przeszly (1).`, exit 0. Cztery pliki źródłowe stagingu
+porównano bajtowo z zamrożonym `6f55a14b`; hash użytej DLL protokołu:
+`d8ac22e0f056694f53e4506abb0d9cb48b5087e740a06277daf6f356ffad1571`.
+To nie jest wynik GUI, żywego YouTube ani instalacji.
+
+**Jeszcze nie scalać:** kontrola sąsiedniej granicy wykazała, że przy pustym
+RSS `CompleteFromChannelFeed` wraca przed końcowym sortowaniem/limitem.
+Po nowym scaleniu bez wczesnego obcięcia może zwrócić 200 zamiast 100
+kandydatów. Zlecono wąski test RED/GREEN i poprawkę w osobnym worktree
+`codex/amc-hubert25-rss-fallback-20261119`, baza `6f55a14b`.
+Niezależny przegląd zamrożonego P0 trwa. Etap harmonogramu i #26/#28 pozostają
+następne — ich wdrożenia nie rozpoczęto przed odebraniem danych/trwałości.
+
 ## Przygotowawczy przegląd kolejnych etapów — bez zmiany kolejności
 
 Przegląd #27/#29 zakończony: przed integracją rozdziałów trzeba odróżnić awarię
