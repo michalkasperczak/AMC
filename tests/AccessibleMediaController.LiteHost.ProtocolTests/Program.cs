@@ -41,6 +41,7 @@ internal static class Program
         ("--frontier-smart", FrontierSmartContractTests.Run),
         ("--sonos", SonosContractTests.Run),
         ("--sonos-observed-material", SonosObservedMaterialCoordinatorTests.Run),
+        ("--observed-material-fixture-contract", ObservedMaterialFixtureExportTests.Run),
         ("--sonos-profile", SonosOwnStreamsMutationTests.Run),
     ];
 
@@ -67,9 +68,40 @@ internal static class Program
             return WireServer.Run();
         }
 
-        var selected = args.Length == 0
+        var selectionArgs = args.ToList();
+        string? observedFixturePath = null;
+        var fixtureOptionIndex = selectionArgs.FindIndex(argument => string.Equals(
+            argument, "--observed-material-fixtures", StringComparison.Ordinal));
+        if (fixtureOptionIndex >= 0)
+        {
+            if (selectionArgs.Count(argument => string.Equals(
+                    argument, "--observed-material-fixtures", StringComparison.Ordinal)) != 1
+                || fixtureOptionIndex == selectionArgs.Count - 1
+                || string.IsNullOrWhiteSpace(selectionArgs[fixtureOptionIndex + 1]))
+            {
+                Console.Error.WriteLine(
+                    "--observed-material-fixtures wymaga jednej niepustej ścieżki pliku.");
+                return 2;
+            }
+            observedFixturePath = selectionArgs[fixtureOptionIndex + 1];
+            selectionArgs.RemoveRange(fixtureOptionIndex, 2);
+            var requiredSuites = new[]
+            {
+                "--wiim", "--sonos", "--sonos-observed-material",
+                "--observed-material-fixture-contract"
+            };
+            if (selectionArgs.Count == 0
+                || requiredSuites.Any(required => !selectionArgs.Contains(required, StringComparer.Ordinal)))
+            {
+                Console.Error.WriteLine(
+                    "Eksport fixture wymaga jawnie: --wiim --sonos --sonos-observed-material --observed-material-fixture-contract.");
+                return 2;
+            }
+        }
+
+        var selected = selectionArgs.Count == 0
             ? Suites
-            : Suites.Where(suite => args.Contains(suite.Switch, StringComparer.Ordinal)).ToArray();
+            : Suites.Where(suite => selectionArgs.Contains(suite.Switch, StringComparer.Ordinal)).ToArray();
 
         if (selected.Length == 0)
         {
@@ -95,9 +127,29 @@ internal static class Program
             }
         }
 
-        Console.WriteLine(failures == 0
-            ? $"Wszystkie zestawy przeszly ({selected.Length})."
-            : $"Niepowodzenia: {failures} z {selected.Length}.");
-        return failures == 0 ? 0 : 1;
+        if (failures != 0)
+        {
+            Console.WriteLine($"Niepowodzenia: {failures} z {selected.Length}.");
+            return 1;
+        }
+
+        if (observedFixturePath is not null)
+        {
+            try
+            {
+                ObservedMaterialFixtureExport.Write(observedFixturePath);
+                Console.WriteLine("Wyeksportowano fixture obserwowanego materiału: "
+                    + Path.GetFullPath(observedFixturePath));
+            }
+            catch (Exception exception)
+            {
+                Console.Error.WriteLine("Nie wyeksportowano fixture obserwowanego materiału: "
+                    + exception.Message);
+                return 1;
+            }
+        }
+
+        Console.WriteLine($"Wszystkie zestawy przeszly ({selected.Length}).");
+        return 0;
     }
 }

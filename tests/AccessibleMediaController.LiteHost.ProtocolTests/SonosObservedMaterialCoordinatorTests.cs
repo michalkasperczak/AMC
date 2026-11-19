@@ -9,6 +9,7 @@ internal static class SonosObservedMaterialCoordinatorTests
     public static void Run()
     {
         SnapshotUsesTheFreshPlaybackItemInsteadOfTheLastRequestedStation();
+        SnapshotReadsTheConfirmedOwnStreamWhenPlaybackIsPaused();
     }
 
     private static void SnapshotUsesTheFreshPlaybackItemInsteadOfTheLastRequestedStation()
@@ -66,9 +67,52 @@ internal static class SonosObservedMaterialCoordinatorTests
         }
     }
 
+    private static void SnapshotReadsTheConfirmedOwnStreamWhenPlaybackIsPaused()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "amc-sonos-observed-paused-" + Guid.NewGuid().ToString("N") + ".json");
+        File.WriteAllText(path, """
+            {
+              "sonos": {
+                "ownStreams": [
+                  { "id": "stream-a", "name": "Radio A", "streamUrl": "https://radio.example/a" }
+                ]
+              }
+            }
+            """);
+        try
+        {
+            var backend = new FakeBackend
+            {
+                PlaybackState = SonosPlaybackState.Paused,
+                ItemId = SonosOwnStreamIdentity.TryComputeItemId(
+                    "stream-a", "https://radio.example/a")
+            };
+            using var coordinator = new LiteSonosCoordinator(backend, path);
+            coordinator.ListTargets();
+            using var target = JsonDocument.Parse("""{"householdId":"home-1","groupId":"group-1"}""");
+
+            using var snapshot = JsonDocument.Parse(JsonSerializer.Serialize(
+                coordinator.Snapshot(target.RootElement)));
+            Check(snapshot.RootElement.GetProperty("observedMaterialId").GetString()
+                  == "sonos-stream:stream-a",
+                "koordynator w pauzie nie użył potwierdzonego ItemId z rzeczywistego odczytu");
+            Check(snapshot.RootElement.GetProperty("identityProvenance").GetString()
+                  == "playbackItemId",
+                "koordynator w pauzie zgubił pochodzenie rzeczywistego ItemId");
+            Check(backend.PlaybackReadCount == 1,
+                "koordynator nie wykonał rzeczywistego odczytu odtwarzania dla migawki pauzy");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     private sealed class FakeBackend : ISonosGroupSessionBackend
     {
         internal string? ItemId { get; set; }
+
+        internal SonosPlaybackState PlaybackState { get; set; } = SonosPlaybackState.Playing;
 
         internal int PlaybackReadCount { get; private set; }
 
@@ -78,7 +122,7 @@ internal static class SonosObservedMaterialCoordinatorTests
             PlaybackReadCount++;
             return Task.FromResult(SonosGroupReadResult<SonosGroupPlaybackStatus>.Success(
                 new SonosGroupPlaybackStatus(
-                    SonosPlaybackState.Playing, null, null, ItemId, null, null, null, null, null)));
+                    PlaybackState, null, null, ItemId, null, null, null, null, null)));
         }
 
         public Task<SonosGroupReadResult<SonosGroupMetadata>> ReadGroupMetadataAsync(

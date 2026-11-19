@@ -178,7 +178,7 @@ public static class WiiMApiParser
         var root = document.RootElement;
         var rawMode = Integer(root, "mode") ?? 0;
         return new WiiMPlaybackInformation(
-            FriendlyState(Text(root, "status")),
+            NormalizePlaybackState(Text(root, "status")),
             FriendlySource(rawMode, Text(root, "mode")),
             Math.Clamp(Integer(root, "vol") ?? 0, 0, 100),
             Integer(root, "mute") == 1,
@@ -493,12 +493,13 @@ public static class WiiMApiParser
         return false;
     }
 
-    private static string FriendlyState(string state) => state.ToLowerInvariant() switch
+    public static string NormalizePlaybackState(string? state) => state?.Trim().ToLowerInvariant() switch
     {
-        "play" => "odtwarzanie",
-        "pause" => "pauza",
-        "loading" => "ładowanie",
-        "stop" => "zatrzymane",
+        "play" or "odtwarzanie" => "odtwarzanie",
+        "pause" or "pauza" => "pauza",
+        "loading" or "ładowanie" => "ładowanie",
+        "stop" or "zatrzymane" => "zatrzymane",
+        "stan nieznany" => "stan nieznany",
         _ => "stan nieznany"
     };
 

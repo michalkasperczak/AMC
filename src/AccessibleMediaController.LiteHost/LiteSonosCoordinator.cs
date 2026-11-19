@@ -531,7 +531,7 @@ internal sealed class LiteSonosCoordinator(
         string? message)
     {
         IReadOnlyList<SonosOwnStreamSettings> ownStreams = Array.Empty<SonosOwnStreamSettings>();
-        if (state.Playback?.PlaybackState == SonosPlaybackState.Playing
+        if (state.Playback?.PlaybackState is SonosPlaybackState.Playing or SonosPlaybackState.Paused
             && !string.IsNullOrWhiteSpace(state.Playback.ItemId)
             && !string.IsNullOrWhiteSpace(statePath))
         {

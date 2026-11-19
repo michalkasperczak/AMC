@@ -13,6 +13,7 @@ internal static class WiiMContractTests
         SnapshotContainsOnlyUserFacingPlaybackData();
         SnapshotDefaultsObservedMaterialIdentityToNull();
         SnapshotObservesOnlyOneExactSavedNetworkStreamUri();
+        SnapshotObservesSavedNetworkStreamOnlyWhilePlayingOrPaused();
         TransportAcceptsOnlyKnownCommands();
         PresetListUsesOnlyIntentionalLabels();
         PresetActivationAcceptsOnlyTwelveSlots();
@@ -152,9 +153,49 @@ internal static class WiiMContractTests
             "niejednoznaczny URI nie może wskazać dowolnej stacji WiiM");
     }
 
-    private static WiiMDeviceSnapshot SnapshotWithUri(string contentUri) => new(
+    private static void SnapshotObservesSavedNetworkStreamOnlyWhilePlayingOrPaused()
+    {
+        var device = new WiiMDeviceSettings
+        {
+            Id = "device-1", Address = "192.168.1.40", DisplayName = "Salon"
+        };
+        var saved = new[]
+        {
+            new WiiMNetworkStreamSettings
+            {
+                Id = "saved-a", Name = "Radio A", StreamUrl = "https://radio.example/live"
+            }
+        };
+
+        foreach (var activeState in new[] { "odtwarzanie", "pauza" })
+        {
+            using var active = JsonDocument.Parse(JsonSerializer.Serialize(
+                LiteWiiMContract.CreateSnapshotResult(
+                    device,
+                    SnapshotWithUri("https://radio.example/live", activeState),
+                    networkStreams: saved)));
+            Check(active.RootElement.GetProperty("observedMaterialId").GetString()
+                  == "wiim-stream:saved-a",
+                $"stan {activeState} WiiM zgubił potwierdzoną tożsamość strumienia");
+        }
+
+        foreach (var inactiveState in new[] { "zatrzymane", "ładowanie", "stan nieznany" })
+        {
+            using var inactive = JsonDocument.Parse(JsonSerializer.Serialize(
+                LiteWiiMContract.CreateSnapshotResult(
+                    device,
+                    SnapshotWithUri("https://radio.example/live", inactiveState),
+                    networkStreams: saved)));
+            Check(inactive.RootElement.GetProperty("observedMaterialId").ValueKind == JsonValueKind.Null,
+                $"stan {inactiveState} WiiM nie może zachować tożsamości strumienia");
+            Check(inactive.RootElement.GetProperty("identityProvenance").ValueKind == JsonValueKind.Null,
+                $"stan {inactiveState} WiiM nie może podać pochodzenia tożsamości");
+        }
+    }
+
+    private static WiiMDeviceSnapshot SnapshotWithUri(string contentUri, string state = "odtwarzanie") => new(
         new WiiMDeviceInformation("192.168.1.40", "device-1", "Salon", "Pro", "4.8", 12),
-        new WiiMPlaybackInformation("playing", "radio", 35, false, TimeSpan.Zero, TimeSpan.Zero)
+        new WiiMPlaybackInformation(state, "radio", 35, false, TimeSpan.Zero, TimeSpan.Zero)
         {
             ContentUri = contentUri
         },

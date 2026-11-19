@@ -17,6 +17,7 @@ internal static class SonosContractTests
         SnapshotUsesOnlyExplicitUserFacingFields();
         SnapshotDefaultsObservedMaterialIdentityToNull();
         SnapshotObservesOnlyMatchingOwnStreamPlaybackItem();
+        SnapshotObservesMatchingOwnStreamWhenPaused();
         TransportAcceptsOnlyTheNarrowAllowlist();
         LibraryAndMaterialLabelsNeverExposeIds();
         MaterialRequestsAcceptOnlyKnownKinds();
@@ -370,6 +371,35 @@ internal static class SonosContractTests
                 "home-1", group, idle, null, null, DateTime.UtcNow, ownStreams: ownStreams)));
         Check(stopped.RootElement.GetProperty("observedMaterialId").ValueKind == JsonValueKind.Null,
             "stan idle Sonos nie może ogłaszać tożsamości materiału");
+    }
+
+    private static void SnapshotObservesMatchingOwnStreamWhenPaused()
+    {
+        var group = new SonosGroup(
+            "group-1", "Salon", "player-1", ["player-1"], SonosPlaybackState.Paused);
+        var stream = new SonosOwnStreamSettings
+        {
+            Id = "stream-a", Name = "Radio A", StreamUrl = "https://radio.example/a"
+        };
+        var paused = new SonosGroupPlaybackStatus(
+            SonosPlaybackState.Paused,
+            null,
+            null,
+            SonosOwnStreamIdentity.TryComputeItemId(stream.Id, stream.StreamUrl),
+            null,
+            null,
+            null,
+            null,
+            null);
+
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(
+            LiteSonosContract.CreateSnapshotResult(
+                "home-1", group, paused, null, null, DateTime.UtcNow, ownStreams: [stream])));
+        var root = document.RootElement;
+        Check(root.GetProperty("observedMaterialId").GetString() == "sonos-stream:stream-a",
+            "wstrzymany Sonos zgubił potwierdzoną tożsamość własnej stacji");
+        Check(root.GetProperty("identityProvenance").GetString() == "playbackItemId",
+            "wstrzymany Sonos zgubił pochodzenie tożsamości własnej stacji");
     }
 
     private static void TransportAcceptsOnlyTheNarrowAllowlist()

@@ -406,7 +406,7 @@ public static class LiteSonosContract
         SonosGroupPlaybackStatus? playback)
     {
         if (streams is null
-            || playback?.PlaybackState != SonosPlaybackState.Playing
+            || playback?.PlaybackState is not (SonosPlaybackState.Playing or SonosPlaybackState.Paused)
             || string.IsNullOrWhiteSpace(playback.ItemId))
             return null;
         var matches = streams.Where(stream =>

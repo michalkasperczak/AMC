@@ -210,7 +210,7 @@ public static class LiteWiiMContract
         var track = snapshot.Track;
         var playback = snapshot.Playback;
         var selectedStreamTitle = Useful(networkStreamTitle);
-        var observed = ResolveObservedNetworkStream(networkStreams, playback.ContentUri);
+        var observed = ResolveObservedNetworkStream(networkStreams, playback);
         return new
         {
             itemId = "wiim:" + device.Id.Trim(),
@@ -244,10 +244,12 @@ public static class LiteWiiMContract
 
     private static WiiMNetworkStreamSettings? ResolveObservedNetworkStream(
         IReadOnlyList<WiiMNetworkStreamSettings>? streams,
-        string? contentUri)
+        WiiMPlaybackInformation playback)
     {
         if (streams is null
-            || !WiiMPlaybackUriPolicy.TryNormalize(contentUri, out var currentUri))
+            || WiiMApiParser.NormalizePlaybackState(playback.State)
+                is not ("odtwarzanie" or "pauza")
+            || !WiiMPlaybackUriPolicy.TryNormalize(playback.ContentUri, out var currentUri))
             return null;
         var matches = streams.Where(stream =>
                 !string.IsNullOrWhiteSpace(stream.Id)
