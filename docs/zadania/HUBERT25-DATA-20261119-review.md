@@ -12,6 +12,12 @@ Po zmianie `MergeChannelDocuments` utrzymuje kandydatów z dwóch list przed na�
 
 Rodzic wskazał tę granicę, a niezależny recenzent uzyskał rzeczywisty RED na odizolowanym snapshotcie z Windows SDK 8.0.423: exit 1 i komunikat „Brak lub błąd RSS nie może pominąć końcowego limitu kanału YouTube.” Frozen worktree pozostał nietknięty. Naprawa ma zachować scalanie przed datami RSS, ale zapewnić końcowe sortowanie i limit także przy empty/failure RSS. Wąska korekta została przekazana wykonawcy na gałęzi `codex/amc-hubert25-rss-fallback-20261119`.
 
+### Odbiór korekty RSS — `9700a613`, po przeglądzie bazowego SHA
+
+Korekta `9700a6133b7157053cd44be5a36856134ef3644f`, baza `6f55a14b`, naprawia wskazaną granicę: przy pustym RSS kanał przechodzi końcowe sortowanie i limit 100, a playlista zachowuje swój dokument. Rodzic odczytał pełny delta-diff trzech plików (helper, test, aneks raportu), potwierdził czysty worktree i porównał bajtowo źródła helpera/testu ze stagingiem Windows.
+
+Wykonawca wykazał RED na nowej asercji 200 kandydatów i GREEN po poprawce, wraz z buildem rzeczywistego LiteHost bez błędów i ostrzeżeń. Rodzic niezależnie uruchomił `Windows.SmokeTests --youtube-collection-normalization`: exit 0, „OK: ograniczone kanały i playlisty publicznego YouTube”. Hash DLL tego przebiegu: `44a60f3aa28dd6cafa033990ce7cced0cdf943be244289560c5066546edb8b44`. Test obejmuje pusty i uzupełniony RSS oraz zachowanie playlist. Korektę RSS odebrano na poziomie źródeł i celowanego testu; nie znosi to drugiego blokera bazowego kandydata i nie oznacza integracji, GUI ani wydania.
+
 ### Koszt zapisu po każdym kanale
 
 Rodzic potwierdził ścieżkę z raportu recenzenta:

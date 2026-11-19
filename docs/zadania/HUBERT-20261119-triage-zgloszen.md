@@ -49,8 +49,15 @@ RSS `CompleteFromChannelFeed` wraca przed końcowym sortowaniem/limitem.
 Po nowym scaleniu bez wczesnego obcięcia może zwrócić 200 zamiast 100
 kandydatów. Zlecono wąski test RED/GREEN i poprawkę w osobnym worktree
 `codex/amc-hubert25-rss-fallback-20261119`, baza `6f55a14b`.
-Niezależny przegląd zamrożonego P0 zakończony: **BLOCKED**. Oprócz RSS-empty
-potwierdził, że `ApplyRefresh` mimo jednego ID wczytuje i skanuje całą bazę
+Przygotowana osobno korekta RSS `9700a6133b7157053cd44be5a36856134ef3644f`
+została odebrana: końcowe sortowanie i limit 100 działają także bez RSS,
+a playlisty nie są normalizowane jak kanały. Wykonawca uzyskał RED → GREEN,
+a rodzic przeczytał pełny delta-diff i niezależnie wykonał Windows Smoke
+`--youtube-collection-normalization`: exit 0. Źródła stagingu helpera i testu
+porównano bajtowo z tym SHA. Build LiteHost wykonawcy: 0 błędów i ostrzeżeń.
+Korekta jest nadal w izolowanym worktree, nie w wydaniu.
+Niezależny przegląd bazowego P0 pozostał **BLOCKED** z drugiego powodu:
+`ApplyRefresh` mimo jednego ID wczytuje i skanuje całą bazę
 przez `ApplyRefreshBatch` → `LoadInto`/`SaveCore`. Nie ma masowego UPDATE,
 ale N kanałów powoduje N pełnych materializacji i fingerprintowania.
 Nie zmierzono konkretnego spowolnienia. Koryguje to wcześniejsze zapewnienie
