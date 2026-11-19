@@ -51,6 +51,11 @@ public static class PodcastLibraryUpdater
             settings.Subscriptions.Add(subscription);
         }
 
+        // Zapamiętujemy ostatni POTWIERDZONY sukces przed aktualizacją go
+        // poniżej. Gdy dostawca zwróci całkiem inne ograniczone okno bez
+        // wspólnego identyfikatora, kolejność nie odróżnia archiwum od
+        // nowości; tylko jawna data po tym sukcesie może ustawić IsNew.
+        var previousSuccessfulRefreshUtcTicks = subscription.LastRefreshUtcTicks;
         if (!preserveExistingMetadata || addedSubscription)
         {
             if (normalizedOverride.Length > 0
@@ -147,10 +152,15 @@ public static class PodcastLibraryUpdater
                     // complete archive. Its newest available episode is still
                     // useful as an immediately visible confirmation that the
                     // subscription works. Later refreshes mark every newly
-                    // discovered episode as new.
+                    // discovered episode as new, unless the bounded feed has
+                    // no common identity: then its date must prove freshness.
                     IsNew = addedSubscription
                         ? string.Equals(source.Id, initialInboxEpisodeId, StringComparison.Ordinal)
-                        : firstKnownFeedOrdinal < 0 || sourceOrdinal < firstKnownFeedOrdinal
+                        : firstKnownFeedOrdinal >= 0
+                            ? sourceOrdinal < firstKnownFeedOrdinal
+                            : source.Published is { } published
+                                && previousSuccessfulRefreshUtcTicks > 0
+                                && published.UtcDateTime.Ticks > previousSuccessfulRefreshUtcTicks
                 };
                 settings.Episodes.Add(episode);
                 episodesById.TryAdd(episode.Id, episode);

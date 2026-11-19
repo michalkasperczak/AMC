@@ -113,7 +113,6 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
             var inboxCount = _podcasts.GetInboxCount();
             var failures = new List<PodcastRefreshIssue>();
             var partialSources = new List<PodcastRefreshIssue>();
-            var pendingBatch = new List<(PodcastRefreshTarget Target, PodcastFeedDocument Feed)>();
 
             void RecordSuccess(PodcastRefreshTarget target, PodcastFeedDocument feed,
                 PodcastRefreshResult result)
@@ -142,11 +141,11 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
                     var feed = _fetch(target).GetAwaiter().GetResult();
                     var hasChapters = feed.Episodes.Any(episode =>
                         episode.Chapters is { Count: > 0 });
-                    if (automatic && !hasChapters)
-                    {
-                        pendingBatch.Add((target, feed));
-                        continue;
-                    }
+                    // Próba automatu jest zapisana przed pobraniem. Wynik
+                    // każdego ukończonego kanału musi więc dostać własną,
+                    // krótką transakcję przed przejściem do kolejnego: proces
+                    // może zostać zamknięty w dowolnej chwili. Nie tworzymy
+                    // ogólnego potoku ani masowego zapisu całej biblioteki.
                     PodcastRefreshResult result;
                     if (_bookmarks is not null && hasChapters)
                     {
@@ -175,18 +174,6 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
                     failures.Add(issue);
                     Console.Error.WriteLine(
                         $"[lite-host] nie odświeżono źródła „{issue.Title}”: {issue.Reason}");
-                }
-            }
-
-            if (pendingBatch.Count > 0)
-            {
-                var requests = pendingBatch.Select(item => new PodcastRefreshRequest(
-                    item.Target.SubscriptionId, item.Feed)).ToArray();
-                var results = _podcasts.ApplyRefreshBatch(requests);
-                for (var index = 0; index < results.Count; index++)
-                {
-                    RecordSuccess(pendingBatch[index].Target, pendingBatch[index].Feed,
-                        results[index]);
                 }
             }
 

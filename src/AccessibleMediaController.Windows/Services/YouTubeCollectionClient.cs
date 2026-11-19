@@ -500,10 +500,16 @@ internal sealed class YouTubeCollectionClient
             || archivedStreams.SourceKind != PodcastSourceKind.YouTubeChannel)
             throw new ArgumentException("Scalanie dotyczy wyłącznie kanałów YouTube.");
 
-        var merged = OrderChannelEpisodes(archivedStreams.Feed.Episodes
+        // Nie obcinamy tutaj dwóch okien po 100 pozycji. Filmy z /videos mogą
+        // jeszcze nie mieć daty z yt-dlp, podczas gdy stare transmisje już ją
+        // mają; cięcie przed CompleteFromChannelFeed wycinałoby filmy zanim
+        // RSS poda ich właściwą datę. Końcowe sortowanie i limit wykonuje
+        // CompleteFromChannelFeed już po nałożeniu danych RSS.
+        var merged = archivedStreams.Feed.Episodes
             .Concat(standardVideos.Feed.Episodes)
             .GroupBy(episode => episode.SourceIdentifier, StringComparer.Ordinal)
-            .Select(group => group.First()));
+            .Select(group => group.First())
+            .ToArray();
 
         return new YouTubeCollectionDocument(
             standardVideos.Feed with { Episodes = merged },

@@ -3160,6 +3160,51 @@ static void TestYouTubeCollectionResults()
         && mergedChannel.Feed.Episodes.All(episode =>
             episode.SourceIdentifier is not ("Current_Live" or "Future_Live")),
         "Filmy i zakończone transmisje kanału nie zostały poprawnie scalone lub odfiltrowane.");
+    PodcastFeedEpisode LargeChannelEpisode(string id, DateTimeOffset? published) => new(
+        $"youtube-channel:large:{id}",
+        id,
+        id,
+        "Kanał testowy",
+        string.Empty,
+        published,
+        TimeSpan.Zero,
+        new Uri($"https://www.youtube.com/watch?v={id}"),
+        new Uri($"https://www.youtube.com/watch?v={id}"),
+        "video/youtube",
+        null);
+    var undatedVideos = Enumerable.Range(0, YouTubeCollectionClient.MaximumItems)
+        .Select(index => LargeChannelEpisode($"Video{index:00000}", null))
+        .ToArray();
+    var oldArchivedStreams = Enumerable.Range(0, YouTubeCollectionClient.MaximumItems)
+        .Select(index => LargeChannelEpisode(
+            $"Archive{index:00000}",
+            new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero).AddDays(index)))
+        .ToArray();
+    var largeVideosDocument = new YouTubeCollectionDocument(
+        collection.Feed with { Episodes = undatedVideos },
+        PodcastSourceKind.YouTubeChannel);
+    var largeStreamsDocument = new YouTubeCollectionDocument(
+        collection.Feed with { Episodes = oldArchivedStreams },
+        PodcastSourceKind.YouTubeChannel);
+    var rssDatesForLatestVideos = undatedVideos.Take(20)
+        .Select((episode, index) => new
+        {
+            episode.SourceIdentifier,
+            Entry = new YouTubeFeedEntry(
+                new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero).AddMinutes(-index),
+                episode.Title)
+        })
+        .ToDictionary(item => item.SourceIdentifier, item => item.Entry, StringComparer.Ordinal);
+    var completedLargeChannel = YouTubeCollectionClient.CompleteFromChannelFeed(
+        YouTubeCollectionClient.MergeChannelDocuments(largeVideosDocument, largeStreamsDocument),
+        rssDatesForLatestVideos);
+    Assert(
+        completedLargeChannel.Feed.Episodes.Count == YouTubeCollectionClient.MaximumItems
+        && completedLargeChannel.Feed.Episodes.Count(episode =>
+            episode.SourceIdentifier.StartsWith("Video", StringComparison.Ordinal)) == 20
+        && completedLargeChannel.Feed.Episodes.Take(20).All(episode =>
+            episode.SourceIdentifier.StartsWith("Video", StringComparison.Ordinal)),
+        "Ponad sto datowanych starych transmisji obcięło niedatowane filmy przed nałożeniem dat RSS.");
     var playlist = YouTubeCollectionClient.ParseResult(
         playlistAddress,
         PodcastSourceKind.YouTubePlaylist,
