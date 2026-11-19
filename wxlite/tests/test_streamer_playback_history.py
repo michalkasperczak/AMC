@@ -132,12 +132,12 @@ def test_unverified_or_idle_streamer_status_clears_identity_without_history() ->
     sonos = SimpleNamespace(
         model=__import__("amc_wx_lite.list_model", fromlist=["ListModel"]).ListModel([
             Row(
-                "sonos-ownStream:stream-7", "Radio domowe", "sonosOwnStream",
+                "sonos-stream:stream-7", "Radio domowe", "sonosOwnStream",
                 parent_id="house-1", service_id="stream-7",
             )
         ]),
-        current_material_id="sonos-ownStream:stream-7",
-        pending_material_id="sonos-ownStream:stream-7",
+        current_material_id="sonos-stream:stream-7",
+        pending_material_id="sonos-stream:stream-7",
     )
     frame = SimpleNamespace(
         navigator=SimpleNamespace(sessions={SessionId.SONOS: sonos}),
@@ -153,7 +153,7 @@ def test_unverified_or_idle_streamer_status_clears_identity_without_history() ->
         {
             "householdId": "house-1", "groupId": "group-1",
             "playbackState": "playing",
-            "observedMaterialId": "sonos-ownStream:stream-7",
+            "observedMaterialId": "sonos-stream:stream-7",
             "identityProvenance": "uriMatch",
         },
     )

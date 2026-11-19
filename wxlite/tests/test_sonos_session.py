@@ -461,7 +461,7 @@ def test_sonos_snapshot_allowlists_accessible_text() -> None:
         "volumeText": "głośność 35%",
         "positionText": "1:01 z 10:00",
         "playbackState": "playing",
-        "observedMaterialId": "sonos-ownStream:stream-7",
+        "observedMaterialId": "sonos-stream:stream-7",
         "identityProvenance": "playbackItemId",
         "volume": 35,
         "muted": False,
@@ -478,7 +478,7 @@ def test_sonos_snapshot_allowlists_accessible_text() -> None:
     assert "token" not in state
     assert "runtimeObject" not in state
     assert "secret" not in repr(state)
-    assert state["observedMaterialId"] == "sonos-ownStream:stream-7"
+    assert state["observedMaterialId"] == "sonos-stream:stream-7"
     assert state["identityProvenance"] == "playbackItemId"
     assert "streamUrl" not in state
 

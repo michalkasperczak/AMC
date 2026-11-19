@@ -2478,6 +2478,7 @@ class SearchDialog(wx.Dialog):
         podcast_clipboard_blocks: Callable[[list[Row]], list[str]] | None = None,
         playback_label: Callable[[SearchEntry], str] | None = None,
         playback_cue: Callable[[SearchEntry], None] | None = None,
+        playback_state_position: Callable[[], str] | None = None,
         quick_information: Callable[[SearchEntry], str] | None = None,
         detailed_hints: bool = False,
     ) -> None:
@@ -2499,6 +2500,7 @@ class SearchDialog(wx.Dialog):
         self._record_query = record_query
         self._playback_label = playback_label or (lambda _entry: "")
         self._playback_cue = playback_cue or (lambda _entry: None)
+        self._playback_state_position = playback_state_position or (lambda: "before")
         self._quick_information = quick_information
         self._history_index = -1
         self._browsing_history = False
@@ -2694,9 +2696,12 @@ class SearchDialog(wx.Dialog):
             for index, entry in enumerate(entries):
                 row = entry.row
                 playback_label = self._playback_label(entry).strip()
+                position = self._playback_state_position()
                 title = (
                     f"{playback_label}, {row.title}"
-                    if playback_label
+                    if playback_label and position == "before"
+                    else f"{row.title}, {playback_label}"
+                    if playback_label and position == "after"
                     else row.title
                 )
                 self.results.InsertItem(index, title)
@@ -12685,6 +12690,7 @@ class LiteFrame(wx.Frame):
             ),
             playback_label=self._search_playback_label,
             playback_cue=self._search_playback_cue,
+            playback_state_position=lambda: self.options.radio_playback_state_position,
             quick_information=self._search_quick_information,
             detailed_hints=self._detailed_hints,
         )
@@ -17441,8 +17447,7 @@ class LiteFrame(wx.Frame):
 
         playback = str(snapshot.get("playbackState") or "").strip().casefold()
         if playback not in {
-            "playing", "play", "buffering", "odtwarzanie",
-            "paused", "pause", "wstrzymane",
+            "playing", "play", "odtwarzanie", "paused", "pause", "pauza", "wstrzymane",
         }:
             return ""
         observed = str(snapshot.get("observedMaterialId") or "").strip()
@@ -17460,7 +17465,7 @@ class LiteFrame(wx.Frame):
                 != getattr(self, "_sonos_active_household_id", "")
                 or snapshot.get("groupId") != getattr(self, "_sonos_active_group_id", "")
                 or provenance != "playbackItemId"
-                or not observed.startswith("sonos-ownStream:")
+                or not observed.startswith("sonos-stream:")
             ):
                 return ""
         else:
@@ -17504,7 +17509,7 @@ class LiteFrame(wx.Frame):
         session.current_material_id = material_id
         session.pending_material_id = ""
         playback = str(snapshot.get("playbackState") or "").strip().casefold()
-        if playback in {"playing", "play", "buffering", "odtwarzanie"}:
+        if playback in {"playing", "play", "odtwarzanie"}:
             row = LiteFrame._streamer_observed_history_row(
                 self, session_id, material_id
             )
@@ -20918,6 +20923,7 @@ class LiteFrame(wx.Frame):
         self, intent: PlayWiiMNetworkStream
     ) -> None:
         """Uruchom strumień po Id; adres nigdy nie przechodzi do wx/NVDA."""
+        LiteFrame._clear_streamer_material_identity(self, SessionId.WIIM)
         client = self.client
         if client is None:
             self._run(self.navigator.back_to_list())
@@ -20925,7 +20931,6 @@ class LiteFrame(wx.Frame):
             return
         self._wiim_active_device_id = intent.device_id
         self._wiim_snapshot = {}
-        LiteFrame._clear_streamer_material_identity(self, SessionId.WIIM)
         self.now_playing.SetLabel(intent.title)
         self._set_transport_label(playing=False, preparing=True)
 
@@ -25690,6 +25695,7 @@ class LiteFrame(wx.Frame):
     def _play_sonos_material(
         self, intent: PlaySonosMaterial, *, attempt: int = 0
     ) -> None:
+        LiteFrame._clear_streamer_material_identity(self, SessionId.SONOS)
         client = LiteFrame._sonos_control_client(self)
         if client is None:
             self.announcer.say("Silnik nie jest gotowy")
@@ -25711,7 +25717,6 @@ class LiteFrame(wx.Frame):
         household_id = self._sonos_active_household_id
         group_id = self._sonos_active_group_id
         self._sonos_request_pending = True
-        LiteFrame._clear_streamer_material_identity(self, SessionId.SONOS)
 
         def done(payload: object) -> None:
             try:
@@ -36634,10 +36639,8 @@ class LiteFrame(wx.Frame):
             ):
                 return ""
             playback = str(snapshot.get("playbackState") or "").casefold()
-            paused = playback in {"paused", "pause", "wstrzymane"}
-            playing = paused or playback in {
-                "playing", "play", "buffering", "odtwarzanie",
-            }
+            paused = playback in {"paused", "pause", "pauza", "wstrzymane"}
+            playing = paused or playback in {"playing", "play", "odtwarzanie"}
             return playback_state_label(playing=playing, paused=paused)
         playing, paused = self._native_playback_snapshot(entry.session_id)
         return playback_state_label(playing=playing, paused=paused)
@@ -36675,12 +36678,12 @@ class LiteFrame(wx.Frame):
             ):
                 return
             if str(snapshot.get("playbackState") or "").casefold() in {
-                "playing", "play", "buffering", "odtwarzanie",
+                "playing", "play", "odtwarzanie",
             }:
                 self._play_activity_cue(replace(entry.row, playback_activity=True))
             return
-        playing, _paused = self._native_playback_snapshot(entry.session_id)
-        if playing:
+        playing, paused = self._native_playback_snapshot(entry.session_id)
+        if playing and not paused:
             self._play_activity_cue(replace(entry.row, playback_activity=True))
 
     # ------------------------------------------------------- edycja Biblioteki

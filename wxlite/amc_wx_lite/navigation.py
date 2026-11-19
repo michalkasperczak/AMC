@@ -1585,7 +1585,7 @@ class Navigator:
                 state.list_anchor_id = row.item_id
                 state.now_playing_id = row.item_id
                 state.now_playing_title = row.title
-                state.current_material_id = row.item_id
+                state.pending_material_id = row.item_id
                 state.view = (
                     View.PLAYER if open_player_on_activation else View.LIST
                 )
@@ -1670,7 +1670,7 @@ class Navigator:
                 state.list_anchor_id = row.item_id
                 state.now_playing_id = row.item_id
                 state.now_playing_title = row.title
-                state.current_material_id = row.item_id
+                state.pending_material_id = row.item_id
                 state.view = (
                     View.PLAYER if open_player_on_activation else View.LIST
                 )
