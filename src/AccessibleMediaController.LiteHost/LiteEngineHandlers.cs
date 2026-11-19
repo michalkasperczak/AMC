@@ -3824,9 +3824,8 @@ internal sealed class LiteEngineHandlers : IDisposable
             : null;
         var currentPlaybackText = item is null
             ? "Nic nie jest odtwarzane"
-            : currentBroadcastText ?? string.Join(", ",
-                new[] { item.Title, AudioParametersFormatter.FormatCompact(item) }
-                    .Where(part => !string.IsNullOrWhiteSpace(part)));
+            : currentBroadcastText ?? LitePlaybackStatusText.Format(
+                item.Title, AudioParametersFormatter.FormatCompact(item));
         if (item is not null && tidalSourceQualityLabel is not null)
             currentPlaybackText = LiteTidalNativePlayRequest.FormatPlaybackText(
                 item.Title, tidalSourceQualityLabel, item.BitrateKbps,

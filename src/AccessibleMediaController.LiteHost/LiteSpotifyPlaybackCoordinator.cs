@@ -299,10 +299,13 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
             // usługi, nie o zmierzonej przepływności tego materiału.
             currentPlaybackText = item is null ? "Nic nie jest odtwarzane"
                 : target is LiteSpotifySoloistOutput
-                    ? $"{item.Title}, Spotify Soloist, parametry strumienia niedostępne"
+                    ? LitePlaybackStatusText.Format(
+                        item.Title, "Spotify Soloist, parametry strumienia niedostępne")
                 : item.Kind == MediaItemKind.Episode
-                    ? $"{item.Title}, jakość Spotify Web: około 128 kb/s"
-                    : $"{item.Title}, jakość Spotify Web: AAC 256 kb/s",
+                    ? LitePlaybackStatusText.Format(
+                        item.Title, "jakość Spotify Web: około 128 kb/s")
+                    : LitePlaybackStatusText.Format(
+                        item.Title, "jakość Spotify Web: AAC 256 kb/s"),
             positionSeconds = target?.Position.TotalSeconds ?? 0d,
             durationSeconds = item?.Duration.TotalSeconds ?? 0d,
             volume = currentVolume,
