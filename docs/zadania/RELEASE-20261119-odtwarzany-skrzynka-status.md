@@ -83,9 +83,26 @@ zintegrowano, Skrzynka/oznaczanie pozostają osobnym kandydatem. Brak nowego wyd
   Wykonawca zgłasza 82 celowane testy zaliczone; nie jest to pełny odbiór
   wszystkich usług i widoków. Podany `exit 4` próby TIDAL był błędem
   przygotowania testu, nie funkcjonalnym RED. Frontier/Apple pozostały bez
-  potwierdzonego mapowania; nie zastępować go zgadywaniem. Rodzic odczytał
-  diff i przekazał niezmienny commit do niezależnego review; weryfikowane są
-  produkcyjne loadery, kolejki/playlisty, ustawienia tekst/sygnał i cache.
+  potwierdzonego mapowania; nie zastępować go zgadywaniem. Niezależny
+  przegląd odrzucił pełny odbiór tego kandydata. Potwierdzono pamięć ID
+  Skrzynki w navigatorze i zachowanie doładowania Ctrl+I, ale wykazano:
+  - `before/after/off` nie są respektowane spójnie: brak położenia w rendererze,
+    opcja pominięta w cache, handler ustawień odświeża tylko Radio;
+  - wyszukiwanie ignoruje `off` i nie ma ścieżki sygnału przy fokusie;
+  - callbacki WiiM/Sonos zatwierdzają żądane ID mimo innego `itemId` statusu;
+  - syntetyczna macierz `Row(material_id=...)` nie dowodzi podłączenia
+    loaderów kolejki, playlist, historii i zakładek.
+  Rodzic odczytał rzeczywiste callbacki i handler ustawień. Zlecono korektę
+  przez jednego autora `gui.py` z funkcjonalnym RED/GREEN i produkcyjnymi
+  ścieżkami. Osobny wykonawca tylko odczytowo bada pochodzenie ID hosta
+  WiiM/Sonos/Frontier/Apple: samo pole statusu może być echem żądania,
+  więc porównanie pola nie zastępuje dowodu obserwacji.
+  Uwaga do trzeciego punktu review: brak `sonosPlaylist` w predykacie nie
+  uzasadnia automatycznego dodania kontenera jako utworu. Potrzebny jest
+  kontrakt rzeczywistego materiału/zawartości; nie oznaczać playlisty zamiast
+  odtwarzanego utworu. Recenzent uruchomił reproduktory obserwacyjne,
+  nie pełną suite; brak pytest w jego bezpośrednim Pythonie nie jest blokadą
+  projektu, bo działa istniejące `uv run --offline --python 3.11 --with pytest`.
 - NVDA+End: kod `fb6ee2e`, dokumentacja i HEAD
   `a51b69ed53b449f1a574f079f4be35110c5fe718`. Rodzic odczytał diff:
   wspólny formatter jest wywoływany przez generalny status, Spotify i TIDAL.
@@ -144,9 +161,11 @@ odczytem, nie rezerwacją.
 
 ## Znane ograniczenia i następny krok
 
-Następny krok: zakończyć niezależny przegląd Skrzynki/oznaczania,
-usunąć potwierdzone luki bez zawężania uzgodnionego zakresu, następnie
-zintegrować odebrane źródła z już przyjętym NVDA+End. Przygotowanie chronionej drogi wydania nie
+Następny krok: odebrać korektę po odrzuconym przeglądzie Skrzynki/oznaczania
+oraz odczyt pochodzenia tożsamości hosta. Potwierdzone luki zamknąć bez
+zawężania uzgodnionego zakresu; niezależnie zweryfikować zmienione granice,
+następnie zintegrować odebrane źródła z już przyjętym NVDA+End.
+Przygotowanie chronionej drogi wydania nie
 upoważnia jeszcze do pushu uruchamiającego budowę ani publikacji.
 
 ## Uzasadnienie i decyzje
