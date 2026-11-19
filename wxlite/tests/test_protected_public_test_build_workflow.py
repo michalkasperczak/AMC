@@ -1,9 +1,16 @@
 """Statyczny kontrakt jednorazowej chronionej budowy AMC Public i Test."""
+import re
 from pathlib import Path
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_PATH = ROOT / ".github" / "workflows" / "amc-protected-public-test-build.yml"
+GUARD_PATH = ROOT / "wxlite" / "tools" / "Enable-AMCDiagnosticProtection.ps1"
+PROPS_PATH = ROOT / "Directory.Build.props"
+AUTHORIZED_BRANCH = "codex/amc-protected-public-test-20261119-playback-r1"
+AUTHORIZED_VERSION = "0.1.0-alpha.512"
 
 
 def _workflow() -> str:
@@ -11,13 +18,62 @@ def _workflow() -> str:
     return WORKFLOW_PATH.read_text(encoding="utf-8")
 
 
-def test_workflow_is_one_shot_read_only_and_targets_exact_new_branch() -> None:
+def _one_shot_contract(workflow: str, guard: str, props: str) -> dict[str, list[str]]:
+    """Wyodrębnia ścisłe identyfikatory trzech bramek i obu źródeł wersji."""
+    trigger = workflow.split("\npermissions:", 1)[0]
+    return {
+        "workflow_trigger": re.findall(r"(?m)^      - (codex/amc-protected-public-test-[^\r\n]+)$", trigger),
+        "workflow_job": re.findall(r"github\.ref == 'refs/heads/([^']+)'", workflow),
+        "powershell_guard": re.findall(r"\$env:GITHUB_REF -cne 'refs/heads/([^']+)'", guard),
+        "props_version": re.findall(r"<Version>([^<]+)</Version>", props),
+        "workflow_version": re.findall(r"\$sourceVersion -ne '([^']+)'", workflow),
+    }
+
+
+def _assert_authorized_one_shot_contract(workflow: str, guard: str, props: str) -> None:
+    contract = _one_shot_contract(workflow, guard, props)
+    assert contract["workflow_trigger"] == [AUTHORIZED_BRANCH]
+    assert contract["workflow_job"] == [AUTHORIZED_BRANCH]
+    assert contract["powershell_guard"] == [AUTHORIZED_BRANCH]
+    assert contract["props_version"] == [AUTHORIZED_VERSION]
+    assert contract["workflow_version"] == [AUTHORIZED_VERSION]
+
+
+def test_one_shot_workflow_guard_and_version_share_the_new_authorization() -> None:
+    guard = GUARD_PATH.read_text(encoding="utf-8-sig")
+    props = PROPS_PATH.read_text(encoding="utf-8")
+    _assert_authorized_one_shot_contract(_workflow(), guard, props)
+
+
+@pytest.mark.parametrize(
+    ("component", "expected", "replacement"),
+    (
+        ("trigger", AUTHORIZED_BRANCH, "codex/amc-protected-public-test-mismatched-trigger"),
+        ("job", f"refs/heads/{AUTHORIZED_BRANCH}", "refs/heads/codex/amc-protected-public-test-mismatched-job"),
+        ("guard", f"refs/heads/{AUTHORIZED_BRANCH}", "refs/heads/codex/amc-protected-public-test-mismatched-guard"),
+        ("props", AUTHORIZED_VERSION, "0.1.0-alpha.999"),
+        ("workflow_version", AUTHORIZED_VERSION, "0.1.0-alpha.999"),
+    ),
+)
+def test_one_shot_contract_rejects_each_ref_or_version_mismatch(component: str, expected: str, replacement: str) -> None:
+    workflow = _workflow()
+    guard = GUARD_PATH.read_text(encoding="utf-8-sig")
+    props = PROPS_PATH.read_text(encoding="utf-8")
+    if component in {"trigger", "job", "workflow_version"}:
+        workflow = workflow.replace(expected, replacement, 1)
+    elif component == "guard":
+        guard = guard.replace(expected, replacement, 1)
+    else:
+        props = props.replace(expected, replacement, 1)
+    with pytest.raises(AssertionError):
+        _assert_authorized_one_shot_contract(workflow, guard, props)
+
+
+def test_workflow_is_one_shot_read_only() -> None:
     workflow = _workflow()
     for required in (
-        "codex/amc-protected-public-test-20261118-issue21-r2",
         "github.run_attempt == '1'",
         "github.event.before == '0000000000000000000000000000000000000000'",
-        "github.ref == 'refs/heads/codex/amc-protected-public-test-20261118-issue21-r2'",
         "runs-on: windows-2025",
         "contents: read",
         "persist-credentials: false",
@@ -36,12 +92,8 @@ def test_workflow_is_one_shot_read_only_and_targets_exact_new_branch() -> None:
         assert forbidden not in workflow
 
 
-def test_protection_setup_targets_the_same_exact_branch_as_workflow() -> None:
-    branch = "codex/amc-protected-public-test-20261118-issue21-r2"
-    source = (ROOT / "wxlite" / "tools" / "Enable-AMCDiagnosticProtection.ps1").read_text(encoding="utf-8-sig")
-    guard = source.split("$diagWarnings=@()", 1)[0]
-    assert f"$env:GITHUB_REF -cne 'refs/heads/{branch}'" in guard, "Protection setup targets a different branch than the workflow"
-    assert f"github.ref == 'refs/heads/{branch}'" in _workflow()
+def test_protection_setup_preserves_host_and_runner_guards() -> None:
+    guard = GUARD_PATH.read_text(encoding="utf-8-sig").split("$diagWarnings=@()", 1)[0]
     for required in ("$env:GITHUB_ACTIONS -cne 'true'", "$env:RUNNER_ENVIRONMENT -cne 'github-hosted'", "$env:RUNNER_OS -cne 'Windows'"):
         assert required in guard
 
@@ -55,7 +107,7 @@ def test_workflow_builds_public_then_test_from_one_source_revision() -> None:
     for required in (
         "sourceSha = (git rev-parse HEAD).Trim()",
         "sourceVersion",
-        "0.1.0-alpha.511",
+        "0.1.0-alpha.512",
         public_bundle,
         test_bundle,
         public_installer,
