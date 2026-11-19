@@ -28,6 +28,15 @@ Zachować AV, konta i nagrania. Wykonanie przez Codex w ramach konta,
 bez osobno płatnego API. Rodzic prowadzi wspólne rejestry; wykonawcy mają
 izolowane worktree i nie nadpisują pięciu wcześniejszych zmian dokumentacji.
 
+## Przygotowawczy przegląd kolejnych etapów — bez zmiany kolejności
+
+Przegląd #27/#29 zakończony: przed integracją rozdziałów trzeba odróżnić awarię
+yt-dlp/uszkodzony JSON od prawidłowego braku rozdziałów i ograniczyć stdout
+podczas odczytu. Przy wznowieniu trzeba funkcjonalnie sprawdzić tożsamość
+zachowywanego pipeline; dopasowanie tylko po Source jest dziedziczone sprzed
+PR, nie dowiedzioną nową regresją. [Odrębny przegląd i granice dowodu](HUBERT-20261119-pr27-pr29-review.md).
+To nie blokuje pierwszego etapu #25 i nie oznacza gotowego wdrożenia kolejnych.
+
 ## Zakres i poziom dowodu
 
 Analiza jest wyłącznie odczytowa. Przeczytano pełne body i wszystkie komentarze Issues #11, #25, #26, #28 oraz opisy i pliki PR #27/#29. Nie pobierano załączników ani Gistów Huberta, nie otwierano GUI, nie logowano do Spotify/YouTube, nie zmieniano kodu AMC, zgłoszeń ani wydań.
