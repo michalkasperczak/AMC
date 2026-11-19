@@ -10,6 +10,10 @@ Bieżące priorytety i stan wydania są w
 Kanoniczny rejestr to [README.md](README.md).
 
 **Uzupełnienie 19.11.2026, poza historycznymi licznikami spisu z 16.11:**
+[Radio Archiwista: Ctrl+F i wybór godziny cyframi](RARCH-HOURS-20261119-diagnoza.md)
+— Ctrl+F już w źródłach, 10 testów PASS; wybór 7 → 07:00 w realizacji,
+bez GUI, instalacji i publikacji. Wersja głównego komputera niezweryfikowana.
+
 [Zgłoszenia Huberta: #11, #25, #26, #28 — ocena i rekomendowana kolejność](HUBERT-20261119-triage-zgloszen.md).
 Analiza zakończona; Michał następnie zatwierdził realizację po kolei.
 #25 dane/trwałość odebrano i zintegrowano w `adf6e51`: cztery celowane trasy

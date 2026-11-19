@@ -164,3 +164,14 @@ Brak nowego pakietu, instalacji i publikacji; zainstalowany AMC pozostaje
 niezmieniony. Pozostaje odbiór natywnego okna, klawiatury, fokusu i komunikatów
 z żywym NVDA w uzgodnionym oknie testowym. Testów bez GUI nie uznawać za ten
 odbiór. Implementacja źródłowa i jej ograniczony odbiór automatyczny zakończone.
+
+### Ponowne zgłoszenie i oddzielna nawigacja godzinami — 19.11.2026
+
+Michał ponownie zgłasza komunikat o nieobsługiwanym Ctrl+F, a także brak
+wyboru 07:00 po wpisaniu 7 w godzinach wybranego dnia i stacji. Poprawka
+wyszukiwania nadal jest przodkiem obecnego HEAD; ponowny wybór testów
+`test_radioarchiwista_search_scope.py`: 10 PASS w 0.94 s, bez GUI. Nie ma
+nowego dowodu na regresję Ctrl+F w źródłach ani potwierdzonej wersji programu
+uruchomionego przez użytkownika. Nie zmieniać tego kontraktu spekulacyjnie.
+Potwierdzono osobną lukę mapowania cyfry do godziny zapisanej z zerem.
+[Pełna diagnoza i wykonanie godzin](RARCH-HOURS-20261119-diagnoza.md).

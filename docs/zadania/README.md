@@ -1,5 +1,12 @@
 # Rejestr zadań AMC
 
+**Radio Archiwista — ponowne zgłoszenie Ctrl+F i nawigacja godzinami:**
+Ctrl+F istnieje w obecnej bazie, ponownie 10 testów PASS; nie potwierdzono
+wersji uruchomionej u użytkownika i nie wykonano instalacji. Osobna luka:
+wpisanie 7 nie odpowiada tekstowemu początkowi 07:00. Codex przygotowuje
+wąską poprawkę wyboru godziny z RED/GREEN, bez GUI i bez zmian instalacji.
+[Diagnoza, zakres i kryteria](RARCH-HOURS-20261119-diagnoza.md).
+
 **Zgłoszenia Huberta — 19.11.2026, #25 dane/trwałość odebrane w kodzie:**
 daty przed limitem, bezpieczne „nowe”, poprawny fallback bez RSS i wąski trwały
 zapis po kanale są zintegrowane w `adf6e51`. Cztery celowane trasy Windows,
