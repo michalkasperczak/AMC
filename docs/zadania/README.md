@@ -1,7 +1,7 @@
 # Rejestr zadań AMC
 
-**Zgłoszenia Huberta — 19.11.2026, analiza zakończona, bez wdrożenia AMC:**
-rekomendowana kolejność: #25 (znikające filmy/fałszywe „nowe” i trwałość zapisu),
+**Zgłoszenia Huberta — 19.11.2026, realizacja zatwierdzona i rozpoczęta:**
+zaakceptowana kolejność: #25 (znikające filmy/fałszywe „nowe” i trwałość zapisu),
 #26 / PR #27 (rozdziały YouTube), #28 / PR #29 (wznowienie bez zerowania toru).
 Oba PR są nadal OPEN, nie scalone i nie wydane; przed wdrożeniem wymagają
 weryfikacji Windows. Chrome zostaje. Kod CDP już ponawia tempo przy nowym
