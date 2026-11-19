@@ -121,9 +121,17 @@ using (var coordinator = new LiteSpotifyPlaybackCoordinator())
     using var request = JsonDocument.Parse("""
         {"deviceId":"Denon","restart":false}
         """);
-    coordinator.SelectOutput(request.RootElement);
+    var responseObject = coordinator.SelectOutput(request.RootElement);
     Check(output.Selections.SequenceEqual(["Denon"]),
         "niedostępny ręczny wybór przełączył transport po cichu na domyślne wyjście");
+    using var response = JsonDocument.Parse(JsonSerializer.Serialize(responseObject));
+    Check(!response.RootElement.GetProperty("available").GetBoolean()
+        && !response.RootElement.GetProperty("usingDefault").GetBoolean(),
+        "odpowiedź odmowy ręcznego wyjścia udaje dostępność albo wybór domyślny");
+    var selectedField = typeof(LiteSpotifyPlaybackCoordinator).GetField(
+        "selectedDeviceName", BindingFlags.Instance | BindingFlags.NonPublic);
+    Check(selectedField?.GetValue(coordinator) is "Denon",
+        "odmowa ręcznego wyjścia utraciła zapamiętany wybór użytkownika");
 }
 
 var installedSoloist = Environment.GetEnvironmentVariable("AMC_SOLOIST_TEST_EXE");

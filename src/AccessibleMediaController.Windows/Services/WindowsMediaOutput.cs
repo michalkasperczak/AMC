@@ -2116,9 +2116,13 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
                     previous = pipeline.OutputLease;
                     pausedForFallback = failedDevice && _pauseAfterOutputDeviceFallback;
                     if (pausedForFallback) _pauseRequested = true;
+                    // Błąd urządzenia przełącza NAudio w stan Stopped zanim
+                    // wywoła PlaybackStopped. Gdy ochrona jest wyłączona,
+                    // trzeba mimo tego wznowić na nowym wyjściu; świadoma pauza
+                    // nadal jest rozróżniana przez _pauseRequested.
                     play = !pausedForFallback
                         && !_pauseRequested
-                        && previous.Output.PlaybackState == PlaybackState.Playing;
+                        && (failedDevice || previous.Output.PlaybackState == PlaybackState.Playing);
                     pipeline.ReplaceOutputLease(replacement);
                     replacement = null;
                 }

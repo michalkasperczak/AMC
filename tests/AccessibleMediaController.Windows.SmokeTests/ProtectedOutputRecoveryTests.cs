@@ -7,6 +7,13 @@ internal static class ProtectedOutputRecoveryTests
 {
     internal static void Run()
     {
+        PreservesSilenceUntilExplicitResume();
+        ResumesAutomaticallyWhenProtectionIsDisabled();
+        DoesNotAutoplayAfterUserPauseOrLateStopCallback();
+    }
+
+    private static void PreservesSilenceUntilExplicitResume()
+    {
         var root = Path.Combine(Path.GetTempPath(), "amc-protected-output-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try
@@ -59,6 +66,101 @@ internal static class ProtectedOutputRecoveryTests
             output.Stop();
             output.WaitForPendingPipelineDisposalAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
             Console.WriteLine("OK: utrata wyjścia pozostawia ciszę, a Play tej samej pozycji wznawia na domyślnym");
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static void ResumesAutomaticallyWhenProtectionIsDisabled()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "amc-unprotected-output-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var wavePath = Path.Combine(root, "same-item.wav");
+            WriteWave(wavePath);
+            var item = new MediaItem { Id = "same-item", Source = wavePath, Title = "Ta sama pozycja" };
+            var outputs = new List<FakeWavePlayer>();
+            using var factory = AudioOutputDeviceCatalog.OverrideOutputFactoryForTesting((_, _) =>
+            {
+                var replacement = new FakeWavePlayer();
+                outputs.Add(replacement);
+                return new AudioOutputDeviceLease(
+                    replacement,
+                    device: null,
+                    usesDefaultDevice: outputs.Count > 1,
+                    endpointId: outputs.Count > 1 ? "default-speakers" : "denon");
+            });
+            using var output = new WindowsMediaOutput();
+            using var started = new ManualResetEventSlim();
+            using var fallback = new ManualResetEventSlim();
+            output.PlaybackStarted += (_, _) => started.Set();
+            output.OutputDeviceFallback += (_, _) => fallback.Set();
+            output.ConfigureOutputDevice("denon");
+            output.ConfigureOutputFallbackBehavior(false);
+
+            output.Play(item, TimeSpan.Zero, 37, 1d);
+            Check(started.Wait(TimeSpan.FromSeconds(5)), "Nie uruchomiono początkowego toru bez ochronnej pauzy.");
+            outputs[0].RaiseStopped(new COMException("Urządzenie odłączone", unchecked((int)0x88890004)));
+            Check(fallback.Wait(TimeSpan.FromSeconds(5)),
+                "Utrata wybranego wyjścia nie zbudowała fallbacku bez ochronnej pauzy.");
+            SpinWait.SpinUntil(() => outputs.Count == 2 && outputs[1].PlayCalls == 1, TimeSpan.FromSeconds(5));
+            Check(outputs.Count == 2 && outputs[1].PlayCalls == 1,
+                "Fallback bez ochronnej pauzy nie wznowił odtwarzania po utracie urządzenia.");
+            output.Stop();
+            output.WaitForPendingPipelineDisposalAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static void DoesNotAutoplayAfterUserPauseOrLateStopCallback()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "amc-paused-output-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var wavePath = Path.Combine(root, "same-item.wav");
+            WriteWave(wavePath);
+            var item = new MediaItem { Id = "same-item", Source = wavePath, Title = "Ta sama pozycja" };
+            var outputs = new List<FakeWavePlayer>();
+            using var factory = AudioOutputDeviceCatalog.OverrideOutputFactoryForTesting((_, _) =>
+            {
+                var replacement = new FakeWavePlayer();
+                outputs.Add(replacement);
+                return new AudioOutputDeviceLease(
+                    replacement,
+                    device: null,
+                    usesDefaultDevice: outputs.Count > 1,
+                    endpointId: outputs.Count > 1 ? "default-speakers" : "denon");
+            });
+            using var output = new WindowsMediaOutput();
+            using var started = new ManualResetEventSlim();
+            using var fallback = new ManualResetEventSlim();
+            output.PlaybackStarted += (_, _) => started.Set();
+            output.OutputDeviceFallback += (_, _) => fallback.Set();
+            output.ConfigureOutputDevice("denon");
+            output.ConfigureOutputFallbackBehavior(false);
+
+            output.Play(item, TimeSpan.FromMilliseconds(500), 37, 1d);
+            Check(started.Wait(TimeSpan.FromSeconds(5)), "Nie uruchomiono toru do testu świadomej pauzy.");
+            output.Pause();
+            outputs[0].RaiseStopped(new COMException("Urządzenie odłączone", unchecked((int)0x88890004)));
+            Check(fallback.Wait(TimeSpan.FromSeconds(5)),
+                "Pauza użytkownika nie dopuściła do zbudowania cichego fallbacku.");
+            Check(outputs.Count == 2 && outputs[1].PlayCalls == 0,
+                "Fallback po pauzie użytkownika wznowił dźwięk mimo _pauseRequested.");
+
+            output.Stop();
+            outputs[1].RaiseStopped(new COMException("Spóźniony callback", unchecked((int)0x88890004)));
+            Thread.Sleep(300);
+            Check(outputs.Count == 2,
+                "Spóźniony callback po Stop otworzył nowy tor odtwarzania.");
+            output.WaitForPendingPipelineDisposalAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
         }
         finally
         {
