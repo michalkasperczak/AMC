@@ -362,12 +362,14 @@ public static class LiteSonosContract
         SonosGroupMetadata? metadata,
         SonosGroupVolume? volume,
         DateTime readUtc,
-        string? message = null)
+        string? message = null,
+        IReadOnlyList<SonosOwnStreamSettings>? ownStreams = null)
     {
         var position = SonosPlayerPosition.Resolve(
             playback, metadata?.CurrentTrack?.DurationMillis, readUtc, DateTime.UtcNow);
         var view = SonosPlayerPresentation.Describe(playback, metadata, volume, position);
         var actions = playback?.AvailablePlaybackActions;
+        var observed = ResolveObservedOwnStream(ownStreams, playback);
         return new
         {
             itemId = "sonos:" + householdId + ":" + group.Id,
@@ -391,10 +393,30 @@ public static class LiteSonosContract
             canNext = actions?.CanSkip,
             canPrevious = actions?.SkipToPreviousAllowed,
             canSeek = actions?.CanSeek,
+            observedMaterialId = observed is null ? null : "sonos-stream:" + observed.Id,
+            identityProvenance = observed is null ? null : "playbackItemId",
             message = string.IsNullOrWhiteSpace(message)
                 ? SnapshotAnnouncement(group, view)
                 : message.Trim()
         };
+    }
+
+    private static SonosOwnStreamSettings? ResolveObservedOwnStream(
+        IReadOnlyList<SonosOwnStreamSettings>? streams,
+        SonosGroupPlaybackStatus? playback)
+    {
+        if (streams is null
+            || playback?.PlaybackState is not (SonosPlaybackState.Playing or SonosPlaybackState.Paused)
+            || string.IsNullOrWhiteSpace(playback.ItemId))
+            return null;
+        var matches = streams.Where(stream =>
+            !string.IsNullOrWhiteSpace(stream.Id)
+            && SonosStreamUrlPolicy.IsAcceptable(stream.StreamUrl)
+            && string.Equals(
+                SonosOwnStreamIdentity.TryComputeItemId(stream.Id, stream.StreamUrl),
+                playback.ItemId,
+                StringComparison.Ordinal)).ToArray();
+        return matches.Length == 1 ? matches[0] : null;
     }
 
     private static string SnapshotAnnouncement(SonosGroup group, SonosPlayerView view)

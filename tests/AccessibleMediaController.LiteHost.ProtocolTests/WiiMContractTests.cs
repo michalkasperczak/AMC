@@ -11,6 +11,9 @@ internal static class WiiMContractTests
     {
         DeviceListDoesNotExposeAddressesOrRuntimeObjects();
         SnapshotContainsOnlyUserFacingPlaybackData();
+        SnapshotDefaultsObservedMaterialIdentityToNull();
+        SnapshotObservesOnlyOneExactSavedNetworkStreamUri();
+        SnapshotObservesSavedNetworkStreamOnlyWhilePlayingOrPaused();
         TransportAcceptsOnlyKnownCommands();
         PresetListUsesOnlyIntentionalLabels();
         PresetActivationAcceptsOnlyTwelveSlots();
@@ -83,6 +86,121 @@ internal static class WiiMContractTests
         Check(!json.Contains("192.168.1.40", StringComparison.Ordinal),
             "adres urządzenia wyciekł z migawki");
     }
+
+    private static void SnapshotDefaultsObservedMaterialIdentityToNull()
+    {
+        var device = new WiiMDeviceSettings
+        {
+            Id = "device-1", Address = "192.168.1.40", DisplayName = "Salon"
+        };
+        var snapshot = new WiiMDeviceSnapshot(
+            new WiiMDeviceInformation("192.168.1.40", "device-1", "Salon", "Pro", "4.8", 12),
+            new WiiMPlaybackInformation("idle", "", 35, false, TimeSpan.Zero, TimeSpan.Zero),
+            new WiiMTrackInformation("", "", "", 0, 0),
+            []);
+
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(
+            LiteWiiMContract.CreateSnapshotResult(device, snapshot)));
+        var root = document.RootElement;
+        Check(root.GetProperty("observedMaterialId").ValueKind == JsonValueKind.Null,
+            "brak tożsamości WiiM musi pozostać null");
+        Check(root.GetProperty("identityProvenance").ValueKind == JsonValueKind.Null,
+            "brak pochodzenia tożsamości WiiM musi pozostać null");
+    }
+
+    private static void SnapshotObservesOnlyOneExactSavedNetworkStreamUri()
+    {
+        var device = new WiiMDeviceSettings
+        {
+            Id = "device-1", Address = "192.168.1.40", DisplayName = "Salon"
+        };
+
+        var saved = new[]
+        {
+            new WiiMNetworkStreamSettings
+            {
+                Id = "saved-a", Name = "Radio A", StreamUrl = "https://radio.example/live"
+            }
+        };
+
+        using var matched = JsonDocument.Parse(JsonSerializer.Serialize(
+            LiteWiiMContract.CreateSnapshotResult(
+                device, SnapshotWithUri("https://radio.example/live#ignored-fragment"), networkStreams: saved)));
+        Check(matched.RootElement.GetProperty("observedMaterialId").GetString()
+              == "wiim-stream:saved-a",
+            "dokładny URI zapisanej stacji nie dostał tożsamości WiiM");
+        Check(matched.RootElement.GetProperty("identityProvenance").GetString() == "uriMatch",
+            "WiiM nie podał pochodzenia uriMatch");
+
+        using var unknown = JsonDocument.Parse(JsonSerializer.Serialize(
+            LiteWiiMContract.CreateSnapshotResult(
+                device, SnapshotWithUri("https://proxy.example/redirect"), networkStreams: saved)));
+        Check(unknown.RootElement.GetProperty("observedMaterialId").ValueKind == JsonValueKind.Null,
+            "proxy albo nieznany URI nie może dziedziczyć intencji stacji WiiM");
+
+        saved =
+        [
+            saved[0],
+            new WiiMNetworkStreamSettings
+            {
+                Id = "saved-b", Name = "Radio B", StreamUrl = "https://radio.example/live"
+            }
+        ];
+        using var ambiguous = JsonDocument.Parse(JsonSerializer.Serialize(
+            LiteWiiMContract.CreateSnapshotResult(
+                device, SnapshotWithUri("https://radio.example/live"), networkStreams: saved)));
+        Check(ambiguous.RootElement.GetProperty("observedMaterialId").ValueKind == JsonValueKind.Null,
+            "niejednoznaczny URI nie może wskazać dowolnej stacji WiiM");
+    }
+
+    private static void SnapshotObservesSavedNetworkStreamOnlyWhilePlayingOrPaused()
+    {
+        var device = new WiiMDeviceSettings
+        {
+            Id = "device-1", Address = "192.168.1.40", DisplayName = "Salon"
+        };
+        var saved = new[]
+        {
+            new WiiMNetworkStreamSettings
+            {
+                Id = "saved-a", Name = "Radio A", StreamUrl = "https://radio.example/live"
+            }
+        };
+
+        foreach (var activeState in new[] { "odtwarzanie", "pauza" })
+        {
+            using var active = JsonDocument.Parse(JsonSerializer.Serialize(
+                LiteWiiMContract.CreateSnapshotResult(
+                    device,
+                    SnapshotWithUri("https://radio.example/live", activeState),
+                    networkStreams: saved)));
+            Check(active.RootElement.GetProperty("observedMaterialId").GetString()
+                  == "wiim-stream:saved-a",
+                $"stan {activeState} WiiM zgubił potwierdzoną tożsamość strumienia");
+        }
+
+        foreach (var inactiveState in new[] { "zatrzymane", "ładowanie", "stan nieznany" })
+        {
+            using var inactive = JsonDocument.Parse(JsonSerializer.Serialize(
+                LiteWiiMContract.CreateSnapshotResult(
+                    device,
+                    SnapshotWithUri("https://radio.example/live", inactiveState),
+                    networkStreams: saved)));
+            Check(inactive.RootElement.GetProperty("observedMaterialId").ValueKind == JsonValueKind.Null,
+                $"stan {inactiveState} WiiM nie może zachować tożsamości strumienia");
+            Check(inactive.RootElement.GetProperty("identityProvenance").ValueKind == JsonValueKind.Null,
+                $"stan {inactiveState} WiiM nie może podać pochodzenia tożsamości");
+        }
+    }
+
+    private static WiiMDeviceSnapshot SnapshotWithUri(string contentUri, string state = "odtwarzanie") => new(
+        new WiiMDeviceInformation("192.168.1.40", "device-1", "Salon", "Pro", "4.8", 12),
+        new WiiMPlaybackInformation(state, "radio", 35, false, TimeSpan.Zero, TimeSpan.Zero)
+        {
+            ContentUri = contentUri
+        },
+        new WiiMTrackInformation("Program", "", "", 0, 0),
+        []);
 
     private static void TransportAcceptsOnlyKnownCommands()
     {

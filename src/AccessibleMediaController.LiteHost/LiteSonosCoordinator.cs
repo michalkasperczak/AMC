@@ -114,14 +114,7 @@ internal sealed class LiteSonosCoordinator(
             var state = ReadState(target.Group.Id);
             if (!state.AnySucceeded)
                 throw new LiteRequestException(state.FirstFailure);
-            return LiteSonosContract.CreateSnapshotResult(
-                target.Household.Id,
-                target.Group,
-                state.Playback,
-                state.Metadata,
-                state.Volume,
-                state.ReadUtc,
-                state.CombinedFailure);
+            return CreateSnapshotResult(target, state, state.CombinedFailure);
         }
     }
 
@@ -220,14 +213,7 @@ internal sealed class LiteSonosCoordinator(
             var message = DescribeVerdict(
                 result, verdictCommand, before, after,
                 requestedVolume, requestedMute);
-            return LiteSonosContract.CreateSnapshotResult(
-                target.Household.Id,
-                target.Group,
-                after.Playback,
-                after.Metadata,
-                after.Volume,
-                after.ReadUtc,
-                message);
+            return CreateSnapshotResult(target, after, message);
         }
     }
 
@@ -318,13 +304,9 @@ internal sealed class LiteSonosCoordinator(
                     throw new LiteRequestException(loaded.Message);
                 Thread.Sleep(TimeSpan.FromMilliseconds(220));
                 var ownStreamState = ReadState(target.Group.Id);
-                return LiteSonosContract.CreateSnapshotResult(
-                    target.Household.Id,
-                    target.Group,
-                    ownStreamState.Playback,
-                    ownStreamState.Metadata,
-                    ownStreamState.Volume,
-                    ownStreamState.ReadUtc,
+                return CreateSnapshotResult(
+                    target,
+                    ownStreamState,
                     $"Uruchamianie: {SonosOwnStreamsOrder.Label(station).Trim()}");
             }
             if (request.Kind == "favorite")
@@ -352,13 +334,9 @@ internal sealed class LiteSonosCoordinator(
                 throw new LiteRequestException(result.Message);
             Thread.Sleep(TimeSpan.FromMilliseconds(220));
             var after = ReadState(target.Group.Id);
-            return LiteSonosContract.CreateSnapshotResult(
-                target.Household.Id,
-                target.Group,
-                after.Playback,
-                after.Metadata,
-                after.Volume,
-                after.ReadUtc,
+            return CreateSnapshotResult(
+                target,
+                after,
                 request.Kind == "favorite"
                     ? "Przyjęto polecenie uruchomienia ulubionego Sonos."
                     : "Przyjęto polecenie uruchomienia playlisty Sonos.");
@@ -545,6 +523,37 @@ internal sealed class LiteSonosCoordinator(
         targets.Clear();
         households.Clear();
         accountBindingGeneration = snapshot.AccountBindingGeneration;
+    }
+
+    private object CreateSnapshotResult(
+        LiteSonosTarget target,
+        LiteSonosState state,
+        string? message)
+    {
+        IReadOnlyList<SonosOwnStreamSettings> ownStreams = Array.Empty<SonosOwnStreamSettings>();
+        if (state.Playback?.PlaybackState is SonosPlaybackState.Playing or SonosPlaybackState.Paused
+            && !string.IsNullOrWhiteSpace(state.Playback.ItemId)
+            && !string.IsNullOrWhiteSpace(statePath))
+        {
+            try
+            {
+                ownStreams = ReadOwnStreamsProfile().Streams;
+            }
+            catch (LiteRequestException)
+            {
+                // Stan odtwarzania pozostaje użyteczny, gdy opcjonalny lokalny
+                // profil nie jest teraz dostępny. Bez niego nie zgadujemy ID.
+            }
+        }
+        return LiteSonosContract.CreateSnapshotResult(
+            target.Household.Id,
+            target.Group,
+            state.Playback,
+            state.Metadata,
+            state.Volume,
+            state.ReadUtc,
+            message,
+            ownStreams);
     }
 
     private LiteSonosState ReadState(string groupId)

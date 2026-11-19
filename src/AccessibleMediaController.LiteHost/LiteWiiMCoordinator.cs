@@ -579,7 +579,11 @@ internal sealed class LiteWiiMCoordinator(string statePath) : IDisposable
                 source.NetworkStreamId,
                 StringComparison.OrdinalIgnoreCase))?.Name;
         return LiteWiiMContract.CreateSnapshotResult(
-            device, snapshot, message, title);
+            device,
+            snapshot,
+            message,
+            title,
+            settings.NetworkStreams);
     }
 
     private (string? NetworkStreamId, int? PresetNumber) ResolveActiveSourceState(

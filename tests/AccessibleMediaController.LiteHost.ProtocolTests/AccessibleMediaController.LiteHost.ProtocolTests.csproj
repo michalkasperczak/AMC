@@ -44,12 +44,16 @@
              Link="LiteRadioFavoritesExport.cs" />
     <Compile Include="..\..\src\AccessibleMediaController.LiteHost\LiteWiiMProfileMutation.cs"
              Link="LiteWiiMProfileMutation.cs" />
+    <Compile Include="..\..\src\AccessibleMediaController.LiteHost\LiteWiiMCoordinator.cs"
+             Link="LiteWiiMCoordinator.cs" />
     <Compile Include="..\..\src\AccessibleMediaController.LiteHost\LiteWiiMNetworkStreamExport.cs"
              Link="LiteWiiMNetworkStreamExport.cs" />
     <Compile Include="..\..\src\AccessibleMediaController.LiteHost\LiteSonosOwnStreamsMutation.cs"
              Link="LiteSonosOwnStreamsMutation.cs" />
     <Compile Include="..\..\src\AccessibleMediaController.LiteHost\LiteSonosOwnStreamsExport.cs"
              Link="LiteSonosOwnStreamsExport.cs" />
+    <Compile Include="..\..\src\AccessibleMediaController.LiteHost\LiteSonosCoordinator.cs"
+             Link="LiteSonosCoordinator.cs" />
     <Compile Include="..\..\src\AccessibleMediaController.LiteHost\LiteSpotifyCatalogCoordinator.cs"
              Link="LiteSpotifyCatalogCoordinator.cs" />
     <Compile Include="..\..\src\AccessibleMediaController.Windows\Services\SpotifyCollectionCompletion.cs"
