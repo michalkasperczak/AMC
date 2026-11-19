@@ -2,7 +2,9 @@
 
 ## Status i zlecenie
 
-W toku: diagnoza i wdrożenie po testach; bez instalacji, publikacji i GUI w tym etapie.
+W toku: odebrano wyniki dwóch wykonawców; kandydat wspólny w izolowanym
+worktree, niezależny odbiór i uzupełnienie polityki Chrome rozpoczęte.
+Bez instalacji, publikacji i GUI w tym etapie.
 
 Michał 19.11.2026 polecił wdrożyć zmianę ze zgłoszenia Huberta #30/PR #31 we wszystkich odpowiednich sesjach, w tym TIDAL i Spotify. Następnie zgłosił dokładny scenariusz: po wyłączeniu zapamiętanego interfejsu Denon poprawna jest cisza wynikająca z opcji wstrzymania po utracie urządzenia, ale późniejsza Spacja lub Enter na tej samej stacji nie odzyskuje odtwarzania. Dopiero wybór innej stacji i powrót przywracają dźwięk na domyślnych głośnikach. Wspomniał także odciszanie sesji: należy prześledzić tę ścieżkę bez utożsamiania wyciszenia z pauzą.
 
@@ -45,7 +47,45 @@ Start lokalny: branch codex/amc-test-public-20261109, HEAD 8bd3811. PR #31 head 
 
 ## Testy i wynik
 
-Na etapie spisania kontraktu: brak nowych wyników wykonania scenariusza utraty wyjścia; nie uznano go za naprawiony. Działający proces użytkownika pozostawiony bez zmian.
+### Wyniki wykonawców i dalsza bramka — 19.11.2026
+
+- Wspólny tor: `0901f8dc02cd5310eb0a3bf6dfa7e881600496bd`.
+  Ochronna pauza w WindowsMediaOutput i zdarzenie do hosta, watcher z #31,
+  zachowanie zapisanej preferencji. Wykonawca raportuje dwa buildy (Windows
+  SmokeTests i LiteHost) bez ostrzeżeń/błędów oraz GREEN publicznego `Play`
+  adaptera po kontrolowanej utracie wyjścia i późniejszym `Play` tej samej pozycji.
+  Nie uzyskał funkcjonalnego RED starej logiki; brak pełnego testu hostowego
+  Space/Enter. To wyniki wykonawcy, nie końcowy werdykt odbioru.
+- Spotify: `17dcde5ef2d2b53f2567f65d42908298cd6c4d39`.
+  Potwierdzony RED/GREEN usunięcia ukrytego wyboru `null` po odrzuconym ręcznym
+  wyjściu przy `restart=false`: 7 checks PASS; build LiteHost bez ostrzeżeń/błędów.
+  Pełne recovery Chrome/Soloist nie było przedmiotem tej minimalnej poprawki.
+- Rodzic przeczytał oba raporty i diffy; brak błędów `git diff --check`.
+  Połączono kandydaty WYŁĄCZNIE w worktree
+  `amc-output-acceptance-20261119`, branch `codex/amc-output-acceptance-20261119`,
+  baza kanoniczna `a245d22`, zamrożony wspólny head
+  `e758ae409689bb81f7aed94379bd1f03557ddcff` (lokalny przyrost `50bd9ff`).
+  Kanoniczna produkcja pozostała nietknięta.
+
+Niezależny Codex `sa-0-8d1a12d8`, delegacja `deleg_98a3c8c0`, odbiera ten
+zamrożony kandydat. Ma sprawdzić krytyczną granicę hosta, pauzę użytkownika,
+Stop/spóźniony callback i falsyfikować podejrzenie: przy ochronie wyłączonej
+stare wyjście zgłasza `Stopped`, więc warunek `previous.PlaybackState == Playing`
+może pozostawić nowe wyjście ciche. To hipoteza z odczytu, nie potwierdzony błąd.
+Maksymalnie dwa cykle poprawki i celowanych pomiarów, nie pełny audyt GUI.
+
+Osobny Codex `sa-1-b02c748f` tej samej delegacji uzupełnia politykę Chrome
+w `amc-spotify-output-policy-20261119` od tego samego frozen head. Brak istniejącego
+wejścia polityki nie jest sam w sobie zewnętrzną blokadą: ma wykorzystać wspólny
+watcher i potwierdzone `setSinkId`, zachować ciszę ochronną i późniejszy jawny
+Play, z funkcjonalnym testem offline. Brak komend wyboru/odświeżenia lokalnego
+sinka w OBECNYM adapterze Soloist pozostaje osobnym ograniczeniem; nie jest
+twierdzeniem o wszystkich wersjach upstream. Nie dodawać fikcyjnych komend.
+
+Konkretne następne kroki: odebrać niezależny werdykt oraz przyrost polityki
+Chrome, rozstrzygnąć wspólne punkty LiteEngineHandlers/watchera, potwierdzić
+zintegrowaną krytyczną granicę i dopiero wtedy przyjąć do kanonicznej produkcji.
+Nie integruje to #28/PR #29 ani nie zastępuje jego odrębnego odbioru.
 
 ## Znane ograniczenia
 

@@ -13,7 +13,9 @@ Kanoniczny rejestr to [README.md](README.md).
 [Wyjścia audio: domyślne Windows, TIDAL/Spotify i jawne wznowienie po utracie](AUDIO-RECOVERY-20261119-kontrakt.md)
 — nowe zlecenie wdrożenia #30 oraz scenariusza zapamiętanego Denona; pauza
 ochronna zostaje, ponowna Spacja/Enter bez zmiany stacji ma odzyskać wyjście.
-Dwie izolowane ścieżki Codex w toku, bez odbioru sprzętu, GUI i instalatora.
+Wyniki lokalnego adaptera i odmowy wyboru Spotify otrzymano; wspólny kandydat
+`e758ae4` izolowany. Niezależny odbiór i polityka Chrome w toku jako
+`deleg_98a3c8c0`, bez odbioru sprzętu, GUI i instalatora.
 
 [Radio Archiwista: Ctrl+F i zwykły wybór po nazwie](RARCH-HOURS-20261119-diagnoza.md)
 — Ctrl+F w źródłach, 10 testów PASS; po korekcie Michała zwykła lista plików,

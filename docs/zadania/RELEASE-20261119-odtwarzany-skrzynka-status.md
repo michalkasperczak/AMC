@@ -69,11 +69,14 @@ bezwarunkowego naruszenia pauzy użytkownika. Zapisana preferencja urządzenia
 jest odrębna od chwilowego wyjścia zastępczego.
 
 [Kontrakt i granice adapterów](AUDIO-RECOVERY-20261119-kontrakt.md).
-Dwie izolowane ścieżki Codex rozpoczęte: wspólny tor/Radio oraz Spotify
-Soloist/Chrome. Przed wspólnym kandydatem wymagane funkcjonalne RED/GREEN,
-build rzeczywistych consumerów i niezależny odbiór zgodności z #28/PR #29.
-Nie uznano poprawki za odebraną, nie instalowano, nie uruchamiano GUI ani
-urządzeń/kont. Pozostałe bramki i ograniczenia wydania nie zmieniły się.
+Otrzymano lokalny przyrost `0901f8d` i małą korektę odmowy wyboru Spotify
+`17dcde5`; połączono je wyłącznie w izolowany kandydat `e758ae4`.
+Wyniki wykonawców: lokalny adapter GREEN (brak historycznego RED), Spotify
+RED/GREEN i 7 checks, oba consumery budowane bez ostrzeżeń/błędów.
+Niezależny odbiór krytycznej granicy hosta i uzupełnienie polityki Chrome
+w toku jako `deleg_98a3c8c0`. Kandydat nie rozstrzyga #28/PR #29;
+pozostaje sprawdzenie ich nakładających się zmian WindowsMediaOutput.
+Pozostałe bramki i ograniczenia wydania nie zmieniły się.
 
 ## Stan początkowy i koordynacja
 

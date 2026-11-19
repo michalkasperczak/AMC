@@ -4,8 +4,12 @@
 we wszystkich odpowiednich sesjach, w tym TIDAL i Spotify; niezależnie sprawdzić
 martwe wznowienie tej samej stacji po utracie zapamiętanego urządzenia.
 Pauza ochronna zostaje; jawna Spacja/Enter ma odzyskać dostępne wyjście bez
-zmiany stacji. Dwa izolowane zadania Codex rozpoczęte; brak nowego GREEN,
-odbioru fizycznego sprzętu i instalatora. Bez GUI i zmian głównego PC.
+zmiany stacji. Wykonawcy dostarczyli lokalny recovery GREEN i ograniczony
+Spotify RED/GREEN (zachowanie odrzuconej preferencji). Wspólny kandydat `e758ae4`
+jest w izolowanym worktree; niezależny odbiór oraz uzupełnienie polityki Chrome
+zlecono jako `deleg_98a3c8c0`. Pełny kontrakt nie został jeszcze odebrany;
+brak funkcjonalnego lokalnego RED i granicy hosta wymaga uzupełnienia.
+Bez GUI i zmian głównego PC.
 [Kontrakt, zakres adapterów i kryteria](AUDIO-RECOVERY-20261119-kontrakt.md).
 
 **Radio Archiwista — zwykła nawigacja listy i pełny odtwarzacz, 19.11.2026:**
