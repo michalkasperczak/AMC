@@ -80,9 +80,11 @@ porównaniu 747 źródeł. Jednak świeża wspólna kompilacja Release `aef4626`
 ponownie daje test hosta exit 1 na wznowieniu. Próbne scalenie cofnięto w
 `8d1da71`, przywracając wcześniejsze źródła i zachowując #26. Lokalnego audio
 nie odebrano; poprzedni limit cykli wyczerpano bez ponowień w ciemno.
-Michał ponownie polecił badać przełączanie audio: nowy ograniczony etap
-`deleg_12ac386e` ma rozstrzygnąć przyczynę przed dalszą zmianą produktu.
-[Zakres diagnozy](AUDIO-RECOVERY-20261119-diagnoza2.md).
+Michał ponownie polecił badać przełączanie audio. `deleg_12ac386e` dowiódł
+w `6c70141`, że spóźniony PlaybackStarted nadpisuje ochronną pauzę hosta;
+rodzic potwierdził kontrolowany RED i 749 źródeł. Teraz `deleg_de2324a4`
+wykonuje minimalny RED/GREEN w osobnym worktree.
+[Dowód przyczyny i bieżący etap](AUDIO-RECOVERY-20261120-late-start-odbior.md).
 Polityka Spotify `7a26f3a` ma niezależny świeży Release i adapter/politykę offline
 exit 0 u rodzica, ale nie została zintegrowana. Native callback/Denon/Chrome
 pozostają niezmierzone; [dokładny odbiór](AUDIO-RECOVERY-20261119-spotify-parent-check.md).

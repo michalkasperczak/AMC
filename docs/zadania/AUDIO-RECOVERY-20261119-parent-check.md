@@ -5,14 +5,16 @@
 **BLOKADA wspólnego kandydata; próbna integracja cofnięta.**
 Poprawiona aparatura `3948aec` przeszła w Debug u wykonawcy i rodzica, lecz
 świeży wspólny build Release ponownie upadł na tej samej asercji wznowienia.
-Nie ustalono ostatecznej przyczyny. Werdykt wykonawcy „TAK” nie jest odbiorem
-zintegrowanego kodu; szczegółowy końcowy wynik jest poniżej.
+Późniejsza diagnoza `6c70141` potwierdziła spóźnione PlaybackStarted, które
+nadpisuje ochronną pauzę hosta. Rodzic niezależnie odtworzył kontrolowany RED.
+Trwa minimalna poprawka `deleg_de2324a4`, bez akceptacji wspólnego kandydata.
+[Wynik i aktualny etap](AUDIO-RECOVERY-20261120-late-start-odbior.md).
 
 ## Nowe polecenie Michała — dalsze badanie
 
 Po powyższej blokadzie Michał wyraźnie zlecił dalsze badanie przełączania audio.
-Trwa nowy ograniczony etap `deleg_12ac386e`, bez kolejnej poprawki produktu
-przed rozstrzygającym pomiarem. To nie unieważnia zapisanych FAIL ani revertu.
+Etap `deleg_12ac386e` zakończył się dowodem przyczyny. Nowy `deleg_de2324a4`
+prowadzi minimalny RED/GREEN. Nie unieważnia to zapisanych FAIL ani revertu.
 [Aktualny zakres, wykonawca i kryteria](AUDIO-RECOVERY-20261119-diagnoza2.md).
 Spotify `7a26f3a` ma osobny potwierdzony Release offline, bez integracji
 [raport rodzica](AUDIO-RECOVERY-20261119-spotify-parent-check.md).
@@ -30,7 +32,7 @@ Spotify `7a26f3a` ma osobny potwierdzony Release offline, bez integracji
 3. Próbne scalenie do bieżącej bazy z #26 utworzyło `aef4626a0034e3dde098c642794edba314e31650`.
    Źródła tego commita wyeksportowano do nowego, pustego katalogu NTFS
    `amc-output-integrated-aef4626`; manifest sprawdził obecność wszystkich
-   3085 śledzonych plików. Restore exit 0; Release build hosta i HandlerTests
+   3069 śledzonych plików (liczbę skorygowano z manifestu). Restore exit 0; Release build hosta i HandlerTests
    exit 0, zero ostrzeżeń i błędów.
 4. Faktyczne uruchomienie tej nowo zbudowanej DLL: **exit 1**, po 4,30 s,
    `transport.pauseResume nie zwrócił wznowionego stanu po ochronnym fallbacku`,

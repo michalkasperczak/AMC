@@ -6,11 +6,12 @@
 `3948aec` poprawia synchronizację testu i przechodzi w Debug także u rodzica,
 lecz świeżo zbudowany wspólny Release `aef4626` ponownie daje HandlerTests exit 1
 na wznowieniu. Revert `8d1da71` przywrócił wcześniejsze `src/tests`, zachowując
-odebrany #26. Przyczyna ostatniego upadku nierozstrzygnięta; nie ma trzeciego
-cyklu zmian ani retry-until-green w poprzednim etapie. Po nowym poleceniu
-Michała trwa [osobny etap rozstrzygający przyczynę](AUDIO-RECOVERY-20261119-diagnoza2.md),
-`deleg_12ac386e`: bez poprawiania produkcji przed dowodem. Polityka Spotify
-`7a26f3a` ma potwierdzony przez rodzica build i test Release offline,
+odebrany #26. Późniejszy `6c70141` dowiódł przyczyny: spóźnione PlaybackStarted
+nadpisuje ochronną pauzę hosta. Rodzic porównał 749 źródeł sondy i niezależnie
+odtworzył późny start — exit 1 na zachowanej asercji publicznego wznowienia.
+[Odbiór diagnozy i minimalna poprawka](AUDIO-RECOVERY-20261120-late-start-odbior.md):
+`deleg_de2324a4`, osobne worktree, bez ponownego scalania przed GREEN i odbiorem.
+Polityka Spotify `7a26f3a` ma potwierdzony przez rodzica build i test Release offline,
 ale pozostaje odrębnym kandydatem bez integracji.
 [Odbiór Spotify i granice dowodu](AUDIO-RECOVERY-20261119-spotify-parent-check.md).
 Bez instalacji, publikacji i GUI w tym etapie.

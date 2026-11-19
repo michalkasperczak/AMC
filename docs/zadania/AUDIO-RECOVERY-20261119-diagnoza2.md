@@ -2,8 +2,14 @@
 
 ## Aktualne zlecenie i status
 
-**Michał ponownie polecił badać przełączanie audio. Trwa nowy, ograniczony
-etap diagnostyczny; nie ma kolejnej poprawki produkcji ani akceptacji integracji.**
+**Etap diagnostyczny zakończony: przyczyną jest spóźnione PlaybackStarted
+nadpisujące ochronną pauzę hosta. Trwa osobna minimalna poprawka produktu.**
+Codex `6c70141` dostarczył kontrolowany przeplot; rodzic sprawdził 749 źródeł
+stagingu i własnym uruchomieniem potwierdził późny start jako RED exit 1.
+Macierz źródeł/konfiguracji nie potwierdziła stałej winy Release ani #26.
+[Aktualny odbiór diagnozy i etap RED/GREEN](AUDIO-RECOVERY-20261120-late-start-odbior.md):
+`deleg_de2324a4`, osobne worktree od `6c70141`, maksymalnie dwa celowane cykle.
+Nie ma jeszcze odebranej poprawki, integracji ani nowego wydania.
 To nowsza decyzja niż zatrzymanie po poprzednim limicie cykli. Nie oznacza
 nieograniczonych prób zmian, zgody na API, GUI, fizyczne audio ani instalację.
 Zadanie zapisu/wycinania nagrań pozostaje osobnym następnym zadaniem.

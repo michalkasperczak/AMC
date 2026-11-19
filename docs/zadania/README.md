@@ -18,11 +18,11 @@ wyłączonej ochronie (RED/GREEN), dodał test hostowego wznowienia i odmowy Spo
 Końcowy `3948aec` synchronizuje aparaturę: rodzic potwierdził 747 źródeł
 bez różnic i Debug exit 0. Jednak świeży wspólny Release `aef4626` ponownie
 zwrócił exit 1 na `transport.pauseResume`. Integrację cofnięto w `8d1da71`;
-przyczyna ostatniego upadku pozostaje otwarta, limit cykli wyczerpany.
-Nie ponawiać w ciemno ani nie przyjmować tej integracji jako odebranej.
-Michał następnie polecił dalej badać przełączanie audio: `deleg_12ac386e`
-wykonuje nową ograniczoną diagnozę przyczyny, bez kolejnej zmiany produktu
-przed dowodem. [Bieżący etap](AUDIO-RECOVERY-20261119-diagnoza2.md).
+przyczyna została następnie potwierdzona w `6c70141`: spóźnione PlaybackStarted
+resetuje ochronną pauzę w stanie hosta. Rodzic niezależnie odtworzył kontrolowany
+RED z późnym startem po sprawdzeniu 749 źródeł stagingu.
+Trwa minimalny RED/GREEN `deleg_de2324a4`, bez rozluźniania testu i integracji
+przed odbiorem. [Wynik i aktywna poprawka](AUDIO-RECOVERY-20261120-late-start-odbior.md).
 Spotify `7a26f3a` ma potwierdzony przez rodzica świeży build i test Release
 adaptera/polityki offline. Kandydat pozostaje osobno, bez wspólnej integracji.
 Wpięcie natywnych callbacków przeczytano w kodzie, nie wykonano zdarzenia
