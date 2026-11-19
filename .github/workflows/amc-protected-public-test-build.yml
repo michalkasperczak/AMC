@@ -3,7 +3,7 @@ name: AMC — jednorazowa chroniona budowa Public i Test
 on:
   push:
     branches:
-      - codex/amc-protected-public-test-20261118-issue21-r2
+      - codex/amc-protected-public-test-20261119-playback-r1
     paths:
       - .github/workflows/amc-protected-public-test-build.yml
       - wxlite/tools/Build-AMCBundle.ps1
@@ -25,7 +25,7 @@ jobs:
     if: >-
       github.run_attempt == '1' &&
       github.event.before == '0000000000000000000000000000000000000000' &&
-      github.ref == 'refs/heads/codex/amc-protected-public-test-20261118-issue21-r2'
+      github.ref == 'refs/heads/codex/amc-protected-public-test-20261119-playback-r1'
     runs-on: windows-2025
     timeout-minutes: 150
 
@@ -45,7 +45,7 @@ jobs:
           $jobStarted = [DateTime]::UtcNow
           [xml]$props = Get-Content -LiteralPath '.\Directory.Build.props' -Raw
           $sourceVersion = [string]$props.Project.PropertyGroup.Version
-          if ($sourceVersion -ne '0.1.0-alpha.511') { throw "Nieoczekiwana wersja źródeł: $sourceVersion" }
+          if ($sourceVersion -ne '0.1.0-alpha.512') { throw "Nieoczekiwana wersja źródeł: $sourceVersion" }
           $source = [ordered]@{
             capturedUtc = $jobStarted.ToString('o')
             sourceSha = (git rev-parse HEAD).Trim()
