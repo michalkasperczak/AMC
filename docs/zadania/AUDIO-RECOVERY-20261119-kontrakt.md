@@ -2,8 +2,10 @@
 
 ## Status i zlecenie
 
-W toku: odebrano wyniki dwóch wykonawców; kandydat wspólny w izolowanym
-worktree, niezależny odbiór i uzupełnienie polityki Chrome rozpoczęte.
+W toku: odebrano niezależny przyrost `4a791c2` i politykę Chrome `06bb4b0`.
+Integracja wstrzymana: własny pomiar rodzica zakończył test hostowego wznowienia
+błędem; przyczyna aparatura/produkt nie została jeszcze rozstrzygnięta.
+Polityka Chrome ma dwie konkretne luki wymagające celowanego odtworzenia.
 Bez instalacji, publikacji i GUI w tym etapie.
 
 Michał 19.11.2026 polecił wdrożyć zmianę ze zgłoszenia Huberta #30/PR #31 we wszystkich odpowiednich sesjach, w tym TIDAL i Spotify. Następnie zgłosił dokładny scenariusz: po wyłączeniu zapamiętanego interfejsu Denon poprawna jest cisza wynikająca z opcji wstrzymania po utracie urządzenia, ale późniejsza Spacja lub Enter na tej samej stacji nie odzyskuje odtwarzania. Dopiero wybór innej stacji i powrót przywracają dźwięk na domyślnych głośnikach. Wspomniał także odciszanie sesji: należy prześledzić tę ścieżkę bez utożsamiania wyciszenia z pauzą.
@@ -86,6 +88,26 @@ Konkretne następne kroki: odebrać niezależny werdykt oraz przyrost polityki
 Chrome, rozstrzygnąć wspólne punkty LiteEngineHandlers/watchera, potwierdzić
 zintegrowaną krytyczną granicę i dopiero wtedy przyjąć do kanonicznej produkcji.
 Nie integruje to #28/PR #29 ani nie zastępuje jego odrębnego odbioru.
+
+## Aktualizacja po niezależnym odbiorze i pomiarze rodzica
+
+Powyższe akapity opisują start odbioru; zastępuje je następujący wynik.
+Niezależny Codex dostarczył `4a791c22980157a3a449b730a16ee813dd45e1eb`:
+hipoteza ciszy przy ochronie wyłączonej została potwierdzona funkcjonalnym RED
+oraz minimalnie naprawiona, z GREEN i testem rzeczywistego dispatchera.
+Spotify Chrome dostarczono osobno jako `06bb4b0dbd8c5711105e914a5b79c856609d465f`.
+
+Rodzic odczytał diffy i logi, porównał 747 źródeł stagingu z Git `4a791c2`
+bez różnic, lecz własne uruchomienie HandlerTests zakończyło się exit 1:
+`transport.pauseResume nie zwrócił wznowionego stanu po ochronnym fallbacku`.
+Nie uznano tego za flaky ani za potwierdzony błąd aparatury. `deleg_96958dcb`
+rozstrzyga granicę gotowości testu i stanu hosta w jednym końcowym cyklu.
+Przyrost Chrome celowanie odbiera `deleg_fd64ca45`: brak rozróżnienia zwykłej
+zmiany domyślnego a utraty oraz brak sygnału utraty ręcznego endpointu bez
+zmiany systemowego domyślnego ID wymagają odtworzenia funkcjonalnego.
+
+[Dokładne polecenie, wynik, logi, hipotezy i granice](AUDIO-RECOVERY-20261119-parent-check.md).
+Do ich rozstrzygnięcia produkcja kanoniczna pozostaje bez tych przyrostów.
 
 ## Znane ograniczenia
 

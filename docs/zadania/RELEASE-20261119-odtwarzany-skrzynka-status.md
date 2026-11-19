@@ -69,14 +69,18 @@ bezwarunkowego naruszenia pauzy użytkownika. Zapisana preferencja urządzenia
 jest odrębna od chwilowego wyjścia zastępczego.
 
 [Kontrakt i granice adapterów](AUDIO-RECOVERY-20261119-kontrakt.md).
-Otrzymano lokalny przyrost `0901f8d` i małą korektę odmowy wyboru Spotify
-`17dcde5`; połączono je wyłącznie w izolowany kandydat `e758ae4`.
-Wyniki wykonawców: lokalny adapter GREEN (brak historycznego RED), Spotify
-RED/GREEN i 7 checks, oba consumery budowane bez ostrzeżeń/błędów.
-Niezależny odbiór krytycznej granicy hosta i uzupełnienie polityki Chrome
-w toku jako `deleg_98a3c8c0`. Kandydat nie rozstrzyga #28/PR #29;
-pozostaje sprawdzenie ich nakładających się zmian WindowsMediaOutput.
-Pozostałe bramki i ograniczenia wydania nie zmieniły się.
+Otrzymano lokalny przyrost `0901f8d` i korektę odmowy wyboru Spotify
+`17dcde5`, wspólny izolowany kandydat `e758ae4`. Niezależny `4a791c2`
+potwierdził i naprawił ciszę przy wyłączonej ochronie, dodał test hostowego
+wznowienia i asercje zachowania ręcznej preferencji Spotify (RED/GREEN).
+Rodzic porównał 747 źródeł stagingu z tym commitem: bez różnic, lecz jego
+uruchomienie testu hosta zwróciło exit 1 na `transport.pauseResume`.
+Integracja wstrzymana: przyczynę aparatura/produkt rozstrzyga `deleg_96958dcb`.
+Nowa polityka Chrome `06bb4b0` przechodzi osobny celowany odbiór
+`deleg_fd64ca45`: zwykła zmiana domyślnego a utrata urządzenia oraz sygnał
+utraty ręcznego endpointu, gdy domyślne ID się nie zmienia.
+Kandydaci nie rozstrzygają #28/PR #29; pozostaje sprawdzenie nakładających się
+zmian WindowsMediaOutput. Pozostałe bramki i ograniczenia wydania bez zmian.
 
 ## Stan początkowy i koordynacja
 

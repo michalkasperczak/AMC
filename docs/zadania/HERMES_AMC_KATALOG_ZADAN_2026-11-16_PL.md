@@ -13,9 +13,11 @@ Kanoniczny rejestr to [README.md](README.md).
 [Wyjścia audio: domyślne Windows, TIDAL/Spotify i jawne wznowienie po utracie](AUDIO-RECOVERY-20261119-kontrakt.md)
 — nowe zlecenie wdrożenia #30 oraz scenariusza zapamiętanego Denona; pauza
 ochronna zostaje, ponowna Spacja/Enter bez zmiany stacji ma odzyskać wyjście.
-Wyniki lokalnego adaptera i odmowy wyboru Spotify otrzymano; wspólny kandydat
-`e758ae4` izolowany. Niezależny odbiór i polityka Chrome w toku jako
-`deleg_98a3c8c0`, bez odbioru sprzętu, GUI i instalatora.
+Niezależny `4a791c2` naprawił potwierdzoną ciszę przy wyłączonej ochronie.
+Rodzic zweryfikował 747 źródeł, ale test hosta zwrócił exit 1; integracja
+wstrzymana do rozstrzygnięcia przez `deleg_96958dcb`. Politykę Chrome
+`06bb4b0` celowanie odbiera `deleg_fd64ca45`: zwykła zmiana a utrata wyjścia
+oraz sygnał utraty ręcznego endpointu. Bez odbioru sprzętu, GUI i instalatora.
 
 [Radio Archiwista: Ctrl+F i zwykły wybór po nazwie](RARCH-HOURS-20261119-diagnoza.md)
 — Ctrl+F w źródłach, 10 testów PASS; po korekcie Michała zwykła lista plików,

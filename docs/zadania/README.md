@@ -4,11 +4,14 @@
 we wszystkich odpowiednich sesjach, w tym TIDAL i Spotify; niezależnie sprawdzić
 martwe wznowienie tej samej stacji po utracie zapamiętanego urządzenia.
 Pauza ochronna zostaje; jawna Spacja/Enter ma odzyskać dostępne wyjście bez
-zmiany stacji. Wykonawcy dostarczyli lokalny recovery GREEN i ograniczony
-Spotify RED/GREEN (zachowanie odrzuconej preferencji). Wspólny kandydat `e758ae4`
-jest w izolowanym worktree; niezależny odbiór oraz uzupełnienie polityki Chrome
-zlecono jako `deleg_98a3c8c0`. Pełny kontrakt nie został jeszcze odebrany;
-brak funkcjonalnego lokalnego RED i granicy hosta wymaga uzupełnienia.
+zmiany stacji. Niezależny odbiór `4a791c2` potwierdził i naprawił ciszę przy
+wyłączonej ochronie (RED/GREEN), dodał test hostowego wznowienia i odmowy Spotify.
+Rodzic potwierdził zgodność 747 źródeł stagingu, ale jego test hosta zwrócił
+exit 1 na stanie `transport.pauseResume`; nie przyjęto jeszcze integracji.
+Przyczynę aparatura/produkt rozstrzyga `deleg_96958dcb`, jeden końcowy cykl.
+Przyrost Chrome `06bb4b0` osobno odbiera `deleg_fd64ca45`: odróżnienie zwykłej
+zmiany domyślnego od utraty oraz sygnał utraty ręcznego wyjścia bez zmiany
+systemowego domyślnego. Brak API sinka Soloist pozostaje jawnym ograniczeniem.
 Bez GUI i zmian głównego PC.
 [Kontrakt, zakres adapterów i kryteria](AUDIO-RECOVERY-20261119-kontrakt.md).
 
