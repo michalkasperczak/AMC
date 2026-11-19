@@ -54,6 +54,22 @@ wyłącznie we właściwym kontekście odtwarzacza, nie podczas nawigacji listy.
 To rozszerza kryteria odbioru źródeł, nie zezwala na GUI/audio/instalację
 na głównym PC ani nie oznacza gotowej publikacji.
 
+## Dodatkowy zakres wyjść audio — późniejsze zlecenie 19.11.2026
+
+Michał zlecił wdrożenie #30/PR #31 we wszystkich właściwych sesjach, w tym
+TIDAL i Spotify, oraz odzyskanie po utracie zapamiętanego urządzenia:
+ochronna pauza ma zostać, lecz jawne Spacja/Enter tej samej pozycji mają
+odzyskać dźwięk bez obejścia przez inną stację. Sprawdzić odciszanie bez
+bezwarunkowego naruszenia pauzy użytkownika. Zapisana preferencja urządzenia
+jest odrębna od chwilowego wyjścia zastępczego.
+
+[Kontrakt i granice adapterów](AUDIO-RECOVERY-20261119-kontrakt.md).
+Dwie izolowane ścieżki Codex rozpoczęte: wspólny tor/Radio oraz Spotify
+Soloist/Chrome. Przed wspólnym kandydatem wymagane funkcjonalne RED/GREEN,
+build rzeczywistych consumerów i niezależny odbiór zgodności z #28/PR #29.
+Nie uznano poprawki za odebraną, nie instalowano, nie uruchamiano GUI ani
+urządzeń/kont. Pozostałe bramki i ograniczenia wydania nie zmieniły się.
+
 ## Stan początkowy i koordynacja
 
 Główny checkout: `/home/michal/projekty/AMC`, gałąź

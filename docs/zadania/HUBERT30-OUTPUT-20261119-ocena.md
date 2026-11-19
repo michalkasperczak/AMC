@@ -1,6 +1,14 @@
 # Hubert #30 / PR #31 — słuchawki i podążanie za domyślnym wyjściem Windows
 
-**Status: ODCZYT I WSTĘPNA OCENA; bez zgody na wdrożenie w tej turze.**
+**Status bieżący: WDROŻENIE ZLECONE; niżej historyczna ocena read-only.**
+
+Późniejsza decyzja Michała z 19.11.2026: wdrożyć we wszystkich odpowiednich
+sesjach, w tym TIDAL i Spotify, oraz sprawdzić brak wznowienia tej samej stacji
+po utracie zapamiętanego wyjścia. Pauza ochronna po utracie ma pozostać;
+Spacja/Enter mają umożliwiać świadome odzyskanie dźwięku bez zmiany stacji.
+[Nadrzędny kontrakt i rzeczywisty stan prac](AUDIO-RECOVERY-20261119-kontrakt.md).
+Rozpoczęto dwa izolowane zadania Codex: wspólny tor i Spotify. Nie jest to
+odbiór PR, nowy instalator ani zgoda na GUI/zmianę urządzeń na głównym PC.
 
 ## Zlecenie i źródła — 19.11.2026
 

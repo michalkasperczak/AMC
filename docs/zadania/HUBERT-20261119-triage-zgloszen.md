@@ -1,6 +1,16 @@
 # Analiza zgłoszeń Huberta #11, #25, #26 i #28 — 19.11.2026
 
-## Nowe #30 / PR #31 — odczyt i opis, bez wdrożenia
+## Nowe #30 / PR #31 — późniejsza zgoda na wdrożenie
+
+Michał następnie polecił wdrożyć zmianę we wszystkich odpowiednich sesjach,
+w tym TIDAL i Spotify. Dodał scenariusz zapamiętanego Denona: po jego utracie
+ochronna pauza jest dobra, lecz jawne Spacja/Enter tej samej stacji mają
+odzyskać dźwięk na dostępnym wyjściu bez przełączania stacji. Odciszanie
+sprawdzić osobno, bez bezwarunkowego wznawiania pauzy użytkownika.
+[Nowy kontrakt wykonawczy](AUDIO-RECOVERY-20261119-kontrakt.md) zastępuje
+poniższe historyczne ograniczenie do odczytu. Bez GUI, instalacji i publikacji.
+
+### Pierwotna ocena read-only
 
 Na nowe polecenie Michała sprawdzono zgłoszenie o pozostawaniu dźwięku na
 głośnikach po podłączeniu słuchawek oraz opóźnionym odzyskaniu YouTube po

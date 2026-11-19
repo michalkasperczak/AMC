@@ -10,6 +10,11 @@ Bieżące priorytety i stan wydania są w
 Kanoniczny rejestr to [README.md](README.md).
 
 **Uzupełnienie 19.11.2026, poza historycznymi licznikami spisu z 16.11:**
+[Wyjścia audio: domyślne Windows, TIDAL/Spotify i jawne wznowienie po utracie](AUDIO-RECOVERY-20261119-kontrakt.md)
+— nowe zlecenie wdrożenia #30 oraz scenariusza zapamiętanego Denona; pauza
+ochronna zostaje, ponowna Spacja/Enter bez zmiany stacji ma odzyskać wyjście.
+Dwie izolowane ścieżki Codex w toku, bez odbioru sprzętu, GUI i instalatora.
+
 [Radio Archiwista: Ctrl+F i zwykły wybór po nazwie](RARCH-HOURS-20261119-diagnoza.md)
 — Ctrl+F w źródłach, 10 testów PASS; po korekcie Michała zwykła lista plików,
 bez specjalnego aliasu 7 → 07. Test 18.11, 03:37 nadal najnowszy opublikowany.

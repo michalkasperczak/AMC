@@ -1,5 +1,13 @@
 # Rejestr zadań AMC
 
+**Wyjścia audio — nowe zlecenie 19.11.2026:** podążanie za domyślnym Windows
+we wszystkich odpowiednich sesjach, w tym TIDAL i Spotify; niezależnie sprawdzić
+martwe wznowienie tej samej stacji po utracie zapamiętanego urządzenia.
+Pauza ochronna zostaje; jawna Spacja/Enter ma odzyskać dostępne wyjście bez
+zmiany stacji. Dwa izolowane zadania Codex rozpoczęte; brak nowego GREEN,
+odbioru fizycznego sprzętu i instalatora. Bez GUI i zmian głównego PC.
+[Kontrakt, zakres adapterów i kryteria](AUDIO-RECOVERY-20261119-kontrakt.md).
+
 **Radio Archiwista — zwykła nawigacja listy i pełny odtwarzacz, 19.11.2026:**
 Ctrl+F ponownie 10 testów PASS w źródłach, jeszcze bez nowego wydania.
 Podany przez Michała Test 18.11, 03:37 jest najnowszym opublikowanym Testem.
