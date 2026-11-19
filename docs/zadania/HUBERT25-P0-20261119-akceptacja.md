@@ -32,9 +32,11 @@ Nowa operacja ładuje wskazaną subskrypcję oraz jej odcinki, zachowuje ordinal
 
 ## Bieżąca bramka i następny krok
 
-**Wspólny kandydat przeszedł wymieniony odbiór automatyczny, ale oczekuje na niezależny delta-review korekty DB `9611e851`.** Review obejmuje tylko tę zmianę i integralność sąsiednich danych; nie zlecono kolejnego pełnego audytu ani mechanicznego powtarzania suite.
+**ODEBRANO kod i zintegrowano #25 P0.** Niezależny delta-review `9611e851` zakończył się werdyktem PRZYJĄĆ, bez blockera. Rodzic przeczytał cały raport `hubert25-target-store-review-20261119.md`, porównał produkcyjne bloby z dokładnymi SHA obu odebranych korekt i potwierdził czyste worktree.
 
-Po pozytywnym wyniku odczytać dokładny raport, zweryfikować niezmienność źródeł kandydata, włączyć kandydat do kanonicznej gałęzi i oznaczyć #25 dane/trwałość jako odebrane. Dopiero potem rozpocząć #25 ograniczony catch-up i harmonogram; #26 oraz #28 nadal później. Przy konkretnym blokerze nie integrować i zapisać jego rzeczywisty zakres.
+Kandydat został włączony do gałęzi kanonicznej przez merge `adf6e51c6880a03335fc082e6881e0363273c824`. Wszystkie 12 przeniesionych plików jest bajtowo zgodnych z przetestowanym `ec34b3b`. Kontrola diff z `core.whitespace=cr-at-eol` przeszła; zwykła kontrola traktuje zachowane CRLF istniejącego pliku Windows Smoke jako końcowe białe znaki. Nie zmieniano źródeł po odbiorze, żeby usuwać poprawne końce linii.
+
+Następny zaakceptowany etap to #25 ograniczony catch-up i harmonogram, bez zmiany interwałów użytkownika i bez osłabiania blokady nagrywania. #26 oraz #28 nadal później. Integracja źródeł nie jest publikacją ani instalacją.
 
 ## Materiał do dokumentacji użytkownika i ograniczenia
 

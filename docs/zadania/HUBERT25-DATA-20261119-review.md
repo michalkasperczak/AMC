@@ -30,6 +30,12 @@ To koryguje wcześniejsze zapewnienie raportu wykonawcy o krótkim zapisie ogran
 
 Zlecono w `codex/amc-hubert25-target-store-20261119`, baza `6f55a14b`, minimalny zapis i odczyt ograniczony do celu. Wymagania: rzeczywisty RED/GREEN granicy zakresu, dowód zakresu odczytu/zapisu, zachowane tombstones, postępy, bookmarki, flagi, globalna kolejność oraz dane innych kanałów. Wynik pierwszego kanału nadal ma być trwale zatwierdzony przed pobieraniem następnego. Nie cofać tej ochrony do odroczonego batcha i nie dodawać globalnego cache ani przebudowy bazy.
 
+## Odbiór korekty DB i integracja po przeglądzie
+
+Niezależny delta-review `9611e851` względem `6f55a14b` zakończył się PRZYJĄĆ. Pełny raport w scratch: `hubert25-target-store-review-20261119.md`, delegacja `deleg_bd4eafc8`. Recenzent prześledził scoped SQL, wywołania Updatera i LiteHost, zachowanie danych, tombstones i rollback kolizji; nie ponawiał suite. Nie znalazł blockera. Rodzic odczytał cały raport oraz potwierdził zgodność blobów.
+
+Obie korekty odebrano na wspólnym `ec34b3b` w czterech celowanych trasach Windows i rzeczywistym buildzie LiteHost bez ostrzeżeń/błędów. Merge kanoniczny `adf6e51c6880a03335fc082e6881e0363273c824` zachował 12 plików bajtowo zgodnych z tym kandydatem. Werdykt BLOCKED dla historycznego, niepoprawionego `6f55a14b` nadal opisuje tamten artefakt; nie jest bieżącą blokadą skorygowanego P0. [Szczegóły odbioru i granice](HUBERT25-P0-20261119-akceptacja.md).
+
 ## Przyjęte dowody bez ponawiania pełnego odbioru
 
 - Trzy celowane RED/GREEN wykonawcy potwierdzono w raporcie i logu: Core `--podcast-library-update`, Windows `--youtube-collection-normalization`, Protocol `--podcast-progress`.

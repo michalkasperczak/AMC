@@ -73,10 +73,13 @@ na globalnej deserializacji, testy obu callerów i build rzeczywistego hosta.
 Rodzic przygotował osobno wspólny kandydat `ec34b3b` (trzy zmiany), uruchomił
 cztery celowane trasy Windows oraz build LiteHost Release: wszystkie exit 0,
 build bez błędów i ostrzeżeń. [Kwity i granice odbioru](HUBERT25-P0-20261119-akceptacja.md).
-**Jeszcze nie włączono produkcji do gałęzi kanonicznej:** trwa jeden niezależny
-przegląd wyłącznie delta-diff korekty DB, bez ponawiania pełnej suite.
-Etap harmonogramu i #26/#28 pozostają następne — ich wdrożenia nie rozpoczęto
-przed odebraniem danych/trwałości.
+**#25 P0 ODEBRANO i zintegrowano:** niezależny delta-review `9611e851`
+uzyskał PRZYJĄĆ bez blockera; rodzic przeczytał pełny raport i potwierdził
+niezmienność odebranych źródeł. Merge kanoniczny: `adf6e51c6880a03335fc082e6881e0363273c824`.
+Wszystkie 12 przeniesionych plików jest bajtowo zgodnych z przetestowanym
+`ec34b3b`. Nie publikowano ani nie instalowano.
+Następny etap to ograniczony catch-up i harmonogram #25; po nim #26/#28.
+Nie rozpoczynano tych wdrożeń przed odbiorem danych/trwałości.
 
 ## Przygotowawczy przegląd kolejnych etapów — bez zmiany kolejności
 

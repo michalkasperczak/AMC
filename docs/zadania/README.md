@@ -1,8 +1,12 @@
 # Rejestr zadań AMC
 
-**Zgłoszenia Huberta — 19.11.2026, realizacja zatwierdzona i rozpoczęta:**
-zaakceptowana kolejność: #25 (znikające filmy/fałszywe „nowe” i trwałość zapisu),
-#26 / PR #27 (rozdziały YouTube), #28 / PR #29 (wznowienie bez zerowania toru).
+**Zgłoszenia Huberta — 19.11.2026, #25 dane/trwałość odebrane w kodzie:**
+daty przed limitem, bezpieczne „nowe”, poprawny fallback bez RSS i wąski trwały
+zapis po kanale są zintegrowane w `adf6e51`. Cztery celowane trasy Windows,
+build LiteHost i niezależny przegląd zaliczone; brak instalacji/publikacji.
+Następny etap w realizacji: ograniczony catch-up i harmonogram #25,
+bez zmiany interwałów użytkownika i blokady nagrywania. Dalej #26 / PR #27
+(rozdziały YouTube), #28 / PR #29 (wznowienie bez zerowania toru).
 Oba PR są nadal OPEN, nie scalone i nie wydane; przed wdrożeniem wymagają
 weryfikacji Windows. Chrome zostaje. Kod CDP już ponawia tempo przy nowym
 starcie, ale GUI Spotify blokuje zmianę; potrzebny ograniczony eksperyment,

@@ -11,8 +11,12 @@ Kanoniczny rejestr to [README.md](README.md).
 
 **Uzupełnienie 19.11.2026, poza historycznymi licznikami spisu z 16.11:**
 [Zgłoszenia Huberta: #11, #25, #26, #28 — ocena i rekomendowana kolejność](HUBERT-20261119-triage-zgloszen.md).
-Analiza zakończona; Michał następnie zatwierdził realizację po kolei. Rozpoczęto
-#25 dane/trwałość w izolowanym worktree Codexa; PR #27/#29 nadal otwarte.
+Analiza zakończona; Michał następnie zatwierdził realizację po kolei.
+#25 dane/trwałość odebrano i zintegrowano w `adf6e51`: cztery celowane trasy
+Windows, build i niezależny przegląd zaliczone. Teraz ograniczony catch-up
+i harmonogram #25; potem #26/#28. Bez instalacji i publikacji.
+[Odbiór P0 i dokładne granice](HUBERT25-P0-20261119-akceptacja.md).
+PR #27/#29 nadal otwarte, niewłączone.
 
 Łącznie: 179 plików w 70 grupach: 173 zastanych i 6 jawnie oznaczonych rekonstrukcji.
 
