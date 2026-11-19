@@ -512,7 +512,12 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
             automaticRefreshBatchSize);
     }
 
-    public IReadOnlyList<PodcastRefreshTarget> GetDueRefreshTargets(DateTime utcNow)
+    public IReadOnlyList<PodcastRefreshTarget> GetDueRefreshTargets(DateTime utcNow) =>
+        GetDueRefreshPlan(utcNow, TimeSpan.Zero).Targets;
+
+    public PodcastAutomaticRefreshPlan GetDueRefreshPlan(
+        DateTime utcNow,
+        TimeSpan schedulingCadence)
     {
         var now = utcNow.Kind == DateTimeKind.Utc
             ? utcNow
@@ -540,7 +545,7 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
                 }
             }
             var refreshAttempts = ReadRefreshAttempts(connection);
-            return subscriptions
+            var refreshable = subscriptions
                 .Where(subscription =>
                     subscription.IsInLibrary
                     && IsRefreshable(subscription.SourceKind)
@@ -553,6 +558,8 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
                         subscription.LastRefreshUtcTicks,
                         refreshAttempts.GetValueOrDefault(subscription.Id))
                 })
+                .ToArray();
+            var due = refreshable
                 .Where(item =>
                     item.LastActivityUtcTicks <= 0
                     || item.LastActivityUtcTicks > now.Ticks
@@ -560,9 +567,28 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
                         >= TimeSpan.FromMinutes(
                             item.Subscription.RefreshIntervalMinutes).Ticks)
                 .OrderBy(item => item.LastActivityUtcTicks)
-                .Take(Math.Max(1, batchSize))
+                .ToArray();
+            var targetCount = Math.Max(1, batchSize);
+            if (schedulingCadence > TimeSpan.Zero && refreshable.Length > 0)
+            {
+                var desired = refreshable.Sum(item =>
+                    (decimal)schedulingCadence.TotalMinutes / item.Subscription.RefreshIntervalMinutes);
+                targetCount = Math.Clamp((int)Math.Ceiling(desired), 1, targetCount);
+            }
+            targetCount = Math.Min(targetCount, due.Length);
+            // Pierwsze nadrobienie ma przejść przez każde nigdy nieodświeżone
+            // źródło, zamiast ponownie wybierać szybki kanał, gdy na końcu
+            // zaległości została tylko mała reszta wolniejszych kanałów.
+            var selection = due.Any(item => item.LastActivityUtcTicks <= 0)
+                ? due.Where(item => item.LastActivityUtcTicks <= 0).Take(targetCount)
+                : due.Take(targetCount);
+            var targets = selection
                 .Select(item => ToRefreshTarget(item.Subscription))
                 .ToArray();
+            return new PodcastAutomaticRefreshPlan(
+                targets,
+                due.Length,
+                targets.Length);
         }
     }
 

@@ -25,6 +25,10 @@ public sealed class PodcastLibraryMutationStore(string databasePath)
     public IReadOnlyList<PodcastRefreshTarget> GetDueRefreshTargets(DateTime utcNow) =>
         _database.GetDueRefreshTargets(utcNow);
 
+    public PodcastAutomaticRefreshPlan GetDueRefreshPlan(
+        DateTime utcNow,
+        TimeSpan schedulingCadence) => _database.GetDueRefreshPlan(utcNow, schedulingCadence);
+
     public void MarkRefreshAttempt(string subscriptionId, DateTime utcNow) =>
         _database.MarkRefreshAttempt(subscriptionId, utcNow);
 
@@ -162,6 +166,11 @@ public sealed record PodcastRefreshTarget(
     string Title,
     string FeedUrl,
     PodcastSourceKind SourceKind);
+
+public sealed record PodcastAutomaticRefreshPlan(
+    IReadOnlyList<PodcastRefreshTarget> Targets,
+    int DueCount,
+    int TargetCount);
 
 public sealed record PodcastRefreshResult(
     string Title,

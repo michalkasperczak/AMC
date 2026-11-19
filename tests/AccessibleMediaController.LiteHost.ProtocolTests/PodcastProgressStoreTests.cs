@@ -408,12 +408,30 @@ internal static class PodcastProgressStoreTests
             Assert.True(configureRefused,
                 "dzialajace glowne AMC musi zablokowac zmiane ustawien podcastow");
             TestAutomaticRefreshVisitsEveryDueSource(root);
+            TestAdaptiveScheduleBoundsCatchUpAndAvoidsStarvation(root);
+            TestAutomaticRefreshDeadlineDefersRemainingSources(root);
             TestAutomaticRefreshPersistsCompletedSourceBeforeInterruption(root);
         }
         finally
         {
             Directory.Delete(root, recursive: true);
         }
+    }
+
+    private static void SetRefreshAttempt(string path, string subscriptionId, DateTime utcNow)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO podcast_refresh_attempts(subscription_id, last_attempt_utc_ticks)
+            VALUES($id, $ticks)
+            ON CONFLICT(subscription_id) DO UPDATE SET
+                last_attempt_utc_ticks = excluded.last_attempt_utc_ticks;
+            """;
+        command.Parameters.AddWithValue("$id", subscriptionId);
+        command.Parameters.AddWithValue("$ticks", utcNow.Ticks);
+        command.ExecuteNonQuery();
     }
 
     private static PodcastEpisodeSettings ReadEpisode(string path, string episodeId = "ep-1")
@@ -545,6 +563,123 @@ internal static class PodcastProgressStoreTests
             "po pelnym przebiegu zadne swiezo sprawdzone zrodlo nie powinno byc od razu nalezne");
     }
 
+    private static void TestAdaptiveScheduleBoundsCatchUpAndAvoidsStarvation(string root)
+    {
+        var database = Path.Combine(root, "adaptive-schedule", "podcasts.db");
+        Directory.CreateDirectory(Path.GetDirectoryName(database)!);
+        CreateDatabase(database);
+        var start = new DateTime(2026, 11, 19, 12, 0, 0, DateTimeKind.Utc);
+        using (var connection = new SqliteConnection($"Data Source={database};Pooling=False"))
+        {
+            connection.Open();
+            using (var clear = connection.CreateCommand())
+            {
+                clear.CommandText = "DELETE FROM podcast_episodes; DELETE FROM podcast_subscriptions;";
+                clear.ExecuteNonQuery();
+            }
+            for (var number = 1; number <= 122; number++)
+            {
+                var subscription = new PodcastSubscriptionSettings
+                {
+                    Id = $"schedule-{number:D3}",
+                    Title = $"Kanał {number}",
+                    FeedUrl = $"https://example.invalid/schedule-{number}.xml",
+                    IsInLibrary = true,
+                    SourceKind = PodcastSourceKind.Rss,
+                    RefreshIntervalMinutes = number <= 2 ? 10 : 60
+                };
+                using var insert = connection.CreateCommand();
+                insert.CommandText = """
+                    INSERT INTO podcast_subscriptions(
+                        id, ordinal, title, feed_url, is_in_library,
+                        last_refresh_utc_ticks, content_hash, payload_json)
+                    VALUES($id, $ordinal, $title, $feed, 1, 0, $hash, $payload);
+                    """;
+                insert.Parameters.AddWithValue("$id", subscription.Id);
+                insert.Parameters.AddWithValue("$ordinal", number - 1);
+                insert.Parameters.AddWithValue("$title", subscription.Title);
+                insert.Parameters.AddWithValue("$feed", subscription.FeedUrl);
+                insert.Parameters.AddWithValue("$hash", subscription.Id);
+                insert.Parameters.AddWithValue("$payload", JsonSerializer.Serialize(subscription));
+                insert.ExecuteNonQuery();
+            }
+        }
+        using var store = LitePodcastProgressStore.Open(database, () => false);
+        store.ConfigureGlobalSettings(null, 60, 60, 12);
+
+        var first = store.GetDueRefreshPlan(start, TimeSpan.FromMinutes(5));
+        Assert.True(first.DueCount == 122 && first.Targets.Count == 11,
+            "plan pięciominutowego taktu powinien dobrać 11 z 122 należnych źródeł według ich odstępów, pod limitem użytkownika");
+
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        for (var pass = 0; pass < 12; pass++)
+        {
+            var plan = store.GetDueRefreshPlan(start.AddMinutes(pass * 5), TimeSpan.FromMinutes(5));
+            foreach (var target in plan.Targets)
+            {
+                Assert.True(visited.Add(target.SubscriptionId),
+                    "nie można zagłodzić jeszcze nieobsłużonego źródła przez powrót do wcześniejszego");
+                SetRefreshAttempt(database, target.SubscriptionId, start.AddMinutes(pass * 5));
+            }
+        }
+        Assert.True(visited.Count == 122,
+            "ograniczone porcje muszą dojść do wszystkich 122 zaległych kanałów bez zmiany ich odstępów");
+    }
+
+    private static void TestAutomaticRefreshDeadlineDefersRemainingSources(string root)
+    {
+        var database = Path.Combine(root, "automatic-refresh-deadline", "podcasts.db");
+        Directory.CreateDirectory(Path.GetDirectoryName(database)!);
+        CreateDatabase(database);
+        using var store = LitePodcastProgressStore.Open(database, () => false);
+        store.AddSource(new PodcastFeedDocument(
+            "sub-2", "Drugie źródło", "Autor", string.Empty,
+            new Uri("https://example.invalid/second.xml"), null, []),
+            null, PodcastSourceKind.Rss);
+        var second = ReadSubscription(database, "sub-2");
+        second.LastRefreshUtcTicks = 0;
+        using (var connection = new SqliteConnection($"Data Source={database};Pooling=False"))
+        {
+            connection.Open();
+            using var resetDue = connection.CreateCommand();
+            resetDue.CommandText = """
+                UPDATE podcast_subscriptions
+                SET last_refresh_utc_ticks = 0, payload_json = $payload
+                WHERE id = 'sub-2';
+                """;
+            resetDue.Parameters.AddWithValue("$payload", JsonSerializer.Serialize(second));
+            resetDue.ExecuteNonQuery();
+        }
+        store.ConfigureGlobalSettings(null, 60, 60, 2);
+        var cancelled = false;
+        using var coordinator = new LitePodcastRefreshCoordinator(
+            store,
+            null,
+            async (_, cancellationToken) =>
+            {
+                try
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    cancelled = true;
+                    throw;
+                }
+                throw new InvalidOperationException("nieosiągalne");
+            },
+            automaticTimeBudget: TimeSpan.FromMilliseconds(25));
+
+        var payload = JsonSerializer.Serialize(
+            coordinator.RefreshAutomatic(TimeSpan.FromMinutes(5)));
+        Assert.True(cancelled
+            && payload.Contains("\"requested\":1", StringComparison.Ordinal)
+            && payload.Contains("\"dueSources\":2", StringComparison.Ordinal)
+            && payload.Contains("\"deferredDueSources\":1", StringComparison.Ordinal)
+            && payload.Contains("\"budgetExpired\":true", StringComparison.Ordinal),
+            "deadline musi anulować rzeczywiste pobieranie tokenem i pozostawić następne źródło jawnie należne");
+    }
+
     private static void TestAutomaticRefreshPersistsCompletedSourceBeforeInterruption(string root)
     {
         var database = Path.Combine(root, "automatic-refresh-persistence", "podcasts.db");
@@ -610,7 +745,7 @@ internal static class PodcastProgressStoreTests
             using var coordinator = new LitePodcastRefreshCoordinator(
                 store,
                 null,
-                target => target.SubscriptionId == "sub-1"
+                (target, _) => target.SubscriptionId == "sub-1"
                     ? Task.FromResult(completedFirstFeed)
                     : throw new InvalidOperationException("symulowane nagłe zamknięcie po pierwszym sukcesie"));
             var interrupted = false;

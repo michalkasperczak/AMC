@@ -538,8 +538,8 @@ internal sealed class LiteEngineHandlers : IDisposable
                 ConfigureLocalResume(request.Args),
             [LitePodcastRefreshCoordinator.Operation] = (request, _) =>
                 RefreshPodcasts(request.Args),
-            [LitePodcastRefreshCoordinator.AutomaticOperation] = (_, _) =>
-                RefreshPodcastsAutomatically(),
+            [LitePodcastRefreshCoordinator.AutomaticOperation] = (request, _) =>
+                RefreshPodcastsAutomatically(request.Args),
             ["podcast.settingsGet"] = (_, _) => PodcastGlobalSettings(),
             ["podcast.settingsSet"] = (request, _) =>
                 ConfigurePodcastGlobalSettings(request.Args),
@@ -3580,14 +3580,15 @@ internal sealed class LiteEngineHandlers : IDisposable
         return _podcastRefresh.Refresh(args);
     }
 
-    private object RefreshPodcastsAutomatically()
+    private object RefreshPodcastsAutomatically(JsonElement args)
     {
         if (_podcastRefresh is null)
         {
             throw new LiteRequestException(
                 "Host nie dostał bazy Podcastów i YouTube. Automatyczne odświeżanie jest niedostępne.");
         }
-        return _podcastRefresh.RefreshAutomatic();
+        var cadenceSeconds = LiteArgs.ReadInt(args, "cadenceSeconds", 60, 1, 86_400);
+        return _podcastRefresh.RefreshAutomatic(TimeSpan.FromSeconds(cadenceSeconds));
     }
 
     private object PodcastGlobalSettings() =>

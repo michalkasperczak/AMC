@@ -129,6 +129,23 @@ internal sealed class LitePodcastProgressStore : IDisposable
         }
     }
 
+    public PodcastAutomaticRefreshPlan GetDueRefreshPlan(
+        DateTime utcNow,
+        TimeSpan schedulingCadence)
+    {
+        EnsureFullAmcIsClosed(
+            "Zamknij najpierw główne AMC. Równoczesne odświeżanie z dwóch wersji mogłoby utracić dane.");
+        try
+        {
+            return _store.GetDueRefreshPlan(utcNow, schedulingCadence);
+        }
+        catch (Exception exception) when (IsDatabaseFailure(exception))
+        {
+            Console.Error.WriteLine("[lite-host] plan automatycznego odświeżenia: " + exception);
+            throw new LiteRequestException("Baza Podcastów jest chwilowo niedostępna.");
+        }
+    }
+
     public IReadOnlyList<PodcastRefreshTarget> GetDueRefreshTargets()
     {
         EnsureFullAmcIsClosed(
