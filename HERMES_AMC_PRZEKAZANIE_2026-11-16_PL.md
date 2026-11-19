@@ -122,13 +122,16 @@ gałęzi lub instalacji nie opisują automatycznie stanu z 16 listopada.
   listy i NVDA. `ApplyRefreshBatch` nadal wczytuje i zapisuje dużą bazę
   odcinków przy małej porcji; nie przedstawiaj modułu jako w pełni
   zoptymalizowanego. Szczegóły i pomiary: `POD-PERF-20261114`.
-- **Spotify:** obecny tor odtwarzania to Web Playback SDK w ukrytym Chrome,
-  nie LibreSpot. Client ID służy do konta, katalogu i odtwarzania. W
-  dokumentach jest także badanie Soloist jako przyszłego kierunku; nie
-  przypisuj mu obecnego dźwięku AMC. Kwestie kolejki, mowy NVDA i jakości
-  sprawdzaj w `SPOTIFY-CHROME-20261031.md`, `SPOTIFY-PUBLIC-20261108-client-id.md`
-  oraz odpowiednich nowszych zadaniach. Nie deklaruj lossless w bieżącym
-  torze Chrome.
+- **Spotify (sprostowanie 19.11.2026):** Soloist jest już wydanym, natywnym
+  torem preferowanym, wybieranym po poprawnej konfiguracji i potwierdzonej
+  sesji. Nie działa wewnątrz Chrome. Web Playback SDK w osobnym ukrytym
+  systemowym Chrome pozostaje fallbackiem, gdy Soloist nie jest gotowy.
+  Katalog i przeglądarka logowania OAuth są odrębne od obu silników audio.
+  Aktualne źródła i nowsze zadania Soloist zastępują wcześniejszy opis
+  Soloist jako wyłącznie przyszłego kierunku. Nie deklaruj Lossless dla
+  Chrome ani faktycznego kodeka na podstawie samych preferencji Soloist.
+  Ocena ewentualnego usunięcia fallbacku, konsekwencje i testy:
+  `docs/zadania/SPOTIFY-LUNA-20261119-ocena-i-fallback-chrome.md`.
 - **TIDAL:** katalog, historia, relacje, playlisty i natywne odtwarzanie
   mają osobne kontrakty. Pełny utwór i próbka nie mogą być mylone; poziom
   dostępu aplikacji wpływa na wynik. Stan i ograniczenia: `TID-001` oraz
@@ -201,7 +204,7 @@ Pełny spis 173 zastanych plików i sześciu rekonstrukcji jest w katalogu zada�
 | Apple Music | Alpha.509/510 zawiera hierarchię i katalog; sprawdzić żywą nawigację i odtwarzanie wybranego utworu bez przejmowania pulpitu. | `AM-007`, `AM-002` |
 | Podcasty | Alpha.507 opublikowana; zmierzyć po wejściu Ctrl+3 listę, NVDA, zapis porcji bazy i wpływ taktu `0`. | `POD-PERF-20261114` |
 | Kolejki | Kod i wydanie są, ręczny odbiór usuwania, przenoszenia i czasu nadal otwarty. | `QUEUE-002` |
-| Spotify | Tor Chrome jest bieżący; w zgłoszeniach weryfikować kolejkę, odczyt statusu, pomoc i profile. | `SPOTIFY-CHROME-20261031`, `A11Y-20261110-powiazania-status-spotify` |
+| Spotify | Soloist jest preferowany po potwierdzeniu gotowości; Chrome pozostaje fallbackiem. Analiza usunięcia zakończona bez zmian kodu; Hubert korzysta z Chrome w AMC, więc zachowujemy ten tor. Tempo podcastów ma kod CDP, lecz blokadę GUI i wymaga osobnego eksperymentu; analiza zgłoszeń zakończona bez wdrożenia AMC. | `SPOTIFY-LUNA-20261119-ocena-i-fallback-chrome`, `A11Y-20261110-powiazania-status-spotify` |
 | Radio Browser | Źródła i testy modelu gotowe, brak instalacji i odbioru NVDA; TuneIn odłożony. | `RADIOBROWSER-001` |
 | TIDAL i historia | Celowane poprawki bitrate, relacji, członkostwa i linków zapisane; odbiór w instalacji sprawdzać osobno. | `RECOG-HIST-20261111`, `HIST-REL-20261109` |
 | Dodatek NVDA | Jeden dodatek dla Test/Public i komunikaty NVDA+End wymagają zgodności z uruchomioną wersją oraz żywego odsłuchu. | `NVDA-DUAL-20261110`, `A11Y-20261110` |

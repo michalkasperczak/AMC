@@ -9,6 +9,10 @@ Bieżące priorytety i stan wydania są w
 [pełnym przekazaniu](../../HERMES_AMC_PRZEKAZANIE_2026-11-16_PL.md).
 Kanoniczny rejestr to [README.md](README.md).
 
+**Uzupełnienie 19.11.2026, poza historycznymi licznikami spisu z 16.11:**
+[Zgłoszenia Huberta: #11, #25, #26, #28 — ocena i rekomendowana kolejność](HUBERT-20261119-triage-zgloszen.md).
+Analiza zakończona, bez wdrożenia produktu; PR #27/#29 nadal otwarte.
+
 Łącznie: 179 plików w 70 grupach: 173 zastanych i 6 jawnie oznaczonych rekonstrukcji.
 
 ## Spis grup

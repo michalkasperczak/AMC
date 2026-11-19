@@ -1,5 +1,27 @@
 # Rejestr zadań AMC
 
+**Zgłoszenia Huberta — 19.11.2026, analiza zakończona, bez wdrożenia AMC:**
+rekomendowana kolejność: #25 (znikające filmy/fałszywe „nowe” i trwałość zapisu),
+#26 / PR #27 (rozdziały YouTube), #28 / PR #29 (wznowienie bez zerowania toru).
+Oba PR są nadal OPEN, nie scalone i nie wydane; przed wdrożeniem wymagają
+weryfikacji Windows. Chrome zostaje. Kod CDP już ponawia tempo przy nowym
+starcie, ale GUI Spotify blokuje zmianę; potrzebny ograniczony eksperyment,
+nie obietnica gotowej funkcji. Nagrywanie nadal ma pierwszeństwo; RSS-first,
+cache zakresowy i mDNS pozostają osobnymi tematami. 46 testów Python PASS
+(nie dowodzą CDP/audio/NVDA). Skrzynka profilu AMC poprawiona osobno do 0.2.1;
+31 testów PASS i rzeczywista wysyłka/odczyt Telegram potwierdzone.
+[Pełne rozstrzygnięcie, dowody i granice](HUBERT-20261119-triage-zgloszen.md).
+
+**Spotify / Luna / fallback Chrome — 19.11.2026, analiza zakończona:**
+Soloist jest już preferowanym osobnym silnikiem; Chrome pozostaje alternatywą.
+Rekomendacja: nie usuwać teraz fallbacku, ponieważ pokrywa brak gotowego Soloist
+oraz ma osobną obsługę nazwanych wyjść audio. Przygotować jawny kontrakt silnika
+błędów i ograniczeń dopiero po decyzji użytkowej; niczego nie wdrożono.
+24 testy Soloist/katalogu i 22 nawigacji zaliczone offline, bez audio i NVDA.
+Hubert odpowiedział: używa Chrome w AMC; najważniejsze dla niego są tempo
+podcastów i dostępne parowanie Soloist. Chrome zachowujemy; ocena zgłoszeń zakończona.
+[Pełna ocena i warunki ewentualnego Soloist-only](SPOTIFY-LUNA-20261119-ocena-i-fallback-chrome.md).
+
 **Porządek zgłoszeń GitHub — 19.11.2026, wykonano:** zamknięto #12 (test
 Sygnalisty), #16 (trwałość kolejki), #18 (dzień tygodnia Radio Archiwisty)
 i #20 (pomijanie archiwów transmisji przy polskiej lokalizacji). Każdy wpis
