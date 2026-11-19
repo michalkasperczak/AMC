@@ -76,9 +76,27 @@ NVDA-END-20261119. Trwałe doprecyzowanie użytkownika: Hyperspace 1795045295.
 
 ## Testy i wynik
 
-Na zapis tego planu nie ma ukończonych kandydatów trzech nowych poprawek,
-nowego source SHA, wyników odbioru ani zbudowanych/publikowanych artefaktów.
-Nie oznaczać planu jako zakończonego na podstawie wcześniejszych testów.
+Odebrano dwa lokalne kandydaty, bez integracji i bez nowego wydania:
+
+- Skrzynka/oznaczanie: `547b904a8d2113766e11cfbf45396a00c9827951`.
+  Wykonawca zgłasza 82 celowane testy zaliczone; nie jest to pełny odbiór
+  wszystkich usług i widoków. Podany `exit 4` próby TIDAL był błędem
+  przygotowania testu, nie funkcjonalnym RED. Frontier/Apple pozostały bez
+  potwierdzonego mapowania; nie zastępować go zgadywaniem. Rodzic odczytał
+  diff i przekazał niezmienny commit do niezależnego review; weryfikowane są
+  produkcyjne loadery, kolejki/playlisty, ustawienia tekst/sygnał i cache.
+- NVDA+End: kod `fb6ee2e`, dokumentacja i HEAD
+  `a51b69ed53b449f1a574f079f4be35110c5fe718`. Rodzic odczytał diff:
+  wspólny formatter jest wywoływany przez generalny status, Spotify i TIDAL.
+  Wykonawca zgłasza rzeczywisty RED TIDAL, kompilację testów protokołu bez
+  błędów i ostrzeżeń oraz trzy zaliczone zestawy. Test helpera z etykietą
+  Spotify nie jest testem całego koordynatora Spotify. Pełny LiteHost offline
+  blokują brakujące Windows reference packs; nie pobierano ich. Niezależny
+  przegląd tego niezmiennego kandydata trwa, bez lokalnego buildu Windows.
+
+Nie ma jeszcze zintegrowanego i zamrożonego wspólnego source SHA, nowej
+budowy, instalacji ani odbioru żywym NVDA. Nie oznaczać planu jako
+zakończonego na podstawie testów headless lub raportów wykonawców.
 
 ## Rekonesans drogi wydania — 19.11.2026
 
@@ -104,9 +122,10 @@ Publisher będzie miał nowe ID/hashe dopiero po rzeczywistej nowej budowie.
 
 ## Znane ograniczenia i następny krok
 
-Następny krok: odebrać kandydatów wraz z RED/GREEN, sprawdzić ich zgodność
-z powyższym rozszerzonym zakresem i przekazać niezmienne commity do review.
-Równolegle tylko odczytowy rekonesans nowej bezpiecznej drogi wydania.
+Następny krok: zakończyć niezależne przeglądy obu niezmiennych kandydatów,
+usunąć potwierdzone luki bez zawężania uzgodnionego zakresu, następnie
+zintegrować odebrane źródła. Przygotowanie chronionej drogi wydania nie
+upoważnia jeszcze do pushu uruchamiającego budowę ani publikacji.
 
 ## Uzasadnienie i decyzje
 
