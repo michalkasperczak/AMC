@@ -46,6 +46,24 @@ internal static class PodcastChapterCoordinatorTests
                         "Odcinek ze stroną",
                         "Opis bez znaczników czasu",
                         new Uri("https://example.invalid/ep-page"),
+                        null),
+                    Episode(
+                        "ep-youtube",
+                        "Film z rozdziałami",
+                        "",
+                        new Uri("https://www.youtube.com/watch?v=fixture0001"),
+                        null),
+                    Episode(
+                        "ep-youtube-empty",
+                        "Film bez rozdziałów",
+                        "",
+                        new Uri("https://www.youtube.com/watch?v=fixtureempty"),
+                        null),
+                    Episode(
+                        "ep-youtube-retry",
+                        "Film po awarii",
+                        "",
+                        new Uri("https://www.youtube.com/watch?v=fixtureretry"),
                         null)
                 ]);
             podcasts.AddSource(feed, null, PodcastSourceKind.Rss);
@@ -53,6 +71,7 @@ internal static class PodcastChapterCoordinatorTests
             var bookmarks = new LiteBookmarkStore(bookmarkDatabase, () => false);
             var providerCalls = 0;
             var pageCalls = 0;
+            var youTubeCalls = new Dictionary<string, int>(StringComparer.Ordinal);
             using var coordinator = new LitePodcastChapterCoordinator(
                 podcasts,
                 bookmarks,
@@ -72,6 +91,11 @@ internal static class PodcastChapterCoordinatorTests
                 (address, _, _) =>
                 {
                     pageCalls++;
+                    if (address.Host.EndsWith("youtube.com", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Zwykły parser strony celowo nie czyta skryptów watch YouTube.
+                        return Task.FromResult<IReadOnlyList<ProviderChapterPoint>>([]);
+                    }
                     Assert.Equal(
                         "https://example.invalid/ep-page",
                         address.AbsoluteUri,
@@ -81,8 +105,39 @@ internal static class PodcastChapterCoordinatorTests
                         new("page-1", "Otwarcie", TimeSpan.Zero),
                         new("page-2", "Podsumowanie", TimeSpan.FromMinutes(8))
                     ]);
+                },
+                (address, _, _) =>
+                {
+                    Assert.True(address.Host.EndsWith("youtube.com", StringComparison.OrdinalIgnoreCase),
+                        "testowy odczyt yt-dlp dostaje wyłącznie adres YouTube");
+                    youTubeCalls.TryGetValue(address.AbsoluteUri, out var calls);
+                    youTubeCalls[address.AbsoluteUri] = calls + 1;
+                    if (address.AbsoluteUri.EndsWith("fixtureretry", StringComparison.Ordinal))
+                    {
+                        return calls switch
+                        {
+                            0 => Task.FromException<IReadOnlyList<ProviderChapterPoint>>(
+                                new InvalidDataException("fixture: missing tool")),
+                            1 => Task.FromException<IReadOnlyList<ProviderChapterPoint>>(
+                                new InvalidDataException("fixture: malformed JSON")),
+                            2 => Task.FromException<IReadOnlyList<ProviderChapterPoint>>(
+                                new OperationCanceledException("fixture: cancellation")),
+                            3 => Task.FromException<IReadOnlyList<ProviderChapterPoint>>(
+                                new TimeoutException("fixture: timeout")),
+                            4 => Task.FromException<IReadOnlyList<ProviderChapterPoint>>(
+                                new InvalidDataException("fixture: bounded output overflow")),
+                            _ => Task.FromResult<IReadOnlyList<ProviderChapterPoint>>(
+                                [new("youtube:1:0:Po awarii", "Po awarii", TimeSpan.Zero)])
+                        };
+                    }
+                    if (address.AbsoluteUri.EndsWith("fixtureempty", StringComparison.Ordinal))
+                        return Task.FromResult<IReadOnlyList<ProviderChapterPoint>>([]);
+                    return Task.FromResult<IReadOnlyList<ProviderChapterPoint>>(
+                    [
+                        new("youtube:1:0:Wstęp", "Wstęp", TimeSpan.Zero),
+                        new("youtube:2:62:Temat", "Temat", TimeSpan.FromSeconds(62))
+                    ]);
                 });
-
             var json = coordinator.Prepare(Item("ep-json", "Odcinek JSON"), TimeSpan.FromMinutes(20));
             Assert.True(json.ChapterCount == 2 && json.ImportedCount == 2,
                 "jawne polecenie importuje rozdziały Podcasting 2.0 przed nawigacją");
@@ -111,6 +166,31 @@ internal static class PodcastChapterCoordinatorTests
                 TimeSpan.FromMinutes(20));
             Assert.True(page.ChapterCount == 2 && pageCalls == 1,
                 "gdy JSON i opis nie wystarczają, host używa strony bieżącego odcinka");
+
+            var youtube = coordinator.Prepare(
+                Item("ep-youtube", "Film z rozdziałami"),
+                TimeSpan.FromMinutes(20));
+            Assert.True(youtube.ChapterCount == 2 && pageCalls == 1,
+                "film YouTube bez opisu importuje rozdziały twórcy, a nie pustą stronę watch");
+
+            var noChapters = coordinator.Prepare(
+                Item("ep-youtube-empty", "Film bez rozdziałów"), TimeSpan.FromMinutes(20));
+            coordinator.Prepare(Item("ep-youtube-empty", "Film bez rozdziałów"), TimeSpan.FromMinutes(20));
+            Assert.True(noChapters.ChapterCount == 0
+                && youTubeCalls["https://www.youtube.com/watch?v=fixtureempty"] == 1,
+                "prawidłowy pusty wynik YouTube jest cache'owany dla bieżącej sesji");
+
+            var failed = coordinator.Prepare(
+                Item("ep-youtube-retry", "Film po awarii"), TimeSpan.FromMinutes(20));
+            coordinator.Prepare(Item("ep-youtube-retry", "Film po awarii"), TimeSpan.FromMinutes(20));
+            coordinator.Prepare(Item("ep-youtube-retry", "Film po awarii"), TimeSpan.FromMinutes(20));
+            coordinator.Prepare(Item("ep-youtube-retry", "Film po awarii"), TimeSpan.FromMinutes(20));
+            coordinator.Prepare(Item("ep-youtube-retry", "Film po awarii"), TimeSpan.FromMinutes(20));
+            var retried = coordinator.Prepare(
+                Item("ep-youtube-retry", "Film po awarii"), TimeSpan.FromMinutes(20));
+            Assert.True(failed.ChapterCount == 0 && retried.ChapterCount == 1
+                && youTubeCalls["https://www.youtube.com/watch?v=fixtureretry"] == 6,
+                "brak narzędzia, błąd procesu/JSON, anulowanie, timeout i nadmiar wyjścia nie są cache'owane; następne chapter.prepare próbuje ponownie");
         }
         finally
         {

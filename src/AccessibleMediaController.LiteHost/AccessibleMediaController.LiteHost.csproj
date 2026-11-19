@@ -73,6 +73,8 @@
              Link="Engine\ComponentUpdateProcessGate.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\ExternalToolProcess.cs"
              Link="Engine\ExternalToolProcess.cs" />
+    <Compile Include="..\AccessibleMediaController.Windows\Services\BoundedExternalToolProcess.cs"
+             Link="Engine\BoundedExternalToolProcess.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\YouTubeSourceResolver.cs"
              Link="Engine\YouTubeSourceResolver.cs" />
     <Compile Include="..\AccessibleMediaController.Windows\Services\PublicSocialVideoResolver.cs"

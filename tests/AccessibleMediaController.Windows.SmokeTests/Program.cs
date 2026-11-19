@@ -24,6 +24,9 @@ using NAudio.Wave;
 using NLayer.NAudioSupport;
 using SoundTouch.Net.NAudioSupport;
 
+if (Environment.GetEnvironmentVariable("AMC_YOUTUBE_CHAPTER_FIXTURE_MODE") is not null)
+    return YouTubeChapterProcessTests.RunFixture();
+
 return SmokeTestRunner.Run(() => RunTests(args));
 
 static int RunTests(string[] args)
@@ -66,6 +69,11 @@ if (args.Length == 1 && args[0].StartsWith("--smoke-runner-failure=", StringComp
 if (args.Contains("--youtube-format-variants-only", StringComparer.Ordinal))
 {
     YouTubeFormatVariantTests.Run();
+    return 0;
+}
+if (args.Contains("--youtube-chapters-only", StringComparer.Ordinal))
+{
+    YouTubeChapterProcessTests.Run();
     return 0;
 }
 if (args.Contains("--youtube-source-resolver-only", StringComparer.Ordinal))

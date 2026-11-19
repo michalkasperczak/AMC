@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using AccessibleMediaController.Core.Configuration;
+using AccessibleMediaController.Core.Podcasts;
 
 namespace AccessibleMediaController.Windows.Services;
 
@@ -185,6 +187,72 @@ internal static class YouTubeSourceResolver
         {
             process?.Dispose();
         }
+    }
+
+    internal static async Task<IReadOnlyList<ProviderChapterPoint>> ReadChaptersAsync(
+        Uri pageUrl,
+        TimeSpan duration,
+        CancellationToken cancellationToken,
+        string? executableOverride = null)
+    {
+        ArgumentNullException.ThrowIfNull(pageUrl);
+        if (!IsYouTubeUrl(pageUrl.AbsoluteUri)) return [];
+        var executable = executableOverride ?? FindExecutable();
+        if (string.IsNullOrWhiteSpace(executable) || !File.Exists(executable))
+            throw new InvalidDataException("Odczyt rozdziałów YouTube wymaga składnika yt-dlp.");
+
+        var start = ExternalToolProcess.Create(executable);
+        foreach (var argument in new[]
+        {
+            "--ignore-config",
+            "--no-playlist",
+            "--flat-playlist",
+            "--playlist-items", "1",
+            "--no-warnings",
+            "--skip-download",
+            "--ignore-no-formats-error",
+            "--force-ipv4",
+            "--socket-timeout", "20",
+            "--retries", "2",
+            "--extractor-retries", "2",
+            "--extractor-args", "youtube:player_client=default,android",
+            "--print", "%(chapters)j",
+            "--",
+            pageUrl.AbsoluteUri
+        })
+        {
+            start.ArgumentList.Add(argument);
+        }
+
+        BoundedExternalToolProcess.Result result;
+        try
+        {
+            result = await BoundedExternalToolProcess.RunAsync(
+                    start,
+                    TimeSpan.FromSeconds(30),
+                    YouTubeChapterParser.MaximumOutputCharacters,
+                    64 * 1024,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (System.ComponentModel.Win32Exception exception)
+        {
+            throw new InvalidDataException("Nie udało się uruchomić składnika yt-dlp.", exception);
+        }
+
+        if (result.ExitCode != 0)
+        {
+            throw new InvalidDataException(DescribeChapterFailure(result.StandardError));
+        }
+        return YouTubeChapterParser.Parse(result.StandardOutput, duration);
+    }
+
+    private static string DescribeChapterFailure(string standardError)
+    {
+        var description = YouTubeErrorTranslator.Describe(standardError);
+        return description.Contains("Powód:", StringComparison.Ordinal)
+            ? "Nie udało się odczytać rozdziałów YouTube. Spróbuj ponownie później."
+            : description;
     }
 
     internal static async Task<string?> TryResolveChannelLiveUrlAsync(

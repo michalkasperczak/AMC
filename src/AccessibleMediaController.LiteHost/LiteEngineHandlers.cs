@@ -207,7 +207,11 @@ internal sealed class LiteEngineHandlers : IDisposable
             : new LitePodcastOpmlCoordinator(podcastProgressStore, bookmarkStore);
         _podcastChapters = podcastProgressStore is null || bookmarkStore is null
             ? null
-            : new LitePodcastChapterCoordinator(podcastProgressStore, bookmarkStore);
+            : new LitePodcastChapterCoordinator(
+                podcastProgressStore,
+                bookmarkStore,
+                (url, duration, cancellationToken) =>
+                    YouTubeSourceResolver.ReadChaptersAsync(url, duration, cancellationToken));
         _queue = new LiteQueueCoordinator(_files, queueStore, queueStartupError);
         _recognition = new LiteRadioRecognitionCoordinator(
             _radio,

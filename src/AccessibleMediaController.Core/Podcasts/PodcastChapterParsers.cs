@@ -87,6 +87,77 @@ public static partial class PodcastJsonChapterParser
     }
 }
 
+/// <summary>
+/// Reads the JSON array printed by yt-dlp for <c>%(chapters)j</c>. A literal
+/// <c>NA</c> is a valid answer: the video has no creator-supplied chapters.
+/// </summary>
+public static class YouTubeChapterParser
+{
+    public const int MaximumOutputCharacters = 1 * 1024 * 1024;
+
+    public static IReadOnlyList<ProviderChapterPoint> Parse(string output, TimeSpan duration)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        var text = output.Trim();
+        if (text.Length == 0 || text.Equals("NA", StringComparison.OrdinalIgnoreCase)) return [];
+        if (text.Length > MaximumOutputCharacters)
+            throw new InvalidDataException("Lista rozdziałów YouTube jest zbyt duża.");
+
+        using var document = JsonDocument.Parse(text, new JsonDocumentOptions
+        {
+            AllowTrailingCommas = false,
+            CommentHandling = JsonCommentHandling.Disallow,
+            MaxDepth = 16
+        });
+        if (document.RootElement.ValueKind != JsonValueKind.Array)
+            throw new InvalidDataException("YouTube zwrócił nieprawidłową listę rozdziałów.");
+
+        var result = new List<ProviderChapterPoint>();
+        var number = 0;
+        foreach (var chapter in document.RootElement.EnumerateArray())
+        {
+            if (result.Count >= ChapterIndex.MaximumProviderChaptersPerItem) break;
+            number++;
+            if (chapter.ValueKind != JsonValueKind.Object
+                || !chapter.TryGetProperty("start_time", out var startElement)
+                || startElement.ValueKind != JsonValueKind.Number
+                || !startElement.TryGetDouble(out var seconds)
+                || !double.IsFinite(seconds)
+                || seconds < 0
+                || seconds > TimeSpan.MaxValue.TotalSeconds)
+            {
+                continue;
+            }
+            var start = TimeSpan.FromSeconds(seconds);
+            if (duration > TimeSpan.Zero && start >= duration) continue;
+            var title = chapter.TryGetProperty("title", out var titleElement)
+                && titleElement.ValueKind == JsonValueKind.String
+                ? PodcastJsonChapterParser.NormalizeTitle(ReadTitle(titleElement))
+                : string.Empty;
+            if (title.Length == 0) title = $"Rozdział {number}";
+            result.Add(new ProviderChapterPoint(
+                $"youtube:{number}:{seconds.ToString("R", CultureInfo.InvariantCulture)}:{title}",
+                title,
+                start));
+        }
+        return PodcastJsonChapterParser.Normalize(result);
+    }
+
+    private static string ReadTitle(JsonElement element)
+    {
+        try
+        {
+            return element.GetString() ?? string.Empty;
+        }
+        catch (InvalidOperationException)
+        {
+            // JsonDocument accepts escaped unpaired UTF-16 surrogates. One bad
+            // title must not discard otherwise valid creator chapters.
+            return string.Empty;
+        }
+    }
+}
+
 public static partial class PodcastDescriptionChapterParser
 {
     public static IReadOnlyList<ProviderChapterPoint> Parse(string description, TimeSpan duration)
