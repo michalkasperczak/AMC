@@ -116,9 +116,32 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
 
     private sealed class PlaybackPipeline
     {
+        private readonly object _outputGate = new();
+        private AudioOutputDeviceLease _outputLease = null!;
+
         public required MediaItem Item { get; init; }
-        public required AudioOutputDeviceLease OutputLease { get; init; }
-        public WasapiOut Output => OutputLease.Output;
+        public required AudioOutputDeviceLease OutputLease
+        {
+            get
+            {
+                lock (_outputGate) return _outputLease;
+            }
+            init => _outputLease = value;
+        }
+        public IWavePlayer Output => OutputLease.Output;
+        public int OutputReplacementInProgress;
+        public object OutputSwapGate { get; } = new();
+
+        /// <summary>Podmienia samo wyjście; dekoder i silnik tempa zostają.</summary>
+        public AudioOutputDeviceLease ReplaceOutputLease(AudioOutputDeviceLease replacement)
+        {
+            lock (_outputGate)
+            {
+                var previous = _outputLease;
+                _outputLease = replacement;
+                return previous;
+            }
+        }
         public required GuardedWaveStream DecoderGuard { get; init; }
         public required DecoderReadMonitorSampleProvider OutputReadMonitor { get; init; }
         public required PlaybackTempoStream TempoStream { get; init; }
@@ -186,6 +209,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
     private long _seekRequestVersion;
     private bool _preparing;
     private bool _pauseRequested;
+    private bool _pauseAfterOutputDeviceFallback;
     private bool _disposed;
 
     public event EventHandler<MediaDurationAvailableEventArgs>? DurationAvailable;
@@ -193,6 +217,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
     public event EventHandler<MediaPlaybackEndedEventArgs>? PlaybackEnded;
     public event EventHandler<MediaPlaybackPreparingEventArgs>? PlaybackPreparing;
     public event EventHandler<MediaPlaybackStartedEventArgs>? PlaybackStarted;
+    public event EventHandler<AudioOutputFallbackEventArgs>? OutputDeviceFallback;
 
     public string? LoadedItemId
     {
@@ -207,6 +232,49 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         get
         {
             lock (_gate) return _preparing;
+        }
+    }
+
+    /// <summary>
+    /// Przenosi otwarte wyjście na urządzenie z ustawień (np. nowe domyślne w
+    /// Windows) bez ponownego otwierania materiału: dekoder, bufor i silnik
+    /// tempa zostają, więc film z sieci nie jest rozwiązywany od nowa.
+    /// Zwraca fałsz tylko wtedy, gdy nowego wyjścia nie dało się otworzyć
+    /// (stare gra wtedy dalej); brak otwartego toru nie jest błędem, bo
+    /// następne otwarcie i tak użyje właściwego urządzenia.
+    /// </summary>
+    public bool MoveOutputToConfiguredDevice()
+    {
+        PlaybackPipeline? pipeline;
+        string? outputDeviceId;
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            pipeline = _pipeline;
+            outputDeviceId = _outputDeviceId;
+        }
+        if (pipeline is null) return true;
+        if (!ReplacePlaybackOutput(pipeline, outputDeviceId, failedLease: null)) return false;
+        // Świadome przeniesienie to nowy stan: szybkie ponowne odłączenie tego
+        // samego materiału ma znów przejść odzyskiwanie, a nie skończyć błędem.
+        lock (_gate) _lastOutputDeviceRecoveryUtc = default;
+        return true;
+    }
+
+    /// <summary>
+    /// Urządzenie domyślne, na którym gra otwarte wyjście, albo null, gdy
+    /// wyjścia nie ma, ma wskazane urządzenie lub urządzenia nie dało się ustalić.
+    /// </summary>
+    public string? DefaultOutputEndpointInUse
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _pipeline?.OutputLease is { UsesDefaultDevice: true } lease
+                    ? lease.EndpointId
+                    : null;
+            }
         }
     }
 
@@ -267,6 +335,19 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             _outputDeviceId = string.IsNullOrWhiteSpace(deviceId)
                 ? null
                 : deviceId.Trim();
+        }
+    }
+
+    /// <summary>
+    /// Keeps a fallback output silent after a selected endpoint disappears,
+    /// until the user explicitly resumes. The remembered device id is retained.
+    /// </summary>
+    public void ConfigureOutputFallbackBehavior(bool pauseAfterFallback)
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _pauseAfterOutputDeviceFallback = pauseAfterFallback;
         }
     }
 
@@ -727,9 +808,9 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             string? outputDeviceId;
             lock (_gate) outputDeviceId = _outputDeviceId;
             PlaybackPipeline? pipeline = null;
-            EventHandler<StoppedEventArgs> handler = (_, args) =>
+            EventHandler<StoppedEventArgs> handler = (sender, args) =>
             {
-                if (pipeline is not null) OutputDevicePlaybackStopped(pipeline, args);
+                if (pipeline is not null) OutputDevicePlaybackStopped(pipeline, sender, args);
             };
             outputLease = AudioOutputDeviceCatalog.CreateInitializedOutput(
                 outputDeviceId,
@@ -1586,6 +1667,13 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             {
                 if (_disposed || !ReferenceEquals(_pipeline, pipeline)) return;
             }
+            if (Volatile.Read(ref pipeline.OutputReplacementInProgress) != 0)
+            {
+                // Podmiana wyjścia: stare może jeszcze udawać, że gra, a nowe
+                // jeszcze nie ruszyło. Nie liczymy tego jako braku postępu, ale
+                // zawieszony odczyt i przewijanie sprawdzamy dalej.
+                Interlocked.Exchange(ref pipeline.LastProgressTimestamp, Stopwatch.GetTimestamp());
+            }
             if (Volatile.Read(ref pipeline.SeekInProgress) != 0)
             {
                 var seekStarted = Interlocked.Read(ref pipeline.SeekStartedTimestamp);
@@ -1726,12 +1814,17 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         pipeline.TempoStream.Rate = 1d;
     }
 
-    private void OutputDevicePlaybackStopped(PlaybackPipeline pipeline, StoppedEventArgs args)
+    private void OutputDevicePlaybackStopped(
+        PlaybackPipeline pipeline,
+        object? sender,
+        StoppedEventArgs args)
     {
         lock (_gate)
         {
             if (_disposed || !ReferenceEquals(_pipeline, pipeline)) return;
         }
+        // Spóźnione zdarzenie wyjścia, które podmiana już zastąpiła nowym.
+        if (sender is not null && !ReferenceEquals(sender, pipeline.Output)) return;
         if (args.Exception is not null)
         {
             if (TryBeginOutputDeviceRecovery(pipeline, args.Exception)) return;
@@ -1932,12 +2025,168 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         DiagnosticLog.Warning(
             "output-device-recovery",
             $"Urządzenie audio stało się niedostępne; ponowne otwarcie wyjścia: {pipeline.Item.Title}.");
-        return RestartPipelineAfterResumeFailure(
-            pipeline,
-            pipeline.DecoderGuard.CachedCurrentTime,
-            volume,
-            rate,
-            exception);
+        var position = pipeline.DecoderGuard.CachedCurrentTime;
+        var failedLease = pipeline.OutputLease;
+        string? outputDeviceId;
+        lock (_gate) outputDeviceId = _outputDeviceId;
+        // Zdarzenie przychodzi z wątku starego wyjścia, więc nowe otwieramy
+        // poza nim. Najpierw samo wyjście: dekoder i bufor są sprawne, a pełne
+        // otwarcie od nowa (dla YouTube kilka sekund) zostaje na wypadek błędu.
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                if (ReplacePlaybackOutput(pipeline, outputDeviceId, failedLease, failedDevice: true)) return;
+            }
+            catch (Exception replaceException) when (replaceException is not OutOfMemoryException)
+            {
+                DiagnosticLog.Error(
+                    "audio-device",
+                    $"Przeniesienie samego wyjścia nie powiodło się: {pipeline.Item.Title}.",
+                    replaceException);
+            }
+            RestartPipelineAfterResumeFailure(pipeline, position, volume, rate, exception);
+        });
+        return true;
+    }
+
+    /// <summary>
+    /// Podłącza ten sam łańcuch dźwięku do nowego wyjścia. Kolejność zamyka
+    /// wyścigi: nowe wyjście otwieramy i inicjujemy, zanim cokolwiek zatrzymamy
+    /// (Init nie czyta łańcucha, a przy błędzie stare gra dalej), podmieniamy
+    /// je pod blokadą, zamykamy stare (WasapiOut.Stop czeka na koniec jego
+    /// wątku) i dopiero wtedy gramy nowym, więc dwa wątki nigdy nie czytają
+    /// łańcucha naraz. Nowe gra tylko wtedy, gdy grało stare i nikt nie
+    /// wstrzymał odtwarzania: wstrzymany albo jeszcze uruchamiany tor
+    /// zostaje cichy i ruszy tam, gdzie i tak by ruszył.
+    /// <paramref name="failedLease"/> to wyjście, które zgłosiło utratę
+    /// urządzenia; jeśli zostało już podmienione, nie ma czego odzyskiwać.
+    /// </summary>
+    private bool ReplacePlaybackOutput(
+        PlaybackPipeline pipeline,
+        string? outputDeviceId,
+        AudioOutputDeviceLease? failedLease,
+        bool failedDevice = false)
+    {
+        // Podmiany i zamykanie toru idą po kolei, nigdy równolegle na tym samym
+        // WasapiOut. Obie drogi biegną na wątkach w tle.
+        lock (pipeline.OutputSwapGate)
+        {
+            if (failedLease is not null && !ReferenceEquals(pipeline.OutputLease, failedLease)) return true;
+            lock (_gate)
+            {
+                if (_disposed || !ReferenceEquals(_pipeline, pipeline)) return true;
+            }
+
+            Volatile.Write(ref pipeline.OutputReplacementInProgress, 1);
+            AudioOutputDeviceLease? replacement = null;
+            try
+            {
+                replacement = AudioOutputDeviceCatalog.CreateInitializedOutput(
+                    outputDeviceId,
+                    120,
+                    output =>
+                    {
+                        output.PlaybackStopped += pipeline.StoppedHandler;
+                        try
+                        {
+                            output.Init(pipeline.OutputReadMonitor.ToWaveProvider());
+                        }
+                        catch
+                        {
+                            output.PlaybackStopped -= pipeline.StoppedHandler;
+                            throw;
+                        }
+                    });
+
+                AudioOutputDeviceLease previous;
+                bool play;
+                bool pausedForFallback;
+                lock (_gate)
+                {
+                    if (_disposed || !ReferenceEquals(_pipeline, pipeline))
+                    {
+                        // Tor zdążył zniknąć (zmiana utworu, zamknięcie); jego
+                        // sprzątanie zamyka stare wyjście, nowe zamykamy sami.
+                        replacement.Output.PlaybackStopped -= pipeline.StoppedHandler;
+                        replacement.Dispose();
+                        replacement = null;
+                        return true;
+                    }
+                    previous = pipeline.OutputLease;
+                    pausedForFallback = failedDevice && _pauseAfterOutputDeviceFallback;
+                    if (pausedForFallback) _pauseRequested = true;
+                    // Błąd urządzenia przełącza NAudio w stan Stopped zanim
+                    // wywoła PlaybackStopped. Gdy ochrona jest wyłączona,
+                    // trzeba mimo tego wznowić na nowym wyjściu; świadoma pauza
+                    // nadal jest rozróżniana przez _pauseRequested.
+                    play = !pausedForFallback
+                        && !_pauseRequested
+                        && (failedDevice || previous.Output.PlaybackState == PlaybackState.Playing);
+                    pipeline.ReplaceOutputLease(replacement);
+                    replacement = null;
+                }
+
+                previous.Output.PlaybackStopped -= pipeline.StoppedHandler;
+                try
+                {
+                    previous.Dispose();
+                }
+                catch (Exception exception) when (exception is not OutOfMemoryException)
+                {
+                    // Martwe urządzenie może zgłosić błąd przy zamykaniu. Nowe
+                    // wyjście jest już podpięte, więc i tak musi ruszyć.
+                    DiagnosticLog.Warning(
+                        "audio-device",
+                        $"Zamykanie poprzedniego wyjścia zgłosiło błąd {exception.GetType().Name}.");
+                }
+
+                if (play)
+                {
+                    AudioOutputPauseGuard.Play(
+                        pipeline.Output,
+                        () =>
+                        {
+                            lock (_gate)
+                            {
+                                return _disposed
+                                    || !ReferenceEquals(_pipeline, pipeline)
+                                    || _pauseRequested;
+                            }
+                        });
+                }
+                if (failedDevice && pipeline.OutputLease.UsesDefaultDevice)
+                {
+                    RaiseOnCapturedContext(() => OutputDeviceFallback?.Invoke(
+                        this, new AudioOutputFallbackEventArgs(pipeline.Item)));
+                }
+                DiagnosticLog.Info(
+                    "audio-device",
+                    $"Przeniesiono wyjście bez ponownego otwierania materiału: {pipeline.Item.Title}.");
+                return true;
+            }
+            catch (Exception exception) when (AudioOutputDeviceCatalog.IsDevicePlaybackFailure(exception)
+                || exception is InvalidCastException)
+            {
+                if (replacement is not null)
+                {
+                    replacement.Output.PlaybackStopped -= pipeline.StoppedHandler;
+                    replacement.Dispose();
+                }
+                DiagnosticLog.Error(
+                    "audio-device",
+                    $"Nie udało się przenieść samego wyjścia: {pipeline.Item.Title}.",
+                    exception);
+                return false;
+            }
+            finally
+            {
+                Volatile.Write(ref pipeline.OutputReplacementInProgress, 0);
+                // Watchdog nie liczy czasu podmiany (Bluetooth potrafi się
+                // inicjować sekundami) jako braku postępu.
+                Interlocked.Exchange(ref pipeline.LastProgressTimestamp, Stopwatch.GetTimestamp());
+            }
+        }
     }
 
     private bool RestartPipelineAfterResumeFailure(
@@ -2075,17 +2324,22 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
 
     private static void DisposePipeline(PlaybackPipeline pipeline)
     {
-        try
+        // Ta sama blokada co podmiana wyjścia: WasapiOut nie znosi Stop i Play
+        // z dwóch wątków naraz. Zamykanie biegnie zawsze w tle.
+        lock (pipeline.OutputSwapGate)
         {
-            pipeline.Output.PlaybackStopped -= pipeline.StoppedHandler;
-            pipeline.Output.Stop();
-            pipeline.OutputLease.Dispose();
-            // SoundTouchWaveStream owns and disposes the underlying reader.
-            pipeline.TempoStream.Dispose();
-        }
-        catch (Exception exception)
-        {
-            DiagnosticLog.Warning("playback", $"Zamykanie poprzedniego strumienia nie powiodło się: {exception.Message}");
+            try
+            {
+                pipeline.Output.PlaybackStopped -= pipeline.StoppedHandler;
+                pipeline.Output.Stop();
+                pipeline.OutputLease.Dispose();
+                // SoundTouchWaveStream owns and disposes the underlying reader.
+                pipeline.TempoStream.Dispose();
+            }
+            catch (Exception exception)
+            {
+                DiagnosticLog.Warning("playback", $"Zamykanie poprzedniego strumienia nie powiodło się: {exception.Message}");
+            }
         }
     }
 
