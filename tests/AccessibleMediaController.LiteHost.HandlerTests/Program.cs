@@ -1,13 +1,9 @@
-using System.Collections.Concurrent;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using AccessibleMediaController.Core.Configuration;
 using AccessibleMediaController.Core.Podcasts;
 using AccessibleMediaController.LiteHost;
 using AccessibleMediaController.LiteHost.Protocol;
-using AccessibleMediaController.Windows.Services;
 using Microsoft.Data.Sqlite;
-using NAudio.Wave;
 
 namespace AccessibleMediaController.LiteHost.HandlerTests;
 
@@ -25,8 +21,7 @@ internal static class Program
                 "jawny takt ma użyć adaptacyjnego limitu, nie legacy pełnego limitu");
             Assert.Equal(1, DispatchRequested(root, "{\"cadenceSeconds\":0}"),
                 "jawne zero musi być nadal walidowane jako takt co najmniej jednej sekundy, nie jak brak pola");
-            ProtectedFallbackResumesThroughProductionTransport(root);
-            Console.WriteLine("LiteHost automatic refresh dispatcher and protected output transport: OK");
+            Console.WriteLine("LiteHost automatic refresh dispatcher: OK");
             return 0;
         }
         catch (Exception exception)
@@ -38,141 +33,6 @@ internal static class Program
         {
             if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
         }
-    }
-
-    private static void ProtectedFallbackResumesThroughProductionTransport(string root)
-    {
-        var wavePath = Path.Combine(root, "same-item.wav");
-        WriteWave(wavePath);
-        var outputs = new ConcurrentQueue<FakeWavePlayer>();
-        using var initialOutputCreated = new ManualResetEventSlim();
-        using var previousDisposeEntered = new ManualResetEventSlim();
-        using var releasePreviousDispose = new ManualResetEventSlim();
-        using var fallbackPublished = new ManualResetEventSlim();
-        var outputCount = 0;
-        using var factory = AudioOutputDeviceCatalog.OverrideOutputFactoryForTesting((_, _) =>
-        {
-            var ordinal = Interlocked.Increment(ref outputCount);
-            var replacement = ordinal == 1
-                ? new FakeWavePlayer(previousDisposeEntered, releasePreviousDispose)
-                : new FakeWavePlayer();
-            outputs.Enqueue(replacement);
-            if (ordinal == 1) initialOutputCreated.Set();
-            return new AudioOutputDeviceLease(
-                replacement,
-                device: null,
-                usesDefaultDevice: ordinal > 1,
-                endpointId: ordinal > 1 ? "default-speakers" : "denon");
-        });
-        using var handlers = new LiteEngineHandlers(0);
-        var operations = handlers.Build();
-        var sink = new LiteEventSink(line =>
-        {
-            using var envelope = JsonDocument.Parse(line);
-            if (envelope.RootElement.TryGetProperty("event", out var name)
-                && name.GetString() == "audio.outputFallback") fallbackPublished.Set();
-        });
-
-        // host.hello jest produkcyjną rejestracją kanału zdarzeń; bez niej
-        // LiteEngineHandlers celowo nie ma gdzie opublikować fallbacku.
-        Dispatch(operations, "host.hello", "{}", sink);
-        Dispatch(operations, "audio.configure", "{\"pauseOnOutputFallback\":true}", sink);
-        Dispatch(operations, "files.play", JsonSerializer.Serialize(new
-        {
-            path = wavePath,
-            id = "same-item",
-            title = "Ta sama pozycja",
-            positionSeconds = 0,
-            volume = 37,
-            rate = 1d
-        }), sink);
-        Assert.True(initialOutputCreated.Wait(TimeSpan.FromSeconds(5)),
-            "host nie utworzył początkowego wyjścia pliku przez produkcyjny dispatcher");
-        var initial = OutputAt(outputs, 0);
-        Assert.True(initial.Played.Wait(TimeSpan.FromSeconds(5)),
-            "host nie uruchomił początkowego toru pliku przez produkcyjny dispatcher");
-
-        initial.RaiseStopped(new COMException("Urządzenie odłączone", unchecked((int)0x88890004)));
-        Assert.True(previousDisposeEntered.Wait(TimeSpan.FromSeconds(5)),
-            "podmiana wyjścia nie doszła do kontrolowanej bramy Dispose");
-        var replacement = OutputAt(outputs, 1);
-        Assert.Equal(0, replacement.PlayCalls,
-            "ochronny fallback uruchomił dźwięk przed jawnym wznowieniem transportu");
-
-        // Fabryka dodaje drugi output przed Dispose starego. To kontrolowany
-        // przeplot graniczny: wczesny toggle ma pozostać pauzą, a po publikacji
-        // ukończonego fallbacku kolejny jawny toggle musi wznowić tę samą pozycję.
-        var early = Dispatch(operations, "transport.pauseResume", "{\"sessionId\":\"files\"}", sink);
-        Assert.True(Paused(early),
-            "wczesny transport przed publikacją fallbacku nie zachował bezpiecznej pauzy");
-        Assert.Equal(0, replacement.PlayCalls,
-            "wczesny transport uruchomił dźwięk przed ukończeniem ochronnego fallbacku");
-
-        releasePreviousDispose.Set();
-        Assert.True(fallbackPublished.Wait(TimeSpan.FromSeconds(5)),
-            "host nie opublikował ukończonego ochronnego fallbacku przez rzeczywisty LiteEventSink");
-        Assert.Equal(0, replacement.PlayCalls,
-            "ukończony ochronny fallback uruchomił dźwięk bez jawnego wznowienia");
-
-        var resumed = Dispatch(operations, "transport.pauseResume", "{\"sessionId\":\"files\"}", sink);
-        Assert.True(!Paused(resumed),
-            "transport.pauseResume nie zwrócił wznowionego stanu po ochronnym fallbacku");
-        Assert.True(replacement.Played.Wait(TimeSpan.FromSeconds(5)),
-            "transport.pauseResume nie wznowił tej samej pozycji na fallbacku");
-        Assert.Equal(2, outputs.Count,
-            "wznowienie po fallbacku otworzyło nowy dekoder zamiast użyć podmienionego wyjścia");
-        Dispatch(operations, "transport.stop", "{\"sessionId\":\"files\"}", sink);
-    }
-
-    private static FakeWavePlayer OutputAt(ConcurrentQueue<FakeWavePlayer> outputs, int index)
-    {
-        var snapshot = outputs.ToArray();
-        if (snapshot.Length <= index)
-            throw new InvalidOperationException($"Brak wyjścia audio o indeksie {index}.");
-        return snapshot[index];
-    }
-
-    private static bool Paused(object? response)
-    {
-        using var json = JsonDocument.Parse(JsonSerializer.Serialize(response));
-        return json.RootElement.GetProperty("paused").GetBoolean();
-    }
-
-    private static object? Dispatch(
-        IReadOnlyDictionary<string, Func<LiteRequest, LiteEventSink, object?>> operations,
-        string operation,
-        string argsJson,
-        LiteEventSink sink)
-    {
-        using var args = JsonDocument.Parse(argsJson);
-        return operations[operation](new LiteRequest
-        {
-            Id = operation,
-            Op = operation,
-            Args = args.RootElement.Clone()
-        }, sink);
-    }
-
-    private static void WriteWave(string path)
-    {
-        const int sampleRate = 8_000;
-        var samples = Enumerable.Range(0, sampleRate)
-            .Select(index => (short)(index % 40 < 20 ? 4_000 : -4_000)).ToArray();
-        using var stream = File.Create(path);
-        using var writer = new BinaryWriter(stream);
-        writer.Write("RIFF"u8.ToArray());
-        writer.Write(36 + samples.Length * sizeof(short));
-        writer.Write("WAVEfmt "u8.ToArray());
-        writer.Write(16);
-        writer.Write((short)1);
-        writer.Write((short)1);
-        writer.Write(sampleRate);
-        writer.Write(sampleRate * sizeof(short));
-        writer.Write((short)sizeof(short));
-        writer.Write((short)16);
-        writer.Write("data"u8.ToArray());
-        writer.Write(samples.Length * sizeof(short));
-        foreach (var sample in samples) writer.Write(sample);
     }
 
     private static int DispatchRequested(string root, string argsJson)
@@ -231,51 +91,8 @@ internal static class Program
         update.ExecuteNonQuery();
     }
 
-    private sealed class FakeWavePlayer(
-        ManualResetEventSlim? disposeEntered = null,
-        ManualResetEventSlim? releaseDispose = null) : IWavePlayer
-    {
-        public event EventHandler<StoppedEventArgs>? PlaybackStopped;
-        public PlaybackState PlaybackState { get; private set; } = PlaybackState.Stopped;
-        public float Volume { get; set; }
-        public WaveFormat OutputWaveFormat { get; private set; } = WaveFormat.CreateIeeeFloatWaveFormat(8_000, 1);
-        private int _playCalls;
-        public int PlayCalls => Volatile.Read(ref _playCalls);
-        public ManualResetEventSlim Played { get; } = new();
-
-        public void Init(IWaveProvider waveProvider)
-        {
-            ArgumentNullException.ThrowIfNull(waveProvider);
-            OutputWaveFormat = waveProvider.WaveFormat;
-        }
-        public void Play()
-        {
-            Interlocked.Increment(ref _playCalls);
-            PlaybackState = PlaybackState.Playing;
-            Played.Set();
-        }
-        public void Pause() => PlaybackState = PlaybackState.Paused;
-        public void Stop() => PlaybackState = PlaybackState.Stopped;
-        public void Dispose()
-        {
-            disposeEntered?.Set();
-            releaseDispose?.Wait(TimeSpan.FromSeconds(5));
-            PlaybackState = PlaybackState.Stopped;
-        }
-        public void RaiseStopped(Exception exception)
-        {
-            PlaybackState = PlaybackState.Stopped;
-            PlaybackStopped?.Invoke(this, new StoppedEventArgs(exception));
-        }
-    }
-
     private static class Assert
     {
-        public static void True(bool condition, string message)
-        {
-            if (!condition) throw new InvalidOperationException(message);
-        }
-
         public static void Equal(int expected, int actual, string message)
         {
             if (expected != actual)

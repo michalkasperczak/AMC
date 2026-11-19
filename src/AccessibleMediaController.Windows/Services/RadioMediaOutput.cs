@@ -171,20 +171,6 @@ public sealed class RadioMediaOutput(
         }
     }
 
-    /// <summary>
-    /// Urządzenie domyślne, na którym gra otwarte wyjście radia, albo null,
-    /// gdy wyjścia nie ma, ma wskazane urządzenie lub nie dało się go ustalić.
-    /// </summary>
-    public string? DefaultOutputEndpointInUse
-    {
-        get
-        {
-            RadioPipeline? pipeline;
-            lock (_gate) pipeline = _pipeline;
-            return pipeline?.DefaultOutputEndpointInUse;
-        }
-    }
-
     public bool IsRecording
     {
         get
@@ -1073,7 +1059,7 @@ public sealed class RadioMediaOutput(
 
     public void Pause()
     {
-        IWavePlayer? output;
+        WasapiOut? output;
         lock (_gate)
         {
             _pauseRequested = true;
@@ -1601,7 +1587,7 @@ public sealed class RadioMediaOutput(
         public RadioTimeshiftWaveProvider Buffer { get; } = buffer;
         public TimeshiftTempoStage? TempoStage { get; } = tempoStage;
         public VolumeSampleProvider Volume { get; } = volume;
-        public IWavePlayer? Output
+        public WasapiOut? Output
         {
             get
             {
@@ -1613,16 +1599,6 @@ public sealed class RadioMediaOutput(
             get
             {
                 lock (_outputGate) return _outputLease?.UsesDefaultDevice ?? true;
-            }
-        }
-        public string? DefaultOutputEndpointInUse
-        {
-            get
-            {
-                lock (_outputGate)
-                {
-                    return _outputLease is { UsesDefaultDevice: true } lease ? lease.EndpointId : null;
-                }
             }
         }
         public CancellationTokenSource Cancellation { get; } = cancellation;

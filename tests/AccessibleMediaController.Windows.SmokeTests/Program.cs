@@ -41,16 +41,6 @@ if (args.Contains("--periodic-playback-checkpoint", StringComparer.Ordinal))
     PeriodicPlaybackCheckpointTests.Run();
     return 0;
 }
-if (args.Contains("--protected-output-recovery-only", StringComparer.Ordinal))
-{
-    ProtectedOutputRecoveryTests.Run();
-    return 0;
-}
-if (args.Contains("--default-output-follow-only", StringComparer.Ordinal))
-{
-    DefaultOutputFollowTests.Run();
-    return 0;
-}
 if (args.Contains("--mp3-peaks-only", StringComparer.Ordinal))
 {
     Mp3PeakPlaybackTests.Run();
@@ -748,7 +738,6 @@ var tests = new (string Name, Action Test)[]
     ("Radio Schedule Accessibility", TestRadioScheduleAccessibility),
     ("State Persistence Queue", TestStatePersistenceQueue),
     ("Periodic Playback Checkpoints", PeriodicPlaybackCheckpointTests.Run),
-    ("Wyjście bez wybranego urządzenia idzie za domyślnym w Windows", DefaultOutputFollowTests.Run),
     ("Radio Recognition Announcement Policy", TestRadioRecognitionAnnouncementPolicy),
     ("Radio Recognition Scheduling Policy", TestRadioRecognitionSchedulingPolicy),
     ("Radio Recognition Setting Accessibility", TestRadioRecognitionSettingAccessibility),

@@ -380,10 +380,11 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
         {
             var configured = target.TrySetOutputDeviceAsync(deviceName)
                 .GetAwaiter().GetResult();
-            // Odmowa konfiguracji nie jest zgodą na przełączenie transportu na
-            // domyślne wyjście. Zachowujemy wybór użytkownika, aby późniejsze,
-            // jawne odtworzenie mogło rozstrzygnąć dostępność według aktualnej
-            // polityki odzyskiwania, zamiast gubić intencję użytkownika.
+            if (!configured)
+            {
+                target.TrySetOutputDeviceAsync(null).GetAwaiter().GetResult();
+                lock (gate) selectedDeviceName = null;
+            }
             return new
             {
                 sessionId = SessionId,
@@ -391,7 +392,7 @@ internal sealed class LiteSpotifyPlaybackCoordinator(
                 available = configured,
                 active = false,
                 rebuilt = false,
-                usingDefault = string.IsNullOrWhiteSpace(deviceName)
+                usingDefault = !configured || string.IsNullOrWhiteSpace(deviceName)
             };
         }
 
