@@ -9,6 +9,7 @@ internal static class YouTubeChapterProcessTests
 {
     private const string FixtureModeVariable = "AMC_YOUTUBE_CHAPTER_FIXTURE_MODE";
     private const string FixtureReadyPathVariable = "AMC_YOUTUBE_CHAPTER_FIXTURE_READY_PATH";
+    private const string FixtureChildReadyPathVariable = "AMC_YOUTUBE_CHAPTER_FIXTURE_CHILD_READY_PATH";
 
     internal static void Run()
     {
@@ -17,6 +18,7 @@ internal static class YouTubeChapterProcessTests
         var oldExecutable = Environment.GetEnvironmentVariable("YTDLP_PATH");
         var oldMode = Environment.GetEnvironmentVariable(FixtureModeVariable);
         var oldReady = Environment.GetEnvironmentVariable(FixtureReadyPathVariable);
+        var oldChildReady = Environment.GetEnvironmentVariable(FixtureChildReadyPathVariable);
         try
         {
             var apphost = Path.ChangeExtension(typeof(YouTubeChapterProcessTests).Assembly.Location, ".exe");
@@ -32,6 +34,7 @@ internal static class YouTubeChapterProcessTests
             ExpectFailure(root, "nonzero", typeof(InvalidDataException));
             ExpectFailure(root, "stdout-overflow", typeof(InvalidDataException));
             ExpectFailure(root, "stderr-overflow", typeof(InvalidDataException));
+            ExpectCancellationAfterParentExit(root);
 
             using var cancelled = new CancellationTokenSource(TimeSpan.FromMilliseconds(250));
             var ready = Path.Combine(root, "cancel.ready");
@@ -58,6 +61,7 @@ internal static class YouTubeChapterProcessTests
             Environment.SetEnvironmentVariable("YTDLP_PATH", oldExecutable);
             Environment.SetEnvironmentVariable(FixtureModeVariable, oldMode);
             Environment.SetEnvironmentVariable(FixtureReadyPathVariable, oldReady);
+            Environment.SetEnvironmentVariable(FixtureChildReadyPathVariable, oldChildReady);
             Directory.Delete(root, recursive: true);
         }
     }
@@ -97,6 +101,14 @@ internal static class YouTubeChapterProcessTests
             case "wait":
                 Thread.Sleep(TimeSpan.FromSeconds(10));
                 return 0;
+            case "orphan-child":
+                return SpawnChildAndExit();
+            case "orphan-child-wait":
+                var childReady = Environment.GetEnvironmentVariable(FixtureChildReadyPathVariable);
+                if (!string.IsNullOrWhiteSpace(childReady))
+                    File.WriteAllText(childReady, $"READY {Environment.ProcessId}", new UTF8Encoding(false));
+                Thread.Sleep(TimeSpan.FromSeconds(2));
+                return 0;
             default:
                 return 2;
         }
@@ -135,12 +147,70 @@ internal static class YouTubeChapterProcessTests
         Ensure(failed, $"fixture {mode} ma zgłosić {expectedType.Name}");
     }
 
+    private static void ExpectCancellationAfterParentExit(string root)
+    {
+        var parentReady = Path.Combine(root, "orphan-parent.ready");
+        var childReady = Path.Combine(root, "orphan-child.ready");
+        Environment.SetEnvironmentVariable(FixtureModeVariable, "orphan-child");
+        Environment.SetEnvironmentVariable(FixtureReadyPathVariable, parentReady);
+        Environment.SetEnvironmentVariable(FixtureChildReadyPathVariable, childReady);
+        using var cancelled = new CancellationTokenSource();
+        var stopwatch = Stopwatch.StartNew();
+        var read = YouTubeSourceResolver.ReadChaptersAsync(
+            new Uri("https://www.youtube.com/watch?v=fixture-orphan-child"),
+            TimeSpan.FromMinutes(10),
+            cancelled.Token,
+            Path.ChangeExtension(typeof(YouTubeChapterProcessTests).Assembly.Location, ".exe"));
+        WaitForReady(childReady);
+        cancelled.Cancel();
+        var cancelledFailure = false;
+        try
+        {
+            read.GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            cancelledFailure = true;
+        }
+        Ensure(cancelledFailure && stopwatch.Elapsed < TimeSpan.FromSeconds(1),
+            "anulowanie po wyjściu rodzica musi zakończyć runner przed odziedziczonymi pipe'ami dziecka");
+        AssertTerminated(parentReady);
+        AssertTerminated(childReady);
+    }
+
     private static int WaitForOwnerInput()
     {
         // The parent owns redirected stdin. It closes this pipe on every path;
         // this fixture never uses a shell sleep or an unrelated system process.
         _ = Console.In.ReadToEnd();
         return 0;
+    }
+
+    private static int SpawnChildAndExit()
+    {
+        var start = new ProcessStartInfo(
+            Path.ChangeExtension(typeof(YouTubeChapterProcessTests).Assembly.Location, ".exe"))
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        start.Environment[FixtureModeVariable] = "orphan-child-wait";
+        var childReady = Environment.GetEnvironmentVariable(FixtureChildReadyPathVariable);
+        if (!string.IsNullOrWhiteSpace(childReady))
+            start.Environment[FixtureChildReadyPathVariable] = childReady;
+        using var child = Process.Start(start)
+            ?? throw new InvalidOperationException("fixture nie uruchomił własnego dziecka");
+        return 0;
+    }
+
+    private static void WaitForReady(string readyPath)
+    {
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            if (File.Exists(readyPath)) return;
+            Thread.Sleep(50);
+        }
+        throw new InvalidOperationException("dziecko fixture nie zgłosiło READY przed anulowaniem");
     }
 
     private static void AssertTerminated(string readyPath)
