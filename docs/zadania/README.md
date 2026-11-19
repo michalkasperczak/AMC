@@ -38,7 +38,11 @@ adaptacyjna porcja, kooperacyjny budżet 75 s, zgodne starsze API i anulowanie
 przyjęcia próby przed commitem. Zapisane interwały i blokady nagrywania zachowane.
 Niezależny review PRZYJĄĆ; końcowy test kontrolowanego timera i rzeczywisty
 dispatcher PASS. [Odbiór i granice](HUBERT25-SCHEDULE-20261119-akceptacja.md).
-Teraz #26 / PR #27 (rozdziały YouTube), potem #28 / PR #29 (wznowienie bez zerowania toru).
+Teraz odbiór #26 / PR #27 (rozdziały YouTube), potem #28 / PR #29 (wznowienie bez zerowania toru).
+Wykonawca dostarczył `6263329` + raport `39357ef`: rzeczywisty RED/GREEN,
+proces-fixture offline i oba consumery zbudowane. Rodzic potwierdził dziewięć
+źródeł i 1 zestaw protocol PASS; niezależny odbiór granicy procesu/pipe'ów
+w toku jako `deleg_371395e2`, bez integracji starej gałęzi PR.
 [Wykonawczy plan rozdziałów #26](HUBERT26-CHAPTERS-20261119-plan.md).
 Oba PR są nadal OPEN, nie scalone i nie wydane; przed wdrożeniem wymagają
 weryfikacji Windows. Chrome zostaje. Kod CDP już ponawia tempo przy nowym

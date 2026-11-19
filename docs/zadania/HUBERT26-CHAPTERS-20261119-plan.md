@@ -1,6 +1,6 @@
 # Hubert #26 — rozdziały YouTube, wykonanie po odbiorze #25
 
-**Status: W REALIZACJI — wykonanie przez Codex w izolowanym worktree.**
+**Status: W ODBIORZE — wykonawca dostarczył kod i dowody; niezależny przegląd w toku.**
 
 ## Decyzja i zależności
 
@@ -42,4 +42,45 @@ Cel: w istniejącej liście rozdziałów filmu YouTube będą dostępne rozdzia�
 
 Źródła #25: merge `d113fae9895a214d8782a524cbfe797902be2dfa`. Gałąź wykonawcza: `codex/amc-hubert26-chapters-20261119`. Dokładną bazę po zapisaniu niniejszej dokumentacji utrwali raport wykonawcy.
 
-Następny krok: Codex w izolowanym worktree, testy i poprawki wymagane powyżej, czysty commit oraz raport `HUBERT26-CHAPTERS-20261119-wdrozenie.md`. Brak gotowego artefaktu/testów jest blokadą, nie zaliczeniem planu.
+Następny krok: odebrać niezależny werdykt `deleg_371395e2`, ewentualne celowane
+poprawki i dopiero wtedy zintegrować potwierdzony przyrost do bieżącej bazy.
+Po przyjęciu przejść do uzgodnionego #28. Nie scalać całej starej bazy PR.
+
+## Odebrane dowody i kontrola rodzica — 19.11.2026
+
+Wykonawca `deleg_5ad77976` dostarczył kod/testy
+`626332908c612bc2177ad498325e8b09af3304cf` oraz raport
+`39357efce300f77dce60ac8c44bbb347083c6060` w branchu
+`codex/amc-hubert26-chapters-20261119`. Baza `4b5a4a4a07968eae69ba7cbc602d30bbaa07f07e`,
+funkcjonalny RED `51f9c9be4999b03f37e410f01d6238ef1ae43ad7`:
+protocol `--podcast-chapters`, 1 z 1 FAIL na drodze YouTube.
+
+GREEN wykonawcy na świeżym archive `6263329`: protocol, bezsieciowy smoke
+z prawdziwym apphostem (`--youtube-chapters-only`), Release buildy realnych
+LiteHost i Windows, wszystkie exit 0. Obejmuje JSON/NA, retry po błędach,
+stdout/stderr overflow, timeout, anulowanie i cleanup potomnego procesu.
+Poprzedni `9046372` miał błąd kompilacji metody z opcjonalnym parametrem;
+to nie jest finalny kandydat. Poprawiono jawną lambdą i przebudowano świeżą bazę.
+
+Rodzic odczytał raport, diff i pliki dowodów stagingu
+`C:\Users\Michal\AppData\Local\AMC-Hermes-Build\hubert26-chapters-20261119-final2\.amc-hubert26-evidence`.
+Porównał bajty i SHA-256 dziewięciu krytycznych źródeł z blobami `6263329`:
+zero różnic. Niezależnie uruchomił istniejący Release runner
+`amc_lite_protocol_tests.dll --podcast-chapters`: **1 zestaw PASS**, exit 0,
+w tym kontrolowane błędy i retry w tej samej sesji. Log rodzica w
+`C:\Users\Michal\AppData\Local\AMC-Hermes-Build\hubert26-parent-check`.
+Nie powtarzano całej suite ani niezmienionych buildów. Pierwszy odczyt stdout
+przez UTF-8 spowodował błąd dekodera po wyjściu procesu; zapis surowych bajtów
+i ponowienie wyłącznie tego zestawu z CP852 potwierdziły wynik. To nie był RED produktu.
+
+Niezależny Codex `sa-0-131cfb98`, `deleg_371395e2`, ma własny worktree
+`amc-hubert26-acceptance-20261119` od `39357ef` i odczytuje dokładną deltę.
+Sprawdza celowo niepewną granicę runnera: czy wczesne wyjście rodzica z
+potomkiem trzymającym odziedziczone pipe'y może ominąć timeout czytników.
+To HIPOTEZA do falsyfikacji, nie wykryty błąd; maksymalnie dwa cykle
+celowanej korekty, bez rozszerzania do pełnego audytu.
+
+Przyrost nie zmienia odtwarzania ani nagrywania; są równoległe prace audio
+na `e758ae4`. Ich LiteEngineHandlers/csproj mogą wymagać wspólnego odbioru
+przy integracji, nie nadpisywania plików. Produkcja kanoniczna pozostaje
+dotąd bez przyrostu #26; brak GUI, sieci YouTube, kont i publikacji w tym odbiorze.
