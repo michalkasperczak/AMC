@@ -1,6 +1,6 @@
 # Ctrl+I: pamięć pozycji i oznaczanie odtwarzanego elementu
 
-Status: rozpoczęte; źródłowe zlecenie Michała z 19.11.2026.
+Status: odebrany, ograniczony przyrost źródeł zintegrowany; pełny zakres usług i publikacja pozostają otwarte. Zlecenie Michała z 19.11.2026.
 
 ## Cel i zakres
 
@@ -57,8 +57,8 @@ To konkretne luki kontraktowe, nie wyłączenie zabezpieczenia: wymagają rozsze
 
 ## Wersja i commit
 
-Baza funkcjonalna: `17e677aec46affe4868af0b732c7aaf1b9a8374b`; zachowano jej korektę prezentacji i ustawień. Kod/testy/dokumentacja: lokalny commit na gałęzi `codex/amc-inbox-playing-20261119`; jego SHA należy odczytać z logu przed integracją. Pakiet/instalacja/publikacja: brak; publikacja Test/Public należy do parenta po integracji i review.
+Baza funkcjonalna: `17e677aec46affe4868af0b732c7aaf1b9a8374b`; końcowy przyjęty kandydat Python `a5caacd9711fd4e38ca4c9941a900f19cec0085a`, host `f4747db4dbdc13aa2f250e5c98961ad507c40bcd`. Po końcowym ograniczonym review (10 testów PASS) zintegrowano Python jako `0e24e4b` i host jako `a045f7cbd54abbbc33e3861de075a54be3ed1d6b` do `codex/amc-test-public-20261109`. Produkcja identyczna z kandydatami. Na głównym checkoutcie pięć zestawów C# PASS i 94 celowane testy Python PASS (5.02 s), z nowym eksportem rzeczywistych mapperów. Pakiet/instalacja/publikacja: brak; brak żywego NVDA.
 
 ## Następny krok
 
-Review i integracja przez parenta; przed publikacją osobny odbiór GUI/NVDA oraz uzupełnienie kontraktów hosta Frontier/Apple Music. Kontrakt statusu WiiM/Sonos po stronie hosta jest osobnym zadaniem; Python pozostaje kompatybilny z jego brakiem i wtedy uczciwie nie oznacza materiału.
+Rozstrzygnąć zakres dalszej dostawy: bieżący kontrakt nie pozwala oznaczyć Sonos ulubionych/zawartości playlist, Frontier i Apple Music. Nie deklarować wykonania całego zlecenia. Zapytanie o wydanie odebranego przyrostu z jawnymi ograniczeniami nie zastępuje bramek bezpieczeństwa i osobnego pomiaru GUI/NVDA. Kontrakt WiiM/własnych strumieni Sonos jest zintegrowany; starszy host bez obserwowanego ID nadal daje uczciwy brak oznaczenia.

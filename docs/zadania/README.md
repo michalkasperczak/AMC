@@ -16,7 +16,7 @@ bez blokera źródłowego; po integracji 28 testów statusu/Radia i jeden zestaw
 C# TIDAL zaliczone. Pełny LiteHost i żywy NVDA nadal do odbioru; brak nowego
 wydania. [Kontrakt i dowody](NVDA-END-20261119-parametry-przed-nazwa.md).
 
-- `INBOX-PLAYING-20261119` — **Źródła i celowane testy headless gotowe w osobnym worktree; czeka na review/integrację parenta, bez buildu, instalacji i publikacji.** `Ctrl+I` zapamiętuje stabilną pozycję agregatów Podcastów, w tym Skrzynki. Oznaczenie odtwarzanego materiału używa wspólnego material-ID/sesji dla list natywnych, wyszukiwania, zakładek oraz historii streamerów i nie myli ID zakładki z utworem. WiiM/Sonos działają tylko z istniejącym potwierdzonym ID; Frontier Smart i Apple Music wymagają jeszcze kontraktu hosta z tożsamością materiału, więc nie są oznaczane na podstawie tytułu lub samego `play`. [Zakres, wynik i ograniczenia](INBOX-PLAYING-20261119-fokus-i-odtwarzany.md).
+- `INBOX-PLAYING-20261119` — **Źródła po ograniczonym niezależnym przeglądzie zintegrowane; brak buildu, instalacji i publikacji.** Pamięć pozycji `Ctrl+I`, wspólne oznaczanie materiału i poprawiona kolejność tekstu w wyszukiwaniu. WiiM i własne strumienie Sonos wymagają potwierdzonego ID z hosta; pauza zachowuje tekst bez sygnału. Sonos ulubione/zawartość playlist, Frontier Smart i Apple Music nadal nie mają bezpiecznego mapowania materiału. Po wspólnej integracji 94 celowane testy Python i pięć zestawów C# zaliczone, bez żywego GUI/NVDA. Pełnego zakresu wszystkich usług nie uznano za ukończony. [Zakres, wynik i ograniczenia](INBOX-PLAYING-20261119-fokus-i-odtwarzany.md).
 
 **Wyszukiwanie — 18.11.2026, zintegrowane w źródłach (`bb3fdcd`):** dodano
 `Ctrl+F` Radio Archiwisty i wybór usług dla `Ctrl+Shift+F` w Ogólnych.

@@ -249,14 +249,43 @@ gałęzi. Po integracji **18 passed in 0.22s** dla kontraktów workflow i
 publishera, diff bez błędów, drzewo czyste. Nadal bez pushu, uruchomienia
 Actions, Windows builda ani publikacji. Nie zamrożono jeszcze source SHA.
 
+## Integracja po końcowym przeglądzie — 19.11.2026
+
+Ograniczony, niezależny przegląd `a5caacd`/`f4747db` przyjął zmienione granice
+bez nowego objawu; wykonał 10 testów korekty z rzeczywistym eksportem C#.
+Werdykt nie obejmuje żywego GUI/NVDA ani usług bez stabilnego ID.
+
+Zintegrowano do głównej gałęzi:
+
+- Python: `0e24e4b` (kandydat `a5caacd9711fd4e38ca4c9941a900f19cec0085a`);
+- host: `a045f7cbd54abbbc33e3861de075a54be3ed1d6b` (kandydat
+  `f4747db4dbdc13aa2f250e5c98961ad507c40bcd`).
+
+Jedyny konflikt dotyczył nagłówka rejestru zadań; zachowano nadrzędny plan
+wydania, przyjęty status NVDA+End i wpis Skrzynki. Produkcyjne pliki Python
+i hosta po integracji są bajtowo identyczne z odpowiednimi kandydatami
+(`git diff --exit-code`). Rodzic uruchomił na głównym checkoutcie pięć
+zestawów C# (WiiM, Sonos, koordynator obserwacji Sonos, kontrakt eksportu,
+TIDAL) i nowy eksport mapperów do testu wspólnej granicy: zaliczone.
+
+Po integracji siedem celowanych modułów Python: **94 passed in 5.02s**.
+Wybór obejmuje test korekty i kontraktu C#→Python, wspólną dekorację,
+historię streamerów, regresję Radia, nawigację Podcastów i status NVDA+End.
+Nie jest to pełna suite ani żywy odczyt czytnikiem. Bez pominięcia testu
+kontraktu, bez Windows builda, instalacji, pushu i publikacji.
+
 ## Znane ograniczenia i następny krok
 
-Następny krok: odebrać ograniczony końcowy przegląd `a5caacd`/`f4747db`,
-następnie zintegrować wyłącznie przyjęte źródła z już przyjętym NVDA+End.
-Nie powtarzać całych baterii niezmienionych kandydatów. Braki obserwowalności
-usług pozostają jawne i nie oznaczają realizacji wszystkich uzgodnionych usług.
-Przygotowanie chronionej drogi wydania nie
-upoważnia jeszcze do pushu uruchamiającego budowę ani publikacji.
+Gotowy, odebrany przyrost źródeł nie realizuje jeszcze żądania oznaczenia
+we wszystkich usługach: Sonos ulubione/zawartość playlist, Frontier i Apple
+Music nie mają niezależnie obserwowanego, mapowalnego ID materiału w obecnym
+kontrakcie. Dalsze zgadywanie po tytule/zaznaczeniu jest wykluczone.
+Publikacja została uzgodniona po wszystkich zadaniach, więc rodzic nie może
+sam zmienić jej na wydanie podzbioru. Przed budową/publikacją potrzebna jest
+decyzja Michała, czy wydać odebrany przyrost z jawnymi ograniczeniami,
+czy pozostawić oba wydania wstrzymane do rozwiązania reszty tożsamości.
+Dotychczasowy zakaz instalacji na głównym PC oraz ograniczenia lokalnego
+buildu/EXE/GUI i obowiązek uczciwego wykazania bramek pozostają w mocy.
 
 ## Uzasadnienie i decyzje
 
