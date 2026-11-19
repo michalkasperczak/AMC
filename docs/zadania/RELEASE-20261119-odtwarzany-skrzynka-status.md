@@ -80,6 +80,28 @@ Na zapis tego planu nie ma ukończonych kandydatów trzech nowych poprawek,
 nowego source SHA, wyników odbioru ani zbudowanych/publikowanych artefaktów.
 Nie oznaczać planu jako zakończonego na podstawie wcześniejszych testów.
 
+## Rekonesans drogi wydania — 19.11.2026
+
+Odczytowy przegląd potwierdził model nowej, jednorazowej gałęzi chronionej
+budowy, wspólny exact-ref workflow/PowerShell i konieczność nowego numeru
+technicznego zamiast użytego alpha.511. Wykonawca rekonesansu uruchomił po
+6 testów kontraktu budowy i publishera; nie są dowodem nowego buildu.
+Rodzic odczytał rzeczywiste testy, guard PowerShell i pobrał aktualną gałąź:
+`HEAD...origin/codex/amc-test-public-20261109` = `28 0` (ahead/behind).
+Zdalny `86add1c` jest przodkiem lokalnego `bb3dc06`; nie ma brakującego
+zdalnego commita do scalania. Ponowić odczyt przed zamrożeniem/pushem.
+
+Chroniony workflow nie testuje instalacji przez EXE, tylko kontrole bundle.
+Nie istnieje odebrana procedura instalacji nowego EXE ani żywego NVDA na
+runnerze. Nie dopisywać pozornego zaliczenia. Przed etapem wymagającym
+interaktywnego odbioru uzgodnić bezpieczne okno na Hermesie lub wskazać
+konkretną blokadę; główny komputer i jego instalacja pozostają nietknięte.
+
+Dozwolone przygotowanie bez uruchamiania: nowy ścisły ref oraz wersja w
+Directory.Build.props/workflow/guardzie i ich powiązanych testach. Push
+uruchamiający budowę nadal czeka na ukończenie i review wszystkich poprawek.
+Publisher będzie miał nowe ID/hashe dopiero po rzeczywistej nowej budowie.
+
 ## Znane ograniczenia i następny krok
 
 Następny krok: odebrać kandydatów wraz z RED/GREEN, sprawdzić ich zgodność
