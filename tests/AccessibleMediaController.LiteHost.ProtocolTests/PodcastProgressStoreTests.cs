@@ -652,33 +652,52 @@ internal static class PodcastProgressStoreTests
             resetDue.ExecuteNonQuery();
         }
         store.ConfigureGlobalSettings(null, 60, 60, 2);
+
+        var clock = new ControlledTimerTimeProvider();
+        var fetchStarted = false;
         var cancelled = false;
         using var coordinator = new LitePodcastRefreshCoordinator(
             store,
             null,
             async (_, cancellationToken) =>
             {
-                try
-                {
-                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                fetchStarted = true;
+                var cancellationObserved = new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                using var registration = cancellationToken.Register(() =>
                 {
                     cancelled = true;
-                    throw;
+                    cancellationObserved.TrySetResult();
+                });
+
+                // Czas logiczny dochodzi do deadline'u dopiero po admission i
+                // rozpoczęciu pierwszego rzeczywistego fetch. Watchdog jest
+                // wyłącznie kontrolą dyskryminującą: mutant, który nie poda
+                // tokenu fetchowi, kończy się czerwono zamiast wisieć.
+                clock.Fire();
+                if (await Task.WhenAny(
+                        cancellationObserved.Task,
+                        Task.Delay(TimeSpan.FromSeconds(1))) != cancellationObserved.Task)
+                {
+                    throw new InvalidOperationException(
+                        "atrappa fetch nie dostała tokenu anulowanego przez deadline");
                 }
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
                 throw new InvalidOperationException("nieosiągalne");
             },
-            automaticTimeBudget: TimeSpan.FromMilliseconds(25));
+            automaticTimeBudget: TimeSpan.FromMilliseconds(25),
+            timeProvider: clock);
 
         var payload = JsonSerializer.Serialize(
             coordinator.RefreshAutomatic(TimeSpan.FromMinutes(5)));
-        Assert.True(cancelled
+        Assert.True(fetchStarted
+            && cancelled
+            && clock.TimerDueTime == TimeSpan.FromMilliseconds(25)
             && payload.Contains("\"requested\":1", StringComparison.Ordinal)
             && payload.Contains("\"dueSources\":2", StringComparison.Ordinal)
             && payload.Contains("\"deferredDueSources\":1", StringComparison.Ordinal)
             && payload.Contains("\"budgetExpired\":true", StringComparison.Ordinal),
-            "deadline musi anulować rzeczywiste pobieranie tokenem i pozostawić następne źródło jawnie należne");
+            "kontrolowany deadline musi po admission anulować rzeczywisty fetch tokenem i odroczyć drugie należne źródło");
     }
 
     private static void TestAutomaticAdmissionDoesNotPersistAfterDeadlineDuringWriteLock(string root)
@@ -827,6 +846,56 @@ internal static class PodcastProgressStoreTests
         Assert.True(store.GetInboxCount() == 1
             && ReadSubscription(database, "sub-1").RefreshIntervalMinutes == 60,
             "ponowny wybór przywraca skrzynkę i poprzedni odstęp");
+    }
+
+    /// <summary>Minimalny zegar testowy dla CancellationTokenSource(TimeSpan, TimeProvider).
+    /// Nie przesuwa czasu rzeczywistego ani nie jest schedulerem produktu.</summary>
+    private sealed class ControlledTimerTimeProvider : TimeProvider
+    {
+        private ControlledTimer? _timer;
+
+        public TimeSpan? TimerDueTime { get; private set; }
+
+        public override ITimer CreateTimer(
+            TimerCallback callback,
+            object? state,
+            TimeSpan dueTime,
+            TimeSpan period)
+        {
+            if (_timer is not null)
+                throw new InvalidOperationException("fixture oczekuje jednego timera deadline'u");
+            TimerDueTime = dueTime;
+            return _timer = new ControlledTimer(callback, state);
+        }
+
+        public void Fire()
+        {
+            if (_timer is null)
+                throw new InvalidOperationException("fixture nie dostał timera deadline'u");
+            _timer.Fire();
+        }
+
+        private sealed class ControlledTimer(TimerCallback callback, object? state) : ITimer
+        {
+            private bool _disposed;
+
+            public bool Change(TimeSpan dueTime, TimeSpan period) => !_disposed;
+
+            public void Dispose() => _disposed = true;
+
+            public ValueTask DisposeAsync()
+            {
+                Dispose();
+                return ValueTask.CompletedTask;
+            }
+
+            public void Fire()
+            {
+                if (_disposed)
+                    throw new ObjectDisposedException(nameof(ControlledTimer));
+                callback(state);
+            }
+        }
     }
 
     private static void CreateDatabase(string path)
