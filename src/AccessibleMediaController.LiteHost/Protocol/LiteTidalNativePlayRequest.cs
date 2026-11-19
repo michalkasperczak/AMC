@@ -112,13 +112,13 @@ internal sealed record LiteTidalNativePlayRequest(
     internal static string FormatPlaybackText(
         string title, string sourceQualityLabel, int? bitrateKbps, int? pcmSampleRateHz)
     {
-        var parts = new List<string> { title, "źródło " + sourceQualityLabel.TrimEnd('.') };
+        var parts = new List<string> { "źródło " + sourceQualityLabel.TrimEnd('.') };
         if (bitrateKbps is > 0) parts.Add($"{bitrateKbps} kb/s");
         if (pcmSampleRateHz is > 0)
         {
             var rate = (pcmSampleRateHz.Value / 1000d).ToString("0.###", CultureInfo.GetCultureInfo("pl-PL"));
             parts.Add($"PCM w silniku {rate} kHz");
         }
-        return string.Join(", ", parts);
+        return LitePlaybackStatusText.Format(title, parts.ToArray());
     }
 }

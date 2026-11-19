@@ -15,6 +15,8 @@ internal static class TidalNativePlayRequestTests
         RejectsUnsafeUrlsAndExtraData();
         RejectsBadIdentityTitleAndDuration();
         PreservesSourceRateAndLabelsPcmSeparately();
+        PlaybackTextPlacesAudioBeforeTitle();
+        PlaybackStatusTextKeepsPartialAndAbsentAudioData();
         Console.WriteLine("TidalNativePlayRequestTests: OK");
     }
 
@@ -134,6 +136,35 @@ internal static class TidalNativePlayRequestTests
         ExpectRejected($$"""
             {"id":"42","title":"Max","proxyUrl":"{{Url}}","durationSeconds":8,"sourceQualityLabel":"Max\nsekret"}
             """, "opis źródła nie może zawierać znaków sterujących");
+    }
+
+    private static void PlaybackTextPlacesAudioBeforeTitle()
+    {
+        const string title = "Utwór, 192 kb/s (nie parametr)";
+        var text = LiteTidalNativePlayRequest.FormatPlaybackText(
+            title, "Max, FLAC 24 bit, 192 kHz", 5612, 192000);
+
+        Assert.Equal(
+            "źródło Max, FLAC 24 bit, 192 kHz, 5612 kb/s, PCM w silniku 192 kHz, " + title,
+            text,
+            "gotowy status NVDA+End zachowuje wszystkie dane TIDAL i mówi tytuł na końcu");
+    }
+
+    private static void PlaybackStatusTextKeepsPartialAndAbsentAudioData()
+    {
+        const string title = "Wykład, 320 kb/s — część 2";
+        Assert.Equal(
+            "48 kHz, " + title,
+            LitePlaybackStatusText.Format(title, null, "48 kHz", " "),
+            "lokalny, podcastowy i YouTube status zachowuje dostępny pojedynczy parametr przed niezmienioną nazwą");
+        Assert.Equal(
+            title,
+            LitePlaybackStatusText.Format(title, null, " "),
+            "brak parametrów nie dodaje komunikatu ani nie gubi nazwy materiału");
+        Assert.Equal(
+            "jakość Spotify Web: AAC 256 kb/s, " + title,
+            LitePlaybackStatusText.Format(title, "jakość Spotify Web: AAC 256 kb/s"),
+            "deklarowana jakość Spotify pozostaje danymi statusu przed nazwą");
     }
 
     private static void ExpectRejected(string json, string reason)
