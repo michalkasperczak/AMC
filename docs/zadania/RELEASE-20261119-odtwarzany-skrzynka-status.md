@@ -120,6 +120,24 @@ Directory.Build.props/workflow/guardzie i ich powiązanych testach. Push
 uruchamiający budowę nadal czeka na ukończenie i review wszystkich poprawek.
 Publisher będzie miał nowe ID/hashe dopiero po rzeczywistej nowej budowie.
 
+Odebrano przygotowawczy commit `18452db257e7b1dd33fac11164176e9eb7b34811`
+(baza `82db46c329702dce3cdf129912fb7fb9a05e830a`): tylko cztery pliki,
+nowy exact ref `codex/amc-protected-public-test-20261119-playback-r1`,
+wersja `0.1.0-alpha.512`, spójne trigger/job/guard/props i negatywne testy
+rozjazdów. Rodzic niezależnie odczytał cały diff i uruchomił kontrakty:
+**12 passed in 0.08s**. Istniejący lokalnie `ruamel.yaml` sparsował pełny YAML
+oraz potwierdził pojedynczy dokładny push, uprawnienia tylko do odczytu,
+GitHub-hosted Windows, first-create/first-attempt i cztery akcje przypięte
+pełnym SHA. Guard zachował BOM; osiem bloków `run` pozostaje w workflow.
+Brak `actionlint`; parser YAML nie weryfikuje całej semantyki Actions ani
+rzeczywistego działania Defendera. Nie instalowano narzędzi. Wykonawca
+raportuje parser PowerShell i izolowany test początkowego guarda, bez cmdletów AV.
+To odbiór przygotowania źródeł workflow, nie uruchomienie budowy. Commit
+nie zawiera jeszcze pozostałych nowych poprawek, więc nie wolno pushować go
+jako wejścia nowej budowy. Przed docelowym pushem ponowić odczyt zdalnej
+rezerwacji wersji i istnienia refu/runów; wyniki wykonawcy były chwilowym
+odczytem, nie rezerwacją.
+
 ## Znane ograniczenia i następny krok
 
 Następny krok: zakończyć niezależne przeglądy obu niezmiennych kandydatów,
