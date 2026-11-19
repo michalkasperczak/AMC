@@ -87,7 +87,7 @@ Kompilacja rzeczywistego projektu LiteHost na Linuxie nie została wykonana: off
 ## Wersja i commit
 
 - Baza: `0b522c000335c7476e8e2cd6b4b35c2121e65d22`.
-- Commit zadania: uzupełniony po zatwierdzeniu.
+- Commit zadania: `fb6ee2e` (zaktualizowany po uzupełnieniu tego wpisu).
 - Instalacja, publikacja i release: nie wykonano.
 
 ## Materiał do dokumentacji użytkownika
