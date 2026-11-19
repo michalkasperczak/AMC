@@ -1607,9 +1607,16 @@ class LiteHostClient:
         # znacznie dłużej niż zwykłe polecenie odtwarzania.
         return self.call("podcast.refresh", args, timeout=3600.0)
 
-    def refresh_podcasts_automatically(self) -> Any:
-        """Odśwież tylko należne źródła, z limitem zapisanym w ustawieniach."""
-        return self.call("podcast.refreshAutomatic", timeout=3600.0)
+    def refresh_podcasts_automatically(
+        self, automatic_interval_minutes: int | None = None
+    ) -> Any:
+        """Odśwież należne źródła; brak argumentu zachowuje starszy pełny limit."""
+        args: dict[str, int] = {}
+        if automatic_interval_minutes is not None:
+            args["cadenceSeconds"] = max(
+                1, min(86_400, int(automatic_interval_minutes) * 60)
+            )
+        return self.call("podcast.refreshAutomatic", args, timeout=3600.0)
 
     def set_podcast_inbox_sources(
         self, subscription_ids: list[str], presented_ids: list[str]

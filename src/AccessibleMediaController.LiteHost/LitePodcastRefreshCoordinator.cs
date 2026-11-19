@@ -16,12 +16,16 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
     public const string Operation = "podcast.refresh";
     public const string AutomaticOperation = "podcast.refreshAutomatic";
 
+    public static readonly TimeSpan AutomaticTimeBudget = TimeSpan.FromSeconds(75);
+
     private readonly LitePodcastProgressStore _podcasts;
     private readonly LiteBookmarkStore? _bookmarks;
     private readonly PodcastFeedClient? _rssClient;
     private readonly YouTubeCollectionClient? _youTubeClient;
     private readonly FacebookPublicPageClient? _facebookClient;
-    private readonly Func<PodcastRefreshTarget, Task<PodcastFeedDocument>> _fetch;
+    private readonly Func<PodcastRefreshTarget, CancellationToken, Task<PodcastFeedDocument>> _fetch;
+    private readonly TimeProvider _timeProvider;
+    private readonly TimeSpan _automaticTimeBudget;
     private int _refreshInProgress;
 
     public LitePodcastRefreshCoordinator(
@@ -34,25 +38,39 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
         _youTubeClient = new YouTubeCollectionClient();
         _facebookClient = new FacebookPublicPageClient();
         _fetch = FetchAsync;
+        _timeProvider = TimeProvider.System;
+        _automaticTimeBudget = AutomaticTimeBudget;
     }
 
     internal LitePodcastRefreshCoordinator(
         LitePodcastProgressStore podcasts,
         LiteBookmarkStore? bookmarks,
-        Func<PodcastRefreshTarget, Task<PodcastFeedDocument>> fetch)
+        Func<PodcastRefreshTarget, CancellationToken, Task<PodcastFeedDocument>> fetch,
+        TimeSpan? automaticTimeBudget = null,
+        TimeProvider? timeProvider = null)
     {
         _podcasts = podcasts ?? throw new ArgumentNullException(nameof(podcasts));
         _bookmarks = bookmarks;
         _fetch = fetch ?? throw new ArgumentNullException(nameof(fetch));
+        _automaticTimeBudget = automaticTimeBudget ?? AutomaticTimeBudget;
+        if (_automaticTimeBudget <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(automaticTimeBudget));
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public object Refresh(JsonElement args) => RefreshCore(
-        () => _podcasts.GetRefreshTargets(
-            LiteArgs.ReadText(args, "subscriptionId")),
+        () =>
+        {
+            var targets = _podcasts.GetRefreshTargets(
+                LiteArgs.ReadText(args, "subscriptionId"));
+            return new PodcastAutomaticRefreshPlan(targets, targets.Count, targets.Count);
+        },
         emptyIsError: true,
         automatic: false);
 
-    public object RefreshAutomatic()
+    public object RefreshAutomatic() => RefreshAutomatic(TimeSpan.Zero);
+
+    public object RefreshAutomatic(TimeSpan schedulingCadence)
     {
         // Duża biblioteka może wymagać zapisu tysięcy odcinków. Automatyczny
         // przebieg ustępuje sterowaniu odtwarzacza i interfejsowi; ręczne
@@ -63,7 +81,7 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
         {
             thread.Priority = ThreadPriority.BelowNormal;
             return RefreshCore(
-                _podcasts.GetDueRefreshTargets,
+                () => _podcasts.GetDueRefreshPlan(DateTime.UtcNow, schedulingCadence),
                 emptyIsError: false,
                 automatic: true);
         }
@@ -74,7 +92,7 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
     }
 
     private object RefreshCore(
-        Func<IReadOnlyList<PodcastRefreshTarget>> readTargets,
+        Func<PodcastAutomaticRefreshPlan> readPlan,
         bool emptyIsError,
         bool automatic)
     {
@@ -83,7 +101,8 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
 
         try
         {
-            var targets = readTargets();
+            var plan = readPlan();
+            var targets = plan.Targets;
             if (targets.Count == 0)
             {
                 if (emptyIsError)
@@ -94,6 +113,10 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
                 return new
                 {
                     requested = 0,
+                    targetedSources = plan.TargetCount,
+                    dueSources = plan.DueCount,
+                    deferredDueSources = plan.DueCount,
+                    budgetExpired = false,
                     succeeded = 0,
                     partial = 0,
                     failed = 0,
@@ -113,6 +136,12 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
             var inboxCount = _podcasts.GetInboxCount();
             var failures = new List<PodcastRefreshIssue>();
             var partialSources = new List<PodcastRefreshIssue>();
+            using var automaticBudget = automatic
+                ? new CancellationTokenSource(_automaticTimeBudget, _timeProvider)
+                : null;
+            var cancellationToken = automaticBudget?.Token ?? CancellationToken.None;
+            var requested = 0;
+            var budgetExpired = false;
 
             void RecordSuccess(PodcastRefreshTarget target, PodcastFeedDocument feed,
                 PodcastRefreshResult result)
@@ -135,10 +164,21 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
 
             foreach (var target in targets)
             {
+                if (automatic && cancellationToken.IsCancellationRequested)
+                {
+                    budgetExpired = true;
+                    break;
+                }
                 try
                 {
-                    if (automatic) _podcasts.MarkRefreshAttempt(target.SubscriptionId);
-                    var feed = _fetch(target).GetAwaiter().GetResult();
+                    if (automatic && !_podcasts.TryMarkRefreshAttempt(
+                            target.SubscriptionId, cancellationToken))
+                    {
+                        budgetExpired = true;
+                        break;
+                    }
+                    requested++;
+                    var feed = _fetch(target, cancellationToken).GetAwaiter().GetResult();
                     var hasChapters = feed.Episodes.Any(episode =>
                         episode.Chapters is { Count: > 0 });
                     // Próba automatu jest zapisana przed pobraniem. Wynik
@@ -161,6 +201,14 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
                     }
                     RecordSuccess(target, feed, result);
                 }
+                catch (OperationCanceledException) when (automatic && cancellationToken.IsCancellationRequested)
+                {
+                    // Anulowanie budżetu nie jest wynikiem źródła: kolejnych
+                    // kanałów nie oznaczamy próbą, a telemetria zachowuje ich
+                    // należność do następnego zwykłego taktu.
+                    budgetExpired = true;
+                    break;
+                }
                 catch (Exception exception) when (exception is HttpRequestException
                     or InvalidDataException
                     or System.Xml.XmlException
@@ -179,7 +227,11 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
 
             return new
             {
-                requested = targets.Count,
+                requested,
+                targetedSources = plan.TargetCount,
+                dueSources = plan.DueCount,
+                deferredDueSources = Math.Max(0, plan.DueCount - requested),
+                budgetExpired,
                 succeeded,
                 partial,
                 failed,
@@ -196,21 +248,23 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
         }
     }
 
-    private async Task<PodcastFeedDocument> FetchAsync(PodcastRefreshTarget target)
+    private async Task<PodcastFeedDocument> FetchAsync(
+        PodcastRefreshTarget target,
+        CancellationToken cancellationToken)
     {
         if (!Uri.TryCreate(target.FeedUrl, UriKind.Absolute, out var address))
             throw new InvalidDataException("Zapisany adres kanału jest nieprawidłowy.");
         return target.SourceKind switch
         {
             PodcastSourceKind.Rss or PodcastSourceKind.SoundCloudPodcast => await _rssClient!
-                .FetchAsync(address, CancellationToken.None)
+                .FetchAsync(address, cancellationToken)
                 .ConfigureAwait(false),
             PodcastSourceKind.YouTubeChannel or PodcastSourceKind.YouTubePlaylist =>
                 (await _youTubeClient!
-                    .FetchAsync(address, CancellationToken.None)
+                    .FetchAsync(address, cancellationToken)
                     .ConfigureAwait(false)).Feed,
             PodcastSourceKind.FacebookPage => await _facebookClient!
-                .FetchAsync(address, CancellationToken.None)
+                .FetchAsync(address, cancellationToken)
                 .ConfigureAwait(false),
             _ => throw new InvalidOperationException(
                 "Publiczne medium internetowe jest sprawdzane ponownie przy każdym odtwarzaniu.")

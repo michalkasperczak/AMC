@@ -96,6 +96,23 @@ from .host_client import HostError, HostUnavailable, LiteHostClient, default_hos
 from .release_profile import current_profile
 from .spotify_soloist import SoloistManager, SoloistSetupError
 from .spotify_soloist_dialog import SpotifySoloistDialog
+STARTUP_PODCAST_CATCH_UP_DELAY_SECONDS = 30.0
+
+
+def podcast_automatic_refresh_due(
+    now: float, automatic_interval_minutes: int, *, startup: bool
+) -> float:
+    """Return the next automatic-refresh tick without changing user settings."""
+    if automatic_interval_minutes <= 0:
+        return float("inf")
+    delay = (
+        min(automatic_interval_minutes * 60.0, STARTUP_PODCAST_CATCH_UP_DELAY_SECONDS)
+        if startup
+        else automatic_interval_minutes * 60.0
+    )
+    return now + delay
+
+
 from .youtube_account import (
     account_connected as youtube_account_connected,
     capability_available as youtube_capability_available,
@@ -11018,9 +11035,8 @@ class LiteFrame(wx.Frame):
         self._podcast_refresh_pending = False
         self._podcast_automatic_refresh_pending = False
         automatic_interval = self.options.podcast_automatic_refresh_interval_minutes
-        self._podcast_automatic_refresh_due = (
-            time.monotonic() + automatic_interval * 60.0
-            if automatic_interval > 0 else float("inf")
+        self._podcast_automatic_refresh_due = podcast_automatic_refresh_due(
+            time.monotonic(), automatic_interval, startup=True
         )
         self._last_automatic_podcast_error: str | None = None
         self._radio_recognition_pending = False
@@ -35988,7 +36004,9 @@ class LiteFrame(wx.Frame):
             or recording_blocks_application_update(recording_status)
         ):
             return
-        self._podcast_automatic_refresh_due = now + automatic_interval * 60.0
+        self._podcast_automatic_refresh_due = podcast_automatic_refresh_due(
+            now, automatic_interval, startup=False
+        )
         self._podcast_automatic_refresh_pending = True
         self._podcast_refresh_pending = True
 
@@ -36037,7 +36055,7 @@ class LiteFrame(wx.Frame):
                 return {"requested": 0}
             if recording_blocks_application_update(status):
                 return {"requested": 0}
-            return client.refresh_podcasts_automatically()
+            return client.refresh_podcasts_automatically(automatic_interval)
 
         self.runner.submit(
             "podcast-auto-refresh",

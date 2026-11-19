@@ -60,7 +60,7 @@ def _frame(*, library_view=LibraryView.PODCAST_EPISODES):
             "inboxCount": 7,
         }
 
-    def refresh_automatically():
+    def refresh_automatically(*_args):
         automatic_calls.append(True)
         return {
             "requested": 1,
@@ -222,6 +222,12 @@ def test_refresh_message_never_stringifies_protocol_objects() -> None:
     assert "Źródło bez nazwy — brak szczegółów" in message
 
 
+def test_startup_catch_up_uses_bounded_delay_instead_of_whole_interval() -> None:
+    assert gui.podcast_automatic_refresh_due(100.0, 5, startup=True) == 130.0
+    assert gui.podcast_automatic_refresh_due(100.0, 5, startup=False) == 400.0
+    assert gui.podcast_automatic_refresh_due(100.0, 0, startup=True) == float("inf")
+
+
 def test_automatic_refresh_waits_until_due_and_stays_silent() -> None:
     frame = _frame()
     original = gui.time.monotonic
@@ -336,7 +342,7 @@ def test_automatic_refresh_defers_when_recording_status_fails() -> None:
 
 def test_automatic_refresh_with_no_due_sources_does_not_change_the_view() -> None:
     frame = _frame()
-    frame.client.refresh_podcasts_automatically = lambda: {
+    frame.client.refresh_podcasts_automatically = lambda *_args: {
         "requested": 0,
         "succeeded": 0,
         "failed": 0,
@@ -366,7 +372,7 @@ def test_automatic_refresh_does_not_report_an_error_without_a_podcast_database()
 
 def test_automatic_refresh_with_no_new_items_does_not_reopen_or_announce() -> None:
     frame = _frame()
-    frame.client.refresh_podcasts_automatically = lambda: {
+    frame.client.refresh_podcasts_automatically = lambda *_args: {
         "requested": 1, "addedEpisodes": 0,
     }
     frame._podcast_automatic_refresh_due = 0.0
