@@ -49,8 +49,17 @@ RSS `CompleteFromChannelFeed` wraca przed końcowym sortowaniem/limitem.
 Po nowym scaleniu bez wczesnego obcięcia może zwrócić 200 zamiast 100
 kandydatów. Zlecono wąski test RED/GREEN i poprawkę w osobnym worktree
 `codex/amc-hubert25-rss-fallback-20261119`, baza `6f55a14b`.
-Niezależny przegląd zamrożonego P0 trwa. Etap harmonogramu i #26/#28 pozostają
-następne — ich wdrożenia nie rozpoczęto przed odebraniem danych/trwałości.
+Niezależny przegląd zamrożonego P0 zakończony: **BLOCKED**. Oprócz RSS-empty
+potwierdził, że `ApplyRefresh` mimo jednego ID wczytuje i skanuje całą bazę
+przez `ApplyRefreshBatch` → `LoadInto`/`SaveCore`. Nie ma masowego UPDATE,
+ale N kanałów powoduje N pełnych materializacji i fingerprintowania.
+Nie zmierzono konkretnego spowolnienia. Koryguje to wcześniejsze zapewnienie
+o krótkiej operacji zapisu tylko jednego kanału. Zlecono wąski RED/GREEN
+ograniczonej operacji DB na `codex/amc-hubert25-target-store-20261119`,
+baza `6f55a14b`; trwałość pierwszego sukcesu przed następnym fetchem ma zostać.
+[Werdykt, dowody i warunki odbioru](HUBERT25-DATA-20261119-review.md).
+Etap harmonogramu i #26/#28 pozostają następne — ich wdrożenia nie rozpoczęto
+przed odebraniem danych/trwałości.
 
 ## Przygotowawczy przegląd kolejnych etapów — bez zmiany kolejności
 
