@@ -46,4 +46,13 @@ Ctrl+F wyszukuje stacje. Na liście audycji wybiera się nazwy jak na zwykłej l
 
 ## Wersja i następny krok
 
-Brak nowego artefaktu i zmian głównego PC. Odebrać wyniki wykonawcy zgodne z korektą użytkownika i połączyć je z [weryfikacją odtwarzacza](RARCH-PLAYER-20261119-kontrakt.md). Nie uznawać diagnozy ani delegacji za ukończoną poprawkę.
+Odebrano i zintegrowano wyłącznie testy/dokumentację jako `a9b0e20`
+(kandydat `30b841921fa8552feb602a91308fc8f890c1d890`). Rodzic niezależnie
+wykonał dwa nowe testy graniczne: 2 passed in 0.39s, exit 0. Produkcja bez
+zmian. [Pełny zakres dowodu](RARCH-HOURS-20261119-wdrozenie.md).
+
+Nie uznano zgłoszenia nawigacji za naprawione: następna nierozstrzygnięta
+granica to zachowanie rzeczywistego Windows ListCtrl/NVDA po literalnym prefiksie.
+Ta próba wymaga osobno uzgodnionego okna GUI; nie otwierać samoczynnie okna
+ani audio i nie zmieniać głównego PC. [Odtwarzacz](RARCH-PLAYER-20261119-kontrakt.md)
+pozostaje oddzielnie w realizacji. Brak nowego artefaktu/instalacji/publikacji.

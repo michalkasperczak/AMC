@@ -6,6 +6,9 @@ Podany przez Michała Test 18.11, 03:37 jest najnowszym opublikowanym Testem.
 Korekta: lista ma wybierać nazwy jak lista plików, literami i cyframi;
 wycofano hipotezę specjalnego selektora/aliasu godzin 7 → 07.
 [Aktualna diagnoza i granice dowodu](RARCH-HOURS-20261119-diagnoza.md).
+Przyjęto tylko testy/dokumentację zwykłego routingu jako `a9b0e20`, bez zmian
+produkcji; rodzic niezależnie 2 PASS. Natywnego wyboru Windows nie odtworzono,
+więc zgłoszenia nie uznano za naprawione. Potrzebne uzgodnione okno GUI/NVDA.
 Na polecenie Michała sprawdzane są także Ctrl+H, zakładki, skoki procentowe
 w odtwarzaczu i pozostały wspólny transport. Funkcje są przewidziane w kodzie;
 pierwszy moduł: 11 zaliczeń i 1 błąd wyposażenia atrapy zmiany języka do diagnozy,

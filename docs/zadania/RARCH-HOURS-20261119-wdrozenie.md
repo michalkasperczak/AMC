@@ -1,6 +1,6 @@
 # Radio Archiwista — zwykłe wyszukiwanie przyrostowe listy
 
-Data: 2026-11-19  
+Data: 2026-11-19
 Zakres: tylko sesja Radio Archiwista, poziom godzin wybranego dnia/stacji. Bez GUI, instalacji, sieci, dźwięku ani publikacji.
 
 ## Korekta kierunku
@@ -25,6 +25,27 @@ Ten raport dotyczy wyłącznie normalnej nawigacji nazw w liście Radio Archiwis
 Kod aplikacji już przekazuje zwykłe litery i cyfry do natywnej listy, a dane godzin zachowują dosłowne teksty. Standardowe literalne wyszukiwanie nie może potraktować pojedynczego `7` jako prefiksu `07:00`: takim prefiksem jest `0`, potem `7`. Zgodnie z korektą użytkownika nie należy tego zastępować semantycznym aliasem.
 
 Headless WSL nie uruchamia rzeczywistego `wx.ListCtrl`/`SysListView32`, więc nie może potwierdzić ani obalić zachowania Windows po fizycznym wpisaniu sekwencji `0`, `7` (ani klawiatury numerycznej). Nie zgłoszono fałszywie testu GUI/NVDA. Jeżeli na uzgodnionym oknie GUI `0`, następnie `7`, wciąż nie wybierze `07:00`, potrzebny jest zapis zdarzeń realnej kontrolki: fokus, `EVT_CHAR_HOOK`, `EVT_KEY_DOWN`, tekst pierwszej kolumny oraz stan filtra.
+
+## Odbiór rodzica — bez deklarowania naprawy Windows
+
+Kandydat `30b841921fa8552feb602a91308fc8f890c1d890` zmienia tylko ten raport
+oraz nowy plik testu, bez źródeł produkcyjnych. Przeczytano oba pliki i
+niezmienny zakres commita. Porównanie produkcji kandydata z kanonicznym
+`7bebd00419c8febbce50b5f8fbeded9ed70df03d` (`git diff --exit-code ... -- wxlite/amc_wx_lite`)
+nie wykazało różnic. Wykonawca zgłasza 68 zaliczeń w zestawie powyżej;
+rodzic nie powtarzał całego nakładającego się wyboru.
+
+Rodzic niezależnie wykonał nowy test graniczny na zamrożonym worktree:
+`PYTHONPATH=wxlite:wxlite/tests uv run --offline --with pytest python -m pytest wxlite/tests/test_radioarchiwista_native_prefix_contract.py -q --basetemp /home/michal/.hermes/profiles/amc/cache/scratch/rarch-native-prefix-parent-check -p no:cacheprovider`
+— **2 passed in 0.39s**, exit 0. Sprawdzono prawdziwy hook i łańcuch
+producent/nawigator/renderowanie, nie zachowanie natywnej kontrolki.
+
+Przyjęto i przeniesiono wyłącznie testy/dokumentację jako `a9b0e20`.
+Początkowy `git diff --check` wykazał dwa końcowe odstępy twardego łamania
+Markdown przy dacie; usunięto je w dokumentacji. Bez zmian wykonania aplikacji.
+**Nie odtworzono ani nie naprawiono zgłoszonej nawigacji Windows.** Otwarta
+pozostaje uzgodniona próba rzeczywistego ListCtrl/NVDA; nie wykonywać jej
+automatycznie bez okna GUI. Historia/zakładki/procenty mają osobnego wykonawcę.
 
 ## Testy
 
