@@ -1,11 +1,16 @@
 # Rejestr zadań AMC
 
-**Radio Archiwista — ponowne zgłoszenie Ctrl+F i nawigacja godzinami:**
-Ctrl+F istnieje w obecnej bazie, ponownie 10 testów PASS; nie potwierdzono
-wersji uruchomionej u użytkownika i nie wykonano instalacji. Osobna luka:
-wpisanie 7 nie odpowiada tekstowemu początkowi 07:00. Codex przygotowuje
-wąską poprawkę wyboru godziny z RED/GREEN, bez GUI i bez zmian instalacji.
-[Diagnoza, zakres i kryteria](RARCH-HOURS-20261119-diagnoza.md).
+**Radio Archiwista — zwykła nawigacja listy i pełny odtwarzacz, 19.11.2026:**
+Ctrl+F ponownie 10 testów PASS w źródłach, jeszcze bez nowego wydania.
+Podany przez Michała Test 18.11, 03:37 jest najnowszym opublikowanym Testem.
+Korekta: lista ma wybierać nazwy jak lista plików, literami i cyframi;
+wycofano hipotezę specjalnego selektora/aliasu godzin 7 → 07.
+[Aktualna diagnoza i granice dowodu](RARCH-HOURS-20261119-diagnoza.md).
+Na polecenie Michała sprawdzane są także Ctrl+H, zakładki, skoki procentowe
+w odtwarzaczu i pozostały wspólny transport. Funkcje są przewidziane w kodzie;
+pierwszy moduł: 11 zaliczeń i 1 błąd wyposażenia atrapy zmiany języka do diagnozy,
+nie pełny GREEN. Bez GUI, instalacji i zmian głównego PC.
+[Zakres odbioru i rzeczywiste wyniki](RARCH-PLAYER-20261119-kontrakt.md).
 
 **Zgłoszenia Huberta — 19.11.2026, #25 dane/trwałość odebrane w kodzie:**
 daty przed limitem, bezpieczne „nowe”, poprawny fallback bez RSS i wąski trwały

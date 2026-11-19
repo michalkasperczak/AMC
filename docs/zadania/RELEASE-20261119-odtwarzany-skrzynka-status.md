@@ -39,6 +39,21 @@ To doprecyzowanie zastępuje węższą interpretację „sygnał poza Radiem”.
 5. Zamrożenie jednego odebranego commita; nowa chroniona budowa obu profili
    na GitHubie i publikacja dopiero po właściwych bramkach.
 
+## Dodatkowe kryteria Radio Archiwisty — 19.11.2026
+
+Przed zamrożeniem wspólnego kandydata odebrać również nowe polecenie Michała:
+pełną historię Ctrl+H, zakładki, procentowe skoki w odtwarzaczu i pozostałe
+wspólne funkcje materiału skończonego. Jeśli czegoś brakuje, minimalnie uzupełnić
+istniejący mechanizm z funkcjonalnym RED/GREEN, bez odrębnego odtwarzacza.
+[Szczegółowy zakres i faktyczne wyniki](RARCH-PLAYER-20261119-kontrakt.md).
+
+Na liście audycji ma działać zwykły wybór po nazwie literami i cyframi;
+nie tworzyć selektora godzin ani aliasu 7 → 07. Cyfry przewijają procentowo
+wyłącznie we właściwym kontekście odtwarzacza, nie podczas nawigacji listy.
+[Korekta wcześniejszej diagnozy](RARCH-HOURS-20261119-diagnoza.md).
+To rozszerza kryteria odbioru źródeł, nie zezwala na GUI/audio/instalację
+na głównym PC ani nie oznacza gotowej publikacji.
+
 ## Stan początkowy i koordynacja
 
 Główny checkout: `/home/michal/projekty/AMC`, gałąź

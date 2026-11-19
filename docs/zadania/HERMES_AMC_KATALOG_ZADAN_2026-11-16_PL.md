@@ -10,9 +10,12 @@ Bieżące priorytety i stan wydania są w
 Kanoniczny rejestr to [README.md](README.md).
 
 **Uzupełnienie 19.11.2026, poza historycznymi licznikami spisu z 16.11:**
-[Radio Archiwista: Ctrl+F i wybór godziny cyframi](RARCH-HOURS-20261119-diagnoza.md)
-— Ctrl+F już w źródłach, 10 testów PASS; wybór 7 → 07:00 w realizacji,
-bez GUI, instalacji i publikacji. Wersja głównego komputera niezweryfikowana.
+[Radio Archiwista: Ctrl+F i zwykły wybór po nazwie](RARCH-HOURS-20261119-diagnoza.md)
+— Ctrl+F w źródłach, 10 testów PASS; po korekcie Michała zwykła lista plików,
+bez specjalnego aliasu 7 → 07. Test 18.11, 03:37 nadal najnowszy opublikowany.
+[Pełny kontrakt odtwarzacza: historia, zakładki, procenty](RARCH-PLAYER-20261119-kontrakt.md)
+— weryfikacja i uzupełnienie tylko potwierdzonych braków; pierwszy moduł 11 PASS,
+1 FAIL wyposażenia atrapy zmiany języka do diagnozy. Bez GUI/instalacji/publikacji.
 
 [Zgłoszenia Huberta: #11, #25, #26, #28 — ocena i rekomendowana kolejność](HUBERT-20261119-triage-zgloszen.md).
 Analiza zakończona; Michał następnie zatwierdził realizację po kolei.

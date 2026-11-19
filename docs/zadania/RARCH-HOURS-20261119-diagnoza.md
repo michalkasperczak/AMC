@@ -1,43 +1,49 @@
-# Radio Archiwista — ponowne zgłoszenie Ctrl+F i wybieranie godziny cyframi
+# Radio Archiwista — Ctrl+F i zwykła nawigacja listy nazw
 
-**Status: DIAGNOZA ŹRÓDEŁ POTWIERDZONA; korekta godzin w realizacji przez Codex.**
+**Status: Ctrl+F ponownie sprawdzone w źródłach; przyczyna zgłoszonej nawigacji natywnej listy nadal w weryfikacji.**
 
-## Zlecenie i zakres
+## Nadrzędne korekty Michała — 19.11.2026
 
-Michał ponownie zgłasza, że Ctrl+F w sesji Radio Archiwista podaje komunikat o nieobsługiwanej funkcji. Dodatkowo w liście godzin wybranego dnia i stacji chce wybierać pozycję przez wpisanie cyfry: 7 ma wskazać siódmą rano. Wybranie pozycji nie ma jej automatycznie odtwarzać.
+Lista audycji to zwykła lista plików pobieranych z serwera, których nazwy mogą zaczynać się od cyfr. Ma działać zwykły przyrostowy wybór po nazwie literami i cyframi, a nie osobny selektor godzin. Sam wybór pozycji nie uruchamia odtwarzania.
 
-Sprawdzić obie drogi oddzielnie. Nie zmieniać bez reprodukcji już zaakceptowanego wyszukiwania, nie dodawać wyszukiwania w transkrypcjach ani pobierania całego archiwum. Nie zmieniać instalacji, nie uruchamiać GUI ani audio, nie pobierać profili, kont, cookies ani poświadczeń. Wybrana poprawka jest niezależna od prac #26/#28 i nie zastępuje ich kolejności.
+To zastępuje wcześniejszą interpretację rodzica i pierwotne kryterium aliasu 7 → 07:00. Nie wprowadzać specjalnego bufora godzin ani zmieniać nazw 07:00 na 7:00 pod tę hipotezę. Porównać rzeczywisty routing i tekst natywnej kontrolki ze zwykłą listą plików. Bez reprodukcji nie przepisywać działających dróg.
 
-## Ctrl+F — sprawdzony stan
+Michał podał komunikat aktualizatora: AMC Test 18.11.2026, 03:37. Świeży odczyt GitHub potwierdził to jako najnowsze opublikowane wydanie kanału Test (`test-2026.11.18.0337`). Poprawka Ctrl+F nie jest jeszcze wydana; nie sugerować, że użytkownik nie zainstalował dostępnej aktualizacji. Jest to zgłoszona przez niego wersja, nie nowy odczyt instalacji przez agenta.
 
-W aktualnych źródłach istnieje poprawka `bb3fdcd3284aa94847b6b45e6dc6215aa89d29e7`, obecna również w kanonicznej bazie `4b5a4a4a07968eae69ba7cbc602d30bbaa07f07e`. `git merge-base --is-ancestor` zakończył się kodem 0. Odczytano pełny [wcześniejszy plan i odbiór](SEARCH-SCOPE-20261118-radioarchiwista-i-uslugi.md), a nie tylko nagłówek pamięci.
+Michał następnie rozszerzył odbiór o historię Ctrl+H, zakładki, procenty i zwykłe funkcje odtwarzacza: [oddzielny kontrakt i wyniki](RARCH-PLAYER-20261119-kontrakt.md). Na liście cyfry wybierają nazwę; w odtwarzaczu pozostają skokami procentowymi. Nie mieszać tych kontekstów.
 
-Droga produkcyjna: hook listy przechwytuje Ctrl+F, resolver wybiera SEARCH_CURRENT, zbiór możliwości Radio Archiwisty dopuszcza wyszukiwanie, dispatcher otwiera zwykłe okno wyszukiwania. Rzeczywiste źródło na zimnym profilu pobiera tylko indeks stacji. Wynik Enterem wskazuje stację w zwykłej liście; dalej wybiera się rok, miesiąc, dzień i godzinę.
+## Zlecenie i ograniczenia
 
-Powtórzono tylko wybraną granicę: `PYTHONPATH=wxlite:wxlite/tests uv run --offline --with pytest python -m pytest wxlite/tests/test_radioarchiwista_search_scope.py -q --basetemp /home/michal/.hermes/profiles/amc/cache/scratch/radioarchiwista-followup-parent-search -p no:cacheprovider` — **10 passed in 0.94s**, exit 0. To testy bez GUI, nie próba żywego NVDA.
+Sprawdzić oddzielnie zgłoszenie nieobsługiwanego Ctrl+F i wybór nazw na liście wybranego dnia/stacji. Nie dodawać wyszukiwania treści audycji/transkrypcji ani pobierania całego archiwum. Bez instalacji, restartu/zamykania AMC, GUI/NVDA/audio, zmian głównego PC i dostępu do kont/cookies/sekretów. Praca nie zastępuje uzgodnionej kolejności #26/#28.
 
-Poprzedni odbiór wprost zapisał brak nowego pakietu, instalacji i publikacji. Objaw użytkownika może pochodzić z wersji bez tej poprawki, ale nie sprawdzono wersji uruchomionej na głównym komputerze. Nie deklarować pewnego rozpoznania przyczyny na tamtym komputerze. Na obecnej bazie nie odtworzono komunikatu o nieobsługiwanym Ctrl+F; nie ma podstaw do kolejnej zmiany tej funkcji.
+## Ctrl+F — sprawdzony stan źródeł
 
-## Godziny — konkretna różnica względem oczekiwania
+Poprawka `bb3fdcd3284aa94847b6b45e6dc6215aa89d29e7` jest przodkiem kanonicznej bazy `4b5a4a4a07968eae69ba7cbc602d30bbaa07f07e` (`git merge-base --is-ancestor`, exit 0). Przeczytano pełny [poprzedni kontrakt](SEARCH-SCOPE-20261118-radioarchiwista-i-uslugi.md).
 
-Producent `radioarchiwista_source.recording_rows` tworzy tytuły `00:00`, `07:00`, `17:00` itp. Radio Archiwista używa zwykłej natywnej listy, a drukowalne klawisze bez przypisanej akcji są oddawane kontrolce. Nie ma mapowania liczby 7 na godzinę 07:00. Początek tekstu 07:00 nie jest początkiem 7.
+Droga produkcyjna: hook listy → resolver SEARCH_CURRENT → dopuszczenie sesji → dispatcher wyszukiwania. Zimny profil pobiera indeks stacji; Enter w wyniku wskazuje stację, dalej wybiera się rok/miesiąc/dzień/nagranie. Nie jest to wyszukiwanie treści audycji.
 
-Rodzic wykonał offline produkcyjny `recording_rows` dla jawnych fikcyjnych danych godzin 0/7/17; otrzymał `['00:00', '07:00', '17:00']`. Istniejący `ListModel.find_prefix('7')` zwrócił -1, a `find_prefix('07')` 1. Obie obserwacje sprawdzono asercjami, exit 0. Ten helper ma obecnie tylko testowych callerów — jego poprawienie bez podłączenia do handlera niczego nie naprawi.
+`PYTHONPATH=wxlite:wxlite/tests uv run --offline --with pytest python -m pytest wxlite/tests/test_radioarchiwista_search_scope.py -q --basetemp /home/michal/.hermes/profiles/amc/cache/scratch/radioarchiwista-followup-parent-search -p no:cacheprovider` — **10 passed in 0.94s**, exit 0. Bez GUI/NVDA i nowego artefaktu. Nie odtworzono komunikatu o nieobsługiwanym Ctrl+F na tej bazie; brak podstaw do kolejnej zmiany tej funkcji.
 
-To wyjaśnia lukę kontraktu wybierania godzin i jest dowodem źródłowym, nie pomiarem naciskania klawiszy na Windows. Osobno sprawdzić dekoracje Ulubionych/odtwarzania i widoczny filtr, aby wybór nie przeskakiwał na ukryty wiersz. Nie wyciągać wniosku, że wszystkie litery we wszystkich listach są uszkodzone.
+## Wcześniejsza obserwacja helpera — ograniczony zakres dowodu
 
-## Wykonanie i kryteria odbioru
+Producent `recording_rows` dla jawnych fikcyjnych nagrań godzin 0/7/17 wygenerował `['00:00', '07:00', '17:00']`. `ListModel.find_prefix('7')` zwrócił -1, a `find_prefix('07')` 1; obie asercje wykonano offline, exit 0.
 
-Codex pracuje w osobnym czystym worktree `amc-radioarchiwista-hours-20261119`, gałąź `codex/amc-radioarchiwista-hours-20261119`, baza `4b5a4a4a07968eae69ba7cbc602d30bbaa07f07e`. Delegacja `deleg_d9b61458`, wykonawca `sa-0-eb5bbe09`.
+To wyłącznie obserwacja literalnego prefiksu na helperze, który ma testowych callerów. **Nie jest reprodukcją przyczyny niedziałania liter/cyfr w natywnym Windows ListCtrl ani dowodem potrzeby aliasu godzinowego.** Poprzednie twierdzenie, że wyjaśnia zgłoszoną przyczynę, zostało wycofane. Sama zmiana helpera nie dowodzi naprawy aplikacji.
 
-Wymagane pionowe RED/GREEN na rzeczywistym produkcyjnym handlerze: 7 wskazuje 07:00; zachowane wpisywanie 07 i 17; brak wskazanej godziny nie uruchamia innej audycji. Wybór dotyczy tylko widocznych pozycji aktualnego dnia i stacji, nie gracza, pola filtra, dialogu lub innej sesji. Nie przejmować Ctrl/Alt/Shift, skrótów czytnika, presetów ani literowego wybierania stacji i miesięcy. Uwzględnić brak podwójnej reakcji hook/KEY_DOWN, normalne native focus events i brak automatycznego odtwarzania.
+## Wykonanie i aktualne kryteria
 
-Testy mają korzystać z rzeczywistych producentów wierszy i handlerów, nie samego idealnego helpera. Proporcjonalny zestaw sąsiednich regresji, nie pełna bateria i nie budowa C#, jeśli zmienia się tylko Python. Zaktualizować użytkowy opis istniejącego kontraktu nawigacji, bez dokładania niezamówionych modalnych poleceń/menu. Wykonawca zapisze faktyczny RED/GREEN, pliki i commit w `RARCH-HOURS-20261119-wdrozenie.md`; rodzic wykona ograniczony przegląd i odbiór granicy przed integracją.
+Wykonawca Codex: `sa-0-eb5bbe09`, delegacja `deleg_d9b61458`, worktree `amc-radioarchiwista-hours-20261119`, gałąź `codex/amc-radioarchiwista-hours-20261119`, baza `4b5a4a4a07968eae69ba7cbc602d30bbaa07f07e`. Przekazano nadrzędną korektę kierunku.
+
+Porównać faktyczne event gates, produkcję nazw i dekoracji, native prefix matching z Plikami oraz wpływ widocznego filtra. Sprawdzić litery i cyfry przez rzeczywistą drogę klawisza. Dopasowywać literalny początek rzeczywistej nazwy, nie interpretowaną godzinę/datę. Wybór tylko w widocznej projekcji, bez play/seek i bez podwójnej reakcji hook/KEY_DOWN. Zachować menu/dialogi, edytory, modyfikatory, skróty NVDA i procenty w odtwarzaczu.
+
+W razie potwierdzonej usterki: funkcjonalny pionowy RED/GREEN, minimalna poprawka wspólnego mechanizmu, ograniczone regresje. Jeżeli headless nie może wykazać przyczyny zachowania natywnej kontrolki, zapisać dokładną granicę oraz potrzebę osobno uzgodnionej próby Windows zamiast implementować spekulację. Wycofać wyłącznie własną nieadekwatną logikę godzinową, jeśli już powstała; nie naruszać innych zmian.
+
+Raport wykonawcy: `RARCH-HOURS-20261119-wdrozenie.md`. Rodzic odbiera konkretny diff i krytyczną granicę przed integracją. Brak GUI nie jest zaliczeniem żywego NVDA.
 
 ## Materiał do dokumentacji użytkownika
 
-Ctrl+F w Radio Archiwiście wyszukuje stacje, nie treść audycji. W widoku godzin wybranego dnia cyfra 7 ma zaznaczać 07:00; Enter pozostaje oddzielnym uruchomieniem nagrania. Jest to kontrakt wdrażanej poprawki, nie informacja o już dostępnym wydaniu. Odczyt i fokus NVDA wymagają później osobno uzgodnionej próby na Windows.
+Ctrl+F wyszukuje stacje. Na liście audycji wybiera się nazwy jak na zwykłej liście plików, literami i cyframi. Enter pozostaje oddzielnym uruchomieniem nagrania. W widoku odtwarzacza cyfry nadal służą skokom procentowym. Nie reklamować specjalnego wybierania godziny 7 → 07.
 
 ## Wersja i następny krok
 
-Kanoniczna baza źródeł: `4b5a4a4a07968eae69ba7cbc602d30bbaa07f07e`; brak nowego artefaktu i zmian głównego komputera. Następny krok: odebrać czysty commit oraz rzeczywiste wyniki Codexa, sprawdzić zakres i wykonać ograniczoną kontrolę krytycznej granicy. Nie uznawać samej diagnozy ani wysłania zlecenia za gotową poprawkę.
+Brak nowego artefaktu i zmian głównego PC. Odebrać wyniki wykonawcy zgodne z korektą użytkownika i połączyć je z [weryfikacją odtwarzacza](RARCH-PLAYER-20261119-kontrakt.md). Nie uznawać diagnozy ani delegacji za ukończoną poprawkę.
