@@ -197,12 +197,46 @@ nie mogą zostawiać oznaczenia. To rozszerzenie statusu, nie przebudowa silnik�
 kont ani logowania. Brak mapowania Sonos ulubionych/dzieci playlist oraz
 Frontier/Apple pozostaje jawną luką, nie zaliczeniem pełnego zakresu.
 
+## Wynik przeglądu korekty i wspólnego kontraktu
+
+Niezależny przegląd `17e677a` zakończony: nadal dwa konkretne blockery.
+SearchDialog zawsze umieszcza tekst stanu przed tytułem, także dla `after`.
+Navigator przed wywołaniem hosta wpisuje żądane ID do current_material_id;
+wczesne returny (brak hosta/grupy) omijają czyszczenie. Nie przyjęto jeszcze
+tego kandydata do integracji. Recenzent potwierdził **35 passed, 12 skipped**
+w test_library_activity; wszystkie 12 pominięć oznacza brak chronionego
+fixture biblioteki, nie brak wx i nie zaliczone scenariusze.
+
+Odebrano kolejne osobne źródła, nadal bez integracji:
+
+- Host `bfc684d1b79ece44c80b31a7b3112fa9074a11d2`: opcjonalna tożsamość
+  WiiM po URI oraz Sonos po odczytanym playback ItemId; wykonawca raportuje
+  trzy zaliczone zestawy protokołu/koordynatora.
+- GUI `c75f6e9ee8a5b5284f5a5d63a865236883944904`: parsery, użycie obserwacji
+  do list/wyszukiwania/historii, czyszczenie błędnych statusów; wykonawca
+  raportuje 101 zaliczonych testów celowanych. Nadal ma oba blockery review.
+
+Rodzic odczytał pełne diffy obu warstw i wykrył rozjazd, którego oddzielne
+syntetyczne testy nie ujawniły: produkcyjny loader hosta i status Sonosa
+wystawiają `sonos-stream:<id>`, ale GUI akceptuje `sonos-ownStream:<id>`.
+Poprawić konsumenta do rzeczywistego ID, nie zmieniać identyfikatora hosta
+ani nie dodawać aliasów w ciemno. Ponadto host dla Sonos kasuje ID w pauzie,
+a WiiM wystawia je także przy idle; ujednolicić confirmed playing/paused,
+bez cue/historii przy pauzie i bez oznaczenia podczas idle/buffering.
+
+Trwa ostatnia ograniczona korekta w dwóch dotychczasowych zakresach autorów.
+Wspólny dowód ma użyć rzeczywistych niesekretnych wyników wykonanych mapperów
+C# jako wejścia produkcyjnych parserów/loaderów/handlerów Python, a nie
+osobno wymyślonych ID obu zestawów testów. Wejścia fixture są fikcyjne;
+wykonanie mappera nie jest testem żywego urządzenia, GUI ani NVDA.
+
 ## Znane ograniczenia i następny krok
 
-Następny krok: odebrać niezależny przegląd korekty `17e677a`, implementację
-opcjonalnego obserwowanego ID hosta oraz jego podłączenie GUI. Zweryfikować
-wspólnie producenta i konsumenta, następnie zintegrować wyłącznie przyjęte
-źródła z już przyjętym NVDA+End. Braki obserwowalności usług pozostają jawne.
+Następny krok: odebrać dwie ograniczone korekty, sprawdzić krytyczny wspólny
+kontrakt host → GUI oraz usunięcie konkretnych blockerów review, następnie
+zintegrować wyłącznie przyjęte źródła z już przyjętym NVDA+End. Nie powtarzać
+całych baterii niezmienionych kandydatów. Braki obserwowalności usług
+pozostają jawne i nie oznaczają realizacji wszystkich uzgodnionych usług.
 Przygotowanie chronionej drogi wydania nie
 upoważnia jeszcze do pushu uruchamiającego budowę ani publikacji.
 
