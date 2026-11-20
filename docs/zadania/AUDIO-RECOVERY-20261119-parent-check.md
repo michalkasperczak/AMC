@@ -7,10 +7,15 @@ Poprawiona aparatura `3948aec` przeszła w Debug u wykonawcy i rodzica, lecz
 świeży wspólny build Release ponownie upadł na tej samej asercji wznowienia.
 Późniejsza diagnoza `6c70141` potwierdziła spóźnione PlaybackStarted, które
 nadpisuje ochronną pauzę hosta. Rodzic niezależnie odtworzył kontrolowany RED.
-Minimalny `7b0a60b` przechodzi ten sam późny start również u rodzica, lecz review
-`deleg_9a50915b` dał NIE z powodu braków flagi w kolejce. `deleg_c4e52a18`
-prowadzi drugi i ostatni cykl od nowych RED publicznego hosta. Bez integracji.
-[Wynik i aktualny etap](AUDIO-RECOVERY-20261120-late-start-odbior.md).
+Minimalny `7b0a60b` miał GREEN direct fallback, ale NIE za niepełne granice kolejki.
+Drugi i ostatni cykl `deleg_c4e52a18` zakończył się `8941e34`, z RED/GREEN
+naturalnego A→B oraz GREEN Stop/next/late-fallback. Rodzic porównał 749 źródeł
+z exactcommitem i sam uruchomił Release: exit 0, 2,147 s, stderr pusty.
+Review `deleg_edbfee20` dał **NIE** za statyczny przeplot A→B + fallback B
+nadpisujący nowszą ochronną pauzę hosta; brak testu łączonego. To nie wykonany
+nowy RED i nie pomiar samoczynnego dźwięku. **STOP po limicie, bez integracji
+lub dalszych poprawek.**
+[Wynik i punkt zatrzymania](AUDIO-RECOVERY-20261120-late-start-odbior.md).
 
 ## Nowe polecenie Michała — dalsze badanie
 

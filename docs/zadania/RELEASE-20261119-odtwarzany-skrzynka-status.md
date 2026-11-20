@@ -85,8 +85,12 @@ w `6c70141`, że spóźniony PlaybackStarted nadpisuje ochronną pauzę hosta;
 rodzic potwierdził kontrolowany RED i późniejszy GREEN kandydata `7b0a60b`,
 po sprawdzeniu 749 źródeł. Review `deleg_9a50915b` dał NIE do integracji:
 braki flagi przy końcu i Stop kolejki, za późny reset next/previous.
-`deleg_c4e52a18` prowadzi drugi i ostatni cykl, najpierw nowe RED hosta.
-Nie wykonywano jeszcze tych nowych RED i nie scala się pierwszego kandydata.
+`deleg_c4e52a18` zakończył drugi i ostatni cykl jako `8941e34`: naturalne A→B
+ma RED/GREEN produktu, a Stop/next oraz zachowany late-fallback GREEN.
+Rodzic porównał 749 źródeł i uzyskał Release exit 0. Review `deleg_edbfee20`
+dał jednak **NIE**: statyczny przeplot A→B + fallback B może nadpisać nowszą
+pauzę ochronną hosta. Nie wykonano nowego RED scenariusza łączonego ani pomiaru
+samoczynnego dźwięku. **Limit wykorzystany; STOP dalszych poprawek, bez integracji.**
 [Dowód przyczyny i bieżący etap](AUDIO-RECOVERY-20261120-late-start-odbior.md).
 Polityka Spotify `7a26f3a` ma niezależny świeży Release i adapter/politykę offline
 exit 0 u rodzica, ale nie została zintegrowana. Native callback/Denon/Chrome

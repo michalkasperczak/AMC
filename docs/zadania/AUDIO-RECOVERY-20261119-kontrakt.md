@@ -10,9 +10,12 @@ odebrany #26. Późniejszy `6c70141` dowiódł przyczyny: spóźnione PlaybackSt
 nadpisuje ochronną pauzę hosta. Rodzic porównał 749 źródeł sondy i niezależnie
 odtworzył późny start — exit 1 na zachowanej asercji publicznego wznowienia.
 [Odbiór diagnozy i minimalna poprawka](AUDIO-RECOVERY-20261120-late-start-odbior.md):
-`7b0a60b` przeszedł późny start również u rodzica, lecz review `deleg_9a50915b`
-dał NIE: niepełne granice flagi w kolejce. `deleg_c4e52a18` prowadzi drugi i ostatni
-cykl od testów RED publicznego hosta. Nie scalać pierwszego kandydata.
+`8941e34` zakończył drugi i ostatni cykl: naturalne A→B ma RED/GREEN,
+Stop/next i pierwotny late-fallback GREEN. Rodzic sprawdził 749 źródeł i uruchomił
+Release z późnym startem, exit 0. Niezależny review `deleg_edbfee20` dał jednak
+**NIE**: brakuje bezpiecznego rozróżnienia startu B od nowszej ochronnej pauzy B
+przy przejściu kolejki. To statyczny przeplot, bez wykonanego łączonego RED.
+**STOP po wyczerpaniu limitu; brak trzeciej poprawki, integracji i wydania.**
 Polityka Spotify `7a26f3a` ma potwierdzony przez rodzica build i test Release offline,
 ale pozostaje odrębnym kandydatem bez integracji.
 [Odbiór Spotify i granice dowodu](AUDIO-RECOVERY-20261119-spotify-parent-check.md).

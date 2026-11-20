@@ -1,12 +1,77 @@
 # Audio: potwierdzony wyścig spóźnionego startu i dalsza minimalna poprawka
 
-## Werdykt rodzica — 20.11.2026
+## Werdykt rodzica — 20.11.2026, po zakończeniu drugiego cyklu
 
-**NIE do integracji `7b0a60b`: review wskazał brakujące granice nowej flagi
-w kolejce. Zachowany GREEN bezpośredniego fallbacku nie obejmuje tych ścieżek.
-Trwa drugi i ostatni uzgodniony cykl, najpierw RED publicznego hosta.**
+**NIE do integracji `8941e341ee23d65045032daead99cb7b35a65d0c`.
+Drugi i ostatni uzgodniony cykl zakończony. STOP dalszych poprawek w tym limicie.**
 
-## Wynik review i bieżący krok
+### Zakończony RED/GREEN i własny odbiór rodzica
+
+Codex `deleg_c4e52a18` zakończył cykl na bazie `7b0a60b`. Dodał testy
+publicznych handlerów dla naturalnego A→B, Stop z późnym startem A i next po
+pauzie z jawnym resume/odmową końca. Zapisany RED produktu dotyczy **naturalnego
+A→B** (`transport.status` błędne playing; build exit 0, test exit 1), nie osobno
+wszystkich nowych scenariuszy. Wcześniejszy błąd koperty payload/data był
+aparaturowy, nie RED produktu. Nie osłabiono pierwotnej asercji late-fallback.
+
+Minimalna delta poprawiła konkretne braki pierwszego latch: start nowej B przed
+synchronizacją hosta, odblokowanie po naturalnym przejściu oraz blokadę queue Stop.
+LiteHost i HandlerTests Release: buildy exit 0, 0 ostrzeżeń i 0 błędów; zwykły
+oraz `--late-initial-playback-started` exit 0. To zachowane wyniki wykonawcy.
+
+Rodzic porównał **749 plików źródłowych/projektowych** stagingu z dokładnym
+`8941e34`: zero braków i różnic. Sprawdził hasze surowych logów RED/GREEN
+wykonawcy i DLL `053762311c2680acf28795208f28f27584c2fdb0ae19c562a4e325cc6c346da2`.
+Sam uruchomił tę DLL z `--late-initial-playback-started`, obejmując także trzy
+nowe scenariusze kolejki: **exit 0 po 2,147 s**, komunikat OK, stderr pusty.
+Nie powtarzano całej macierzy ani kompilacji niezmienionych konsumentów.
+Początkowy odczyt logu RED weryfikował niedostępny w CP852 znak strzałki;
+naprawiono tylko porównanie aparatury przed uruchomieniem testu produktu.
+
+Dowody rodzica: scratch profilu AMC `amc-output-late-start-parent-20261120/`,
+`verify_c2.py`, `c2-source-verification.json`, `c2-parent-result.json`, raw stdout/stderr.
+Dowody wykonawcy: `amc-output-late-start-c2-evidence-20261120/evidence-c2/`,
+`red-product-result.json`, `green-result.json` i powiązane logi bajtowe.
+
+### Niezależny review: niezamknięta granica kolejka × fallback
+
+`deleg_edbfee20`, `sa-0-cfeb8f01`, zwrócił **NIE**. Wskazał konkretny
+**statyczny przeplot**, bez nowego wykonanego RED:
+
+1. Po końcu A Core rozpoczyna B; kolejka może już mieć B, a host nadal A.
+2. Fallback B nakłada nowszą ochronną pauzę i ustawia latch hosta.
+3. Późny Started(B) rozpoznaje `switchedToQueueCurrent` i pomija tę blokadę,
+   ustawiając playing=true, paused=false i zdejmując latch bez jawnego resume.
+
+Rodzic odczytał hostowe callbacki i końcowe odblokowanie w PlaybackEnded,
+`Protocol/LiteQueueCoordinator.HandlePlaybackEnded/OwnsCurrent`,
+`DemoMediaSession.ContinueAfterPlaybackEnded` i niezależne publikacje zdarzeń
+WindowsMediaOutput. Sam identyfikator pozycji nie dowodzi pierwszeństwa startu
+względem nowszej pauzy. Testy badają kolejkę i direct fallback oddzielnie;
+**brakuje kontrolowanego scenariusza łączonego A→B + fallback B przed późnym
+Started(B)**. Bez niego nie przyjmować całości na podstawie istniejącego GREEN.
+
+To dowód braku bezpiecznej granicy stanu w odczycie kodu, **nie pomiar
+automatycznego dźwięku na głośnikach**. WindowsMediaOutput ma osobny
+`_pauseRequested` i guard; błędny stan hosta nie dowodzi, że fizyczne wyjście
+samoczynnie zagrało. Może natomiast błędnie opisywać pauzę i decyzję następnej
+Spacji. Nie nazywać tego uruchomionym reproduktorem ani zmierzonym wyciekiem audio.
+
+### Stan i punkt zatrzymania
+
+Kandydat zachowany osobno, worktree czysty; niczego nie scalono ani nie pushowano.
+Kanoniczne `src/tests` nadal zgodne z `8dd7278` po rewercie `8d1da71`, #26
+zachowany, Spotify `7a26f3a` osobno. Nie było GUI/NVDA, fizycznego audio,
+kont, Chrome/Spotify, instalacji i publikacji. Limit dwóch cykli został
+wykorzystany; nie rozpoczynać trzeciego ani nowego refaktoru pod inną nazwą.
+Ewentualne wznowienie wymaga osobnej decyzji co do małego testu łączonego i
+kontrolowanego rozróżnienia aktualnego startu od nowszej ochrony. Nagrania mają
+odrębny plan; inspiracja DirectCut RS to zapisany scenariusz na później.
+
+## Historia pierwszego review i zlecenia drugiego cyklu
+
+Poniższy opis jest stanem sprzed zakończenia `deleg_c4e52a18`; nowszy werdykt
+powyżej go zastępuje. `7b0a60b` już wtedy miał NIE do integracji.
 
 `deleg_9a50915b`, `sa-0-09aa1278`, zakończył niezależny review zamrożonego `7b0a60b`.
 Prześledził host, LiteQueueCoordinator, DemoMediaSession i WindowsMediaOutput.
@@ -152,9 +217,11 @@ następne i nie jest przez tę diagnozę rozwiązane.
 
 ## Materiał dla użytkownika
 
-Znaleziono przyczynę sytuacji, w której po utracie wyjścia AMC pozostaje cichy,
-lecz następna Spacja zachowuje się jak ponowna pauza: spóźnione potwierdzenie
-startu nadpisuje ochronny stan. Pierwsza poprawka przechodzi ten konkretny test,
-ale kontrola ujawniła luki w stanach kolejki przy końcu i Stop. Nie została
-przyjęta; trwa ostatni uzgodniony cykl testów odtwarzających luki i minimalnej
-korekty. Nie jest to nowa wersja do instalacji ani pomiar na sprzęcie.
+Znaleziono przyczynę martwego wznowienia: spóźnione potwierdzenie startu
+nadpisuje ochronny stan. Ostatnia poprawka przechodzi test tego przypadku
+oraz zwykłego końca, zatrzymania i ruchu kolejki, także w próbie rodzica.
+Kontrola kodu ujawniła jednak brak rozróżnienia nowszej ochronnej pauzy podczas
+przejścia do kolejnego materiału. Tego połączonego przypadku jeszcze nie
+odtworzono testem. Poprawka nie została przyjęta; prace nad nią zatrzymano po
+dwóch uzgodnionych cyklach. Nie ma nowej wersji do instalacji ani zmierzonego
+samoczynnego dźwięku. Nagrania i przyszły scenariusz lekkiego cięcia są osobno.

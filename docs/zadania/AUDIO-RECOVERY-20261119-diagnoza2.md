@@ -2,20 +2,19 @@
 
 ## Aktualne zlecenie i status
 
-**Etap diagnostyczny zakończony: przyczyną jest spóźnione PlaybackStarted
-nadpisujące ochronną pauzę hosta. Trwa osobna minimalna poprawka produktu.**
-Codex `6c70141` dostarczył kontrolowany przeplot; rodzic sprawdził 749 źródeł
-stagingu i własnym uruchomieniem potwierdził późny start jako RED exit 1.
-Macierz źródeł/konfiguracji nie potwierdziła stałej winy Release ani #26.
-[Aktualny odbiór diagnozy i etap RED/GREEN](AUDIO-RECOVERY-20261120-late-start-odbior.md):
-`deleg_de2324a4`, osobne worktree od `6c70141`, maksymalnie dwa celowane cykle.
-Review `deleg_9a50915b` zakończony **NIE** dla `7b0a60b`: brak granic flagi
-przy końcu/Stop kolejki i późny reset next/previous. Nowych RED jeszcze brak;
-`deleg_c4e52a18` prowadzi drugi i ostatni uzgodniony cykl od testów hosta.
-Nie ma integracji ani nowego wydania.
-To nowsza decyzja niż zatrzymanie po poprzednim limicie cykli. Nie oznacza
-nieograniczonych prób zmian, zgody na API, GUI, fizyczne audio ani instalację.
-Zadanie zapisu/wycinania nagrań pozostaje osobnym następnym zadaniem.
+**Diagnoza zakończona; ostatni kandydat `8941e34` NIE do integracji.
+Dwa uzgodnione cykle wykorzystane, dalsze poprawki zatrzymane.**
+`6c70141` dowiódł pierwotnego wyścigu, `7b0a60b` naprawił direct fallback,
+a `8941e34` konkretne luki naturalnego A→B i kolejki Stop. Nowe A→B ma RED/GREEN,
+pozostałe kontrakty i pierwotny late-fallback GREEN; rodzic sprawdził 749 źródeł
+oraz sam uruchomił Release, exit 0. Review `deleg_edbfee20` wskazał jednak
+statyczny przeplot A→B + fallback B przed późnym Started(B): nowsza pauza hosta
+może zostać cofnięta przez wyjątek nowej pozycji. Nie wykonano łączonego RED
+ani pomiaru dźwięku. Nie uznawać pojedynczych GREEN za odbiór tej granicy.
+[Aktualny odbiór i punkt STOP](AUDIO-RECOVERY-20261120-late-start-odbior.md).
+Nie ma integracji ani nowego wydania; nie rozpoczynać trzeciego cyklu.
+Ewentualne wznowienie wymaga osobnej decyzji. Bez API, GUI, sprzętu i instalacji.
+Nagrania mają osobny plan; DirectCut RS jest zapisanym scenariuszem na później.
 
 ## Co już wiadomo
 
