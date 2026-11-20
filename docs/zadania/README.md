@@ -8,6 +8,10 @@ Odczyt zakończony, przyczyna jeszcze nieustalona; osobne następne zadanie na
 prywatnych fixture. Nie zmieniać nagrań użytkownika i nie obwiniać iCloud bez
 dowodu. Nie ma poprawki, instalacji ani odbioru GUI.
 [Zlecenie, fakty, granice i kryteria](AUDIO-EDIT-20261119-znikajace-nagrania.md).
+Michał wskazał DirectCut RS jako edytor audio do porównania. Odczyt kodu MIT
+potwierdził przydatne wzorce zapisu/ramek/dostępnej edycji, nie gotową zamianę.
+[Ocena źródeł i ograniczenia](AUDIO-EDIT-20261120-directcutrs-wzorzec.md).
+Bez instalacji lub nowego wdrożenia; kolejność zadań pozostaje bez zmiany.
 
 **Wyjścia audio — nowe zlecenie 19.11.2026:** podążanie za domyślnym Windows
 we wszystkich odpowiednich sesjach, w tym TIDAL i Spotify; niezależnie sprawdzić

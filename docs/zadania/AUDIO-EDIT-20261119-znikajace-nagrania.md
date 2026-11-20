@@ -96,6 +96,17 @@ W pamięci jest podobny przypadek starego WPF z września: File.Replace mógł
 przepiąć historię na backup. To wskazówka porównawcza, nie dowód tej samej
 przyczyny we współczesnym wxPython. Nie przenosić starej poprawki w ciemno.
 
+## Materiał porównawczy wskazany przez Michała — DirectCut RS
+
+20.11 Michał wskazał dostępny edytor **audio** DirectCut RS. Odczytano zamrożony
+kod `94f86fd546b71abfd02afe04856b35bbfeba7ded` i licencję MIT, bez uruchamiania.
+[Ocena i konkretne mechanizmy](AUDIO-EDIT-20261120-directcutrs-wzorzec.md): ochrona
+źródła, walidacja/zatwierdzenie wyniku, brak nadpisania przy kolizji, obsługa ramek
+MP3/rezerwuaru i dostępny tekstowy status/odsłuch zaznaczenia. Przydatny jako wzór,
+nie gotowa zamiana: Rust/RunGUI, inne formaty i kontrakt zapisu, utrata metadanych.
+Porównać w tym zadaniu po odtworzeniu incydentu AMC; nie zmieniać teraz kontraktu
+edycji oryginału ani kolejności prac. Nie instalowano i nie kopiowano kodu do AMC.
+
 ## Materiał do dokumentacji użytkownika
 
 Obecnie zgłoszenie nie jest naprawione. Wyniki cięcia pozostały na dysku pod
