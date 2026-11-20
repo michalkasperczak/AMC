@@ -28,7 +28,10 @@ Drugi, ostatni cykl `8941e34` ma RED/GREEN naturalnego A→B i nowe GREEN Stop/n
 a rodzic potwierdził Release exit 0 po sprawdzeniu 749 źródeł. Review
 `deleg_edbfee20` ponownie dał NIE: statyczny przeplot A→B + fallback B może
 nadpisać nowszą ochronną pauzę hosta; brak testu łączonego, nie wykonany nowy RED.
-**STOP dalszych cykli w obecnym limicie. Bez integracji i publikacji.**
+**20.11 nowa zgoda Michała wznowiła pracę po tym STOP:** `deleg_adce614a`
+odtwarza łączony scenariusz na `8941e34`, następnie tylko potwierdzona poprawka
+i proporcjonalny odbiór. Limit dwóch prób nie oznacza limitu konta Codex.
+Bez płatnego API, integracji i publikacji w tym kroku.
 [Odbiór diagnozy i etap poprawki](AUDIO-RECOVERY-20261120-late-start-odbior.md).
 Spotify `7a26f3a` rodzic potwierdził świeżym Release i adapter/polityką offline
 exit 0, nadal bez wspólnej integracji. [Szczegóły](AUDIO-RECOVERY-20261119-spotify-parent-check.md).

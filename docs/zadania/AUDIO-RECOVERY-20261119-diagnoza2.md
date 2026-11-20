@@ -2,8 +2,9 @@
 
 ## Aktualne zlecenie i status
 
-**Diagnoza zakończona; ostatni kandydat `8941e34` NIE do integracji.
-Dwa uzgodnione cykle wykorzystane, dalsze poprawki zatrzymane.**
+**Kandydat `8941e34` nadal NIE do integracji. 20.11 Michał ponownie zezwolił
+kontynuować przez Codex po limicie dwóch prób; ten STOP nie jest już bieżącym
+poleceniem.** `deleg_adce614a` odtwarza łączony przypadek przed poprawką.
 `6c70141` dowiódł pierwotnego wyścigu, `7b0a60b` naprawił direct fallback,
 a `8941e34` konkretne luki naturalnego A→B i kolejki Stop. Nowe A→B ma RED/GREEN,
 pozostałe kontrakty i pierwotny late-fallback GREEN; rodzic sprawdził 749 źródeł
@@ -12,8 +13,9 @@ statyczny przeplot A→B + fallback B przed późnym Started(B): nowsza pauza ho
 może zostać cofnięta przez wyjątek nowej pozycji. Nie wykonano łączonego RED
 ani pomiaru dźwięku. Nie uznawać pojedynczych GREEN za odbiór tej granicy.
 [Aktualny odbiór i punkt STOP](AUDIO-RECOVERY-20261120-late-start-odbior.md).
-Nie ma integracji ani nowego wydania; nie rozpoczynać trzeciego cyklu.
-Ewentualne wznowienie wymaga osobnej decyzji. Bez API, GUI, sprzętu i instalacji.
+Nie ma integracji ani nowego wydania. Nowa decyzja Michała jest zapisana na górze
+aktualnego odbioru: zgoda na kontynuację nie jest odczytem limitu konta ani zgodą
+na płatne API. Bez GUI, sprzętu i instalacji w tym kroku.
 Nagrania mają osobny plan; DirectCut RS jest zapisanym scenariuszem na później.
 
 ## Co już wiadomo

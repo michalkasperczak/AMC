@@ -31,8 +31,12 @@ nowe kontrakty Stop/next i pierwotny late-fallback przechodzą także u rodzica
 (749 źródeł zgodnych, Release exit 0). Niezależny review `deleg_edbfee20` dał jednak
 **NIE**: przy połączeniu naturalnego przejścia i utraty wyjścia B późny start może
 nadpisać nowszą ochronną pauzę hosta. To konkretny przeplot z kodu i brak testu
-łączonego, nie wykonany nowy RED ani dowód samoczynnego dźwięku. **Prace nad tą
-poprawką zatrzymane po wykorzystaniu limitu, bez trzeciego cyklu i integracji.**
+łączonego, nie wykonany nowy RED ani dowód samoczynnego dźwięku.
+**20.11 Michał ponownie zezwolił kontynuować przez Codex; wcześniejszy limit
+dwóch prób nie jest limitem konta i punkt STOP został zastąpiony.**
+`deleg_adce614a` bada teraz deterministycznie scenariusz łączony na osobnej
+bazie `8941e34`; dopiero po RED minimalna korekta i odbiór. Nadal bez integracji,
+GUI, sprzętu, instalacji, publikacji i płatnego API w tym kroku.
 [Aktualny odbiór](AUDIO-RECOVERY-20261120-late-start-odbior.md).
 Spotify `7a26f3a` ma potwierdzony przez rodzica świeży build i test Release
 adaptera/polityki offline. Kandydat pozostaje osobno, bez wspólnej integracji.

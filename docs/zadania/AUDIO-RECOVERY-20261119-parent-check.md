@@ -13,8 +13,10 @@ naturalnego A→B oraz GREEN Stop/next/late-fallback. Rodzic porównał 749 źr�
 z exactcommitem i sam uruchomił Release: exit 0, 2,147 s, stderr pusty.
 Review `deleg_edbfee20` dał **NIE** za statyczny przeplot A→B + fallback B
 nadpisujący nowszą ochronną pauzę hosta; brak testu łączonego. To nie wykonany
-nowy RED i nie pomiar samoczynnego dźwięku. **STOP po limicie, bez integracji
-lub dalszych poprawek.**
+nowy RED i nie pomiar samoczynnego dźwięku. **20.11 Michał ponownie zezwolił
+kontynuować przez Codex po limicie dwóch prób.** `deleg_adce614a` odtwarza
+łączony przypadek przed poprawką; brak odczytu limitu konta, bez płatnego API.
+Nadal bez integracji lub publikacji w tym kroku.
 [Wynik i punkt zatrzymania](AUDIO-RECOVERY-20261120-late-start-odbior.md).
 
 ## Nowe polecenie Michała — dalsze badanie

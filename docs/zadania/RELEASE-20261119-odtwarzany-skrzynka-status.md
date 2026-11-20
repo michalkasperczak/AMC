@@ -90,7 +90,10 @@ ma RED/GREEN produktu, a Stop/next oraz zachowany late-fallback GREEN.
 Rodzic porównał 749 źródeł i uzyskał Release exit 0. Review `deleg_edbfee20`
 dał jednak **NIE**: statyczny przeplot A→B + fallback B może nadpisać nowszą
 pauzę ochronną hosta. Nie wykonano nowego RED scenariusza łączonego ani pomiaru
-samoczynnego dźwięku. **Limit wykorzystany; STOP dalszych poprawek, bez integracji.**
+samoczynnego dźwięku. Ówczesny STOP po dwóch próbach został **20.11 zastąpiony
+nową zgodą Michała na kontynuację przez Codex**. `deleg_adce614a` odtwarza
+łączony scenariusz przed poprawką, nadal bez integracji i publikacji w tym kroku.
+Nie potwierdzono zużycia limitu konta; osobno płatne API pozostaje zabronione.
 [Dowód przyczyny i bieżący etap](AUDIO-RECOVERY-20261120-late-start-odbior.md).
 Polityka Spotify `7a26f3a` ma niezależny świeży Release i adapter/politykę offline
 exit 0 u rodzica, ale nie została zintegrowana. Native callback/Denon/Chrome

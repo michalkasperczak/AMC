@@ -1,5 +1,29 @@
 # Audio: potwierdzony wyścig spóźnionego startu i dalsza minimalna poprawka
 
+## Wznowienie na nowe polecenie Michała — 20.11.2026
+
+Michał wyjaśnił, że można kontynuować pracę przez Codex niemal do końca
+pozostałego limitu konta. To nowa zgoda na dalsze wykonanie po wcześniejszym
+punkcie STOP, nie dowód odczytania stanu limitu konta. Pierwotny limit dwóch
+prób był limitem procesu naprawy, nie potwierdzonym wyczerpaniem Codexa.
+Nie używać osobno płatnego API ani samoczynnego przełączenia dostawcy.
+
+Kontynuacja dotyczy tej samej granicy lokalnego audio: najpierw kontrolowany
+scenariusz naturalnego A→B z utratą wyjścia B przed jego późnym Started(B).
+Wymusić rzeczywistą kolejność bez Sleep/retry i odczytać publiczny transport.status
+oraz skuteczność jawnego wznowienia tej samej pozycji. Najpierw rozstrzygnąć,
+czy zarzut review jest odtwarzalny; bez RED nie dodawać poprawki na zapas.
+Jeżeli RED potwierdzi defekt, minimalna zmiana właściwej ważności/porządku stanu,
+GREEN wraz z sąsiednimi już istniejącymi testami i proporcjonalny niezależny review.
+Nie budować kolejnych wyjątków po samym ID, jeśli nie odróżniają nowszej pauzy.
+
+Wykonanie w osobnym worktree `amc-output-queue-fallback-20261120`, baza dokładnie
+`8941e341ee23d65045032daead99cb7b35a65d0c`. Zamrożony poprzedni kandydat i jego
+raporty pozostają nietknięte. Bez GUI/NVDA, sprzętu, kont, instalacji lub publikacji
+w tym kroku. Integracja do canonical dopiero po odbiorze; Spotify i nagrania osobno.
+Poniższy werdykt NIE nadal obowiązuje dla starego kandydata, lecz jego zakaz
+kontynuowania został zastąpiony tą nową decyzją użytkownika.
+
 ## Werdykt rodzica — 20.11.2026, po zakończeniu drugiego cyklu
 
 **NIE do integracji `8941e341ee23d65045032daead99cb7b35a65d0c`.
