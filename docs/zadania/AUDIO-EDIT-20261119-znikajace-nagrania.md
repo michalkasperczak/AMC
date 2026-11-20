@@ -107,6 +107,16 @@ nie gotowa zamiana: Rust/RunGUI, inne formaty i kontrakt zapisu, utrata metadany
 Porównać w tym zadaniu po odtworzeniu incydentu AMC; nie zmieniać teraz kontraktu
 edycji oryginału ani kolejności prac. Nie instalowano i nie kopiowano kodu do AMC.
 
+**Doprecyzowanie Michała, 20.11 — do zapisania na później:** celem jest tylko
+sprawne wycięcie fragmentu i bezpieczny zapis, możliwie bez dodatkowej straty
+jakości; nie pełny edytor. MP3 traktować jako istotny scenariusz (przypuszczenie
+użytkowe, nie statystyka). Ewentualny wzorzec DirectCut RS porównać z obecnym
+FFmpeg/AMC na syntetycznych MP3 CBR/VBR, z granicami ramek, kolejnymi zapisami
+i ochroną pliku. Przed dodaniem zależności zmierzyć przyrost instalatora oraz
+instalacji; preferować istniejące narzędzia i mały mechanizm zamiast całego
+programu. To przyszły scenariusz, nie zlecenie wdrożenia ani już wykonany test.
+Szczegóły i granice w powyższej notatce porównawczej.
+
 ## Materiał do dokumentacji użytkownika
 
 Obecnie zgłoszenie nie jest naprawione. Wyniki cięcia pozostały na dysku pod

@@ -9,6 +9,35 @@ kompilowania, instalacji lub kopiowania produkcyjnego kodu do AMC.
 całą aplikacją ani zmieniać kolejności uzgodnionych zadań.** Bieżący cykl
 przełączania wyjścia audio trwa niezależnie; incydent cięcia nagrań jest następny.
 
+## Doprecyzowanie Michała — scenariusz na później (20.11.2026)
+
+**Tylko zapisać przyszły scenariusz, nie rozpoczynać teraz implementacji.**
+AMC ma sprawnie wyciąć wskazany fragment i bezpiecznie zapisać wynik,
+w miarę możliwości bez dodatkowej utraty jakości. Nie budować pełnego edytora
+wielościeżkowego ani przenosić całego interfejsu DirectCut RS. Jego sposób pracy
+lub pojedynczy mechanizm może być wzorem, jeśli daje rzeczywistą korzyść.
+
+MP3 jest ważnym scenariuszem testowym, ponieważ Michał przypuszcza, że wiele
+osób nagrywa właśnie w tym formacie — to założenie użytkowe, nie pomiar udziału
+formatów. MP3 jest już stratne, lecz cięcie bez ponownego kodowania pozwala
+uniknąć kolejnej generacji strat; nie odzyskuje utraconej wcześniej jakości.
+Nie obiecywać identycznych próbek przy granicy cięcia.
+
+Przyszły, ograniczony test porównawczy na syntetycznych MP3 CBR/VBR:
+- usunięcie początku, środka lub końca oraz dwa kolejne zapisy;
+- zgodność zaznaczenia i rzeczywistego cięcia z jawną tolerancją ramek;
+- dekodowalność, poprawne przewijanie i zachowanie pozostałego dźwięku;
+- bezpieczny wynik, końcowa nazwa i zgodna historia, bez znikania nagrania;
+- prosty, dostępny przebieg zaznacz → wytnij → zapisz, bez dodatkowych funkcji;
+- pomiar przyrostu rozmiaru instalatora i instalacji dla tego samego profilu
+  względem bazy oraz wykaz nowych zależności, zamiast zgadywania wagi Rust.
+
+Najpierw sprawdzić, czy obecne FFmpeg i kod AMC wystarczą. Wybierać możliwie
+mały mechanizm, nie dokładać całego programu ani drugiego dużego środowiska
+wykonawczego tylko dla cięcia. Nie ustalono liczbowego limitu wielkości ani
+zgody na powiększenie paczki. Tej próby jeszcze nie wykonano; nie zastępuje
+ona pilnej diagnozy znikających plików i nie zmienia kolejności prac.
+
 ## Tożsamość materiału
 
 - Repozytorium: https://github.com/Nick6489/DirectCutRS
