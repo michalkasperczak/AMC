@@ -45,14 +45,21 @@ listy i odtwarzacza, ale cel w odtwarzaczu pochodzi z faktycznie granego utworu.
 
 - Etykiety listy, dialog przypisania, menu i nowe komunikaty są dostępne po polsku oraz angielsku.
 
-- Testy bez widocznego GUI z runtime bieżącej instalacji: 177 zaliczonych,
+- Testy bez widocznego GUI z runtime bieżącej instalacji: 178 zaliczonych,
   2 pominięte ze świadomym filtrem, 0 niepowodzeń. Uruchomiono
   `test_profile_presets.py`, `test_preset_gui_wiring.py`, `test_shortcuts.py`,
   `test_tidal_navigation.py`, `test_menu_exposes_existing_actions.py`,
   `test_command_palette.py` i `test_i18n.py`. Dwa pominięte testy pełnej
   inwentaryzacji tłumaczeń obejmują starsze, niezwiązane teksty ustawień;
   uruchomione bez filtra nadal nie przechodzą. Dodatkowy test English sprawdza
-  etykiety 12 miejsc, menu i komunikat braku celu w sesji TIDAL.
+  etykiety 12 miejsc, menu i komunikat braku celu w sesji TIDAL. Test zaznaczonego wiersza
+  TIDAL bez identyfikatora sprawdza dokładny komunikat po polsku i angielsku.
+- Szerszą serię `wxlite/tests` rozpoczęto dodatkowo i przerwano po wykryciu
+  niepowodzeń poza zakresem presetów. Powtórzenie z zatrzymaniem na pierwszym
+  błędzie dało 516 zaliczonych, 11 pominiętych i błąd
+  `test_full_backup.py::test_full_backup_combines_core_and_sanitized_ui_state`:
+  walidator kopii odrzuca nieznane dane interfejsu. Nie diagnozowano
+  pozostałych błędów; pełna seria nie jest zaliczona.
 - Bezokienny test wykonania zapisuje utwór TIDAL w wolnym miejscu i wywołuje
   prawdziwą metodę ramki; wynik to `PlayTidalTrack`. Dla albumu wynik to
   `PlayTidalContainer` całej płyty. To test bez rzeczywistego konta i odsłuchu.
@@ -82,3 +89,5 @@ uruchamia zapis. `Ctrl+Alt+P` pozwala sprawdzić listę. Szkic wymaga korekty i
 aprobaty użytkownika przed publikacją jako przewodnik.
 
 Commit poprawki źródłowej: `5f1297a771ce7dde01a657a4738d5b3bbb125bce` (bieżąca gałąź `codex/amc-test-public-20261109`). Paczka próbna została odświeżona po commicie; pozostałe niezależne dokumenty są nadal zmianami roboczymi, dlatego manifest uczciwie zgłasza `sourceDirty=true`.
+
+Dodatkowy commit testu komunikatu PL/EN: `a12aafb7`.
