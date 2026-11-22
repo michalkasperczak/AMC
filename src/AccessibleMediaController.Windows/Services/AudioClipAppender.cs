@@ -624,6 +624,8 @@ internal static class AudioClipAppender
                 _ => new InvalidOperationException(availability.Message)
             };
         }
+        if (CloudFileAvailability.RequiresSafeCopyForOverwrite(request.TargetPath))
+            throw new NotSupportedException(CloudFileAvailability.UnsafeProviderOverwriteMessage);
         return sourcePath;
     }
 

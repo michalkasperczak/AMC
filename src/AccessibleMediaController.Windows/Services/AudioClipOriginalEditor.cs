@@ -56,6 +56,8 @@ internal static class AudioClipOriginalEditor
                 _ => new InvalidOperationException(availability.Message)
             };
         }
+        if (CloudFileAvailability.RequiresSafeCopyForOverwrite(request.SourcePath))
+            throw new NotSupportedException(CloudFileAvailability.UnsafeProviderOverwriteMessage);
         if (LocalAudioFileDiscovery.IsVideoFile(request.SourcePath))
         {
             throw new NotSupportedException(

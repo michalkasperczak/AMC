@@ -22,6 +22,11 @@ using AccessibleMediaController.Core.Tidal;
 // testow, bo jego wyjscie zepsuloby strumien JSON czytany przez transport.
 if (args.Length > 0 && args[0] == LibrespotHostFixture.ModeArgument)
     return LibrespotHostFixture.Run(args);
+if (args.Length == 1 && args[0] == "--cloud-overwrite-guard")
+{
+    try { TestCloudOverwriteGuard(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Length == 1 && args[0] == "--podcast-download-naming")
 {
     try { TestPodcastDownloadNaming(); return 0; }
@@ -5337,6 +5342,25 @@ static void TestCloudEditAvailabilityDecision()
     {
         try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
     }
+}
+
+static void TestCloudOverwriteGuard()
+{
+    // Observed on the surviving iCloud result of the lost Tok recording:
+    // ARCHIVE | REPARSE_POINT | PINNED. The payload was readable, but the
+    // original destination disappeared after the edit. The actor is unknown.
+    var managed = FileAttributes.Archive | FileAttributes.ReparsePoint | (FileAttributes)0x00080000;
+    True(CloudFileAvailability.RequiresSafeCopyForOverwrite(managed),
+        "Pinned provider reparse point was allowed for in-place overwrite.");
+    True(!CloudFileAvailability.RequiresSafeCopyForOverwrite(
+        FileAttributes.Archive | (FileAttributes)0x00080000),
+        "PINNED alone must not block an ordinary local file.");
+    True(!CloudFileAvailability.RequiresSafeCopyForOverwrite(
+        FileAttributes.Archive | FileAttributes.ReparsePoint),
+        "An ordinary symlink must not be classified as a sync provider solely by its name.");
+    True(!CloudFileAvailability.RequiresSafeCopyForOverwrite(FileAttributes.Archive),
+        "An ordinary local file must remain editable.");
+    Console.WriteLine("OK: provider-managed overwrite requires a safe local copy");
 }
 
 static void TestLocalAudioFileDiscovery()

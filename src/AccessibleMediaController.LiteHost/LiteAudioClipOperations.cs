@@ -74,6 +74,14 @@ internal static class LiteAudioClipOperations
         {
             return new { available = false, message = availability.Message };
         }
+        if (CloudFileAvailability.RequiresSafeCopyForOverwrite(sourcePath))
+        {
+            return new
+            {
+                available = false,
+                message = CloudFileAvailability.UnsafeProviderOverwriteMessage
+            };
+        }
         if (LocalAudioFileDiscovery.IsVideoFile(sourcePath))
         {
             return new
@@ -145,6 +153,15 @@ internal static class LiteAudioClipOperations
                         requiresLossyReencode = false
                     };
                 }
+            }
+            if (CloudFileAvailability.RequiresSafeCopyForOverwrite(targetPath))
+            {
+                return new
+                {
+                    available = false,
+                    message = CloudFileAvailability.UnsafeProviderOverwriteMessage,
+                    requiresLossyReencode = false
+                };
             }
             if ((File.GetAttributes(targetPath) & FileAttributes.ReadOnly) != 0)
             {

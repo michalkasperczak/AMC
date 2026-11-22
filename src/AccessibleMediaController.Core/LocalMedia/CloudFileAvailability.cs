@@ -86,6 +86,26 @@ public static class CloudFileAvailability
     // state the user's RETENTION INTENT, not whether the content is complete.
     private const FileAttributes MissingDataAttributes =
         FileAttributes.Offline | RecallOnOpen | RecallOnDataAccess;
+
+    public const string UnsafeProviderOverwriteMessage =
+        "Ten plik jest zarządzany przez synchronizację. Zapis nad oryginałem jest wstrzymany, "
+        + "ponieważ plik może zniknąć po edycji. Skopiuj go poza folder synchronizowany "
+        + "i tam wykonaj cięcie lub dopisanie. Oryginał nie został zmieniony.";
+
+    /// <summary>
+    /// A fully local cloud placeholder still has a provider-owned name. A
+    /// missing destination after File.Replace was observed on one such file;
+    /// the exact actor was not proven. This is separate from CanEdit:
+    /// PINNED alone on ordinary NTFS must not deny edits.
+    /// </summary>
+    public static bool RequiresSafeCopyForOverwrite(string path) =>
+        RequiresSafeCopyForOverwrite(File.GetAttributes(path));
+
+    public static bool RequiresSafeCopyForOverwrite(FileAttributes attributes) =>
+        (attributes & FileAttributes.ReparsePoint) != 0
+        && (attributes & (Pinned | Unpinned | FileAttributes.Offline
+            | RecallOnOpen | RecallOnDataAccess)) != 0;
+
     private const uint CfPlaceholderStatePlaceholder = 0x00000001;
     private const uint CfPlaceholderStatePartial = 0x00000010;
     private const uint CfPlaceholderStatePartiallyOnDisk = 0x00000020;
