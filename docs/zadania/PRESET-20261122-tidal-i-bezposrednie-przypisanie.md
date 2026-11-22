@@ -60,7 +60,7 @@ listy i odtwarzacza, ale cel w odtwarzaczu pochodzi z faktycznie granego utworu.
 - `py_compile` czterech zmienionych modułów — zaliczony.
 - Odizolowana paczka próbna AMC Test w `.test-output/preset-tidal-20261122`:
   3800 plików, wszystkie SHA-256 zgodne z manifestem, profil `test`, etykieta
-  `22.11.2026, 16:57`. Pięć zmienionych modułów Pythona w paczce ma te same
+  `22.11.2026, 17:03`. Pięć zmienionych modułów Pythona w paczce ma te same
   sumy co źródła. `sourceDirty=true`, więc nie jest kandydatem do publikacji.
   Składanie użyło istniejących binariów hosta oraz przypiętych zależności
   bieżącej instalacji; nie jest dowodem nowej kompilacji C#.
@@ -81,4 +81,4 @@ nazwy; wskaż tę cyfrę dwa razy i potwierdź Enterem. `Ctrl+Shift+cyfra`
 uruchamia zapis. `Ctrl+Alt+P` pozwala sprawdzić listę. Szkic wymaga korekty i
 aprobaty użytkownika przed publikacją jako przewodnik.
 
-Wersja i commit: do uzupełnienia po przygotowaniu sprawdzonego kandydata.
+Commit poprawki źródłowej: `5f1297a771ce7dde01a657a4738d5b3bbb125bce` (bieżąca gałąź `codex/amc-test-public-20261109`). Paczka próbna została odświeżona po commicie; pozostałe niezależne dokumenty są nadal zmianami roboczymi, dlatego manifest uczciwie zgłasza `sourceDirty=true`.
