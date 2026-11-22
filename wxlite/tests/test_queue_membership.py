@@ -341,3 +341,49 @@ def test_saved_youtube_video_queue_switches_twice_from_player() -> None:
     ]
     assert queue == set()
     assert opened == []
+def test_spotify_queue_delete_with_filter_prefers_visible_neighbor() -> None:
+    rows = [
+        Row(f"track-{i}", title, "track", service_id=f"spotify-{i}")
+        for i, title in enumerate(("Podcast A", "Podcast B", "Inne C", "Podcast D"), 1)
+    ]
+    preferred = []
+    state = SimpleNamespace(
+        view=View.LIST, library_view=LibraryView.SPOTIFY_QUEUE,
+        model=SimpleNamespace(replace=lambda _rows, *, preferred_id=None: preferred.append(preferred_id)),
+    )
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(active=SessionId.SPOTIFY, sessions={SessionId.SPOTIFY: state}),
+        _selected_action_rows=lambda: [rows[1]],
+        _spotify_queue_rows=list(rows),
+        filter_box=SimpleNamespace(GetValue=lambda: "Podcast"),
+        state=SimpleNamespace(spotify_queue_items=gui.spotify_queue_payload(rows)),
+        store=SimpleNamespace(save=lambda _state: None),
+        announcer=SimpleNamespace(say=lambda _text: None),
+        _sync_views=lambda: None,
+        _announce_after_list_update=lambda _text: None,
+    )
+    gui.LiteFrame._toggle_spotify_queue(frame)
+    assert preferred == [rows[3].item_id]
+
+
+def test_tidal_queue_delete_with_filter_prefers_visible_neighbor() -> None:
+    rows = [
+        Row(f"track-{i}", title, "track", service_id=f"tidal-{i}",
+            related_album_service_id="album-1")
+        for i, title in enumerate(("Podcast A", "Podcast B", "Inne C", "Podcast D"), 1)
+    ]
+    opened = []
+    state = SimpleNamespace(view=View.LIST, library_view=LibraryView.TIDAL_QUEUE)
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(active=SessionId.TIDAL, sessions={SessionId.TIDAL: state}),
+        _selected_action_rows=lambda: [rows[1]],
+        _tidal_queue_rows=list(rows),
+        filter_box=SimpleNamespace(GetValue=lambda: "Podcast"),
+        state=SimpleNamespace(tidal_queue_items=gui.tidal_queue_payload(rows)),
+        store=SimpleNamespace(save=lambda _state: None),
+        announcer=SimpleNamespace(say=lambda _text: None),
+        _open_tidal_queue=lambda *, preferred_id=None: opened.append(preferred_id),
+        _announce_after_list_update=lambda _text: None,
+    )
+    gui.LiteFrame._toggle_tidal_queue(frame)
+    assert opened == [rows[3].item_id]

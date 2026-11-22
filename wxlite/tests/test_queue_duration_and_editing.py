@@ -10,7 +10,7 @@ install_wx_stub()
 
 from amc_wx_lite import gui
 from amc_wx_lite.list_model import Row, rows_from_queue_status
-from amc_wx_lite.navigation import Announce, Navigator, SessionId
+from amc_wx_lite.navigation import Announce, LibraryView, Navigator, SessionId
 from amc_wx_lite.shortcuts import Action, Chord, resolve
 
 
@@ -104,3 +104,56 @@ def test_live_queue_move_changes_view_and_delete_calls_host():
 def test_queue_shortcuts_resolve_to_edit_actions():
     assert resolve(Chord("Delete"), player_view=False, radio_session=False) is Action.REMOVE_SELECTED
     assert resolve(Chord("Up", alt=True), player_view=False, radio_session=False) is Action.MOVE_LIST_ITEM_UP
+def test_live_queue_delete_with_filter_prefers_visible_neighbor():
+    nav = Navigator()
+    nav.active = SessionId.FILES
+    rows = [
+        Row(item_id, title, "track")
+        for item_id, title in (
+            ("a", "Podcast A"), ("b", "Podcast B"),
+            ("c", "Inne C"), ("d", "Podcast D"),
+        )
+    ]
+    nav.apply_live_queue(rows)
+    nav.session.model.select_id("b")
+    refreshed = []
+    frame = SimpleNamespace(
+        navigator=nav,
+        _selected_action_rows=lambda: [nav.session.model.selected_row],
+        _profile_edit_client=lambda: SimpleNamespace(
+            queue_remove_membership=lambda _ids: {"changed": 1}
+        ),
+        filter_box=SimpleNamespace(GetValue=lambda: "Podcast"),
+        announcer=SimpleNamespace(say=lambda _message: None),
+        runner=SimpleNamespace(submit=lambda _slot, work, done, _failed: done(work())),
+        _refresh_live_queue=lambda **kwargs: refreshed.append(kwargs),
+    )
+    gui.LiteFrame._remove_live_queue_items(frame)
+    assert refreshed == [{"preferred_id": "d"}]
+def test_saved_files_queue_delete_with_filter_prefers_visible_neighbor():
+    nav = Navigator()
+    nav.active = SessionId.FILES
+    rows = [
+        Row(item_id, title, "track")
+        for item_id, title in (
+            ("a", "Podcast A"), ("b", "Podcast B"),
+            ("c", "Inne C"), ("d", "Podcast D"),
+        )
+    ]
+    nav.apply_library_view(LibraryView.SAVED_QUEUE, "Kolejka", rows)
+    nav.session.model.select_id("b")
+    refreshed = []
+    frame = SimpleNamespace(
+        navigator=nav,
+        _selected_action_rows=lambda: [nav.session.model.selected_row],
+        _profile_edit_client=lambda: SimpleNamespace(
+            remove_profile_items=lambda *_args, **_kwargs: {"removedCount": 1}
+        ),
+        _current_profile_view_name=lambda: LibraryView.SAVED_QUEUE.value,
+        filter_box=SimpleNamespace(GetValue=lambda: "Podcast"),
+        announcer=SimpleNamespace(say=lambda _message: None),
+        runner=SimpleNamespace(submit=lambda _slot, work, done, _failed: done(work())),
+        _refresh_profile_view=lambda **kwargs: refreshed.append(kwargs),
+    )
+    gui.LiteFrame._remove_selected_items(frame)
+    assert refreshed[0]["preferred_id"] == "d"

@@ -33935,7 +33935,11 @@ class LiteFrame(wx.Frame):
         remove = all(row.service_id in existing for row in selected)
         selected_ids = {row.service_id for row in selected}
         removal_preferred_id = LiteFrame._preferred_item_after_removal(
-            previous_rows,
+            list_filter.filter_rows(
+                previous_rows,
+                self.filter_box.GetValue()
+                if getattr(self, "filter_box", None) is not None else "",
+            ),
             {row.item_id for row in selected},
         )
         updated = (
@@ -34005,7 +34009,11 @@ class LiteFrame(wx.Frame):
         remove = all(row.item_id in existing for row in selected)
         selected_ids = {row.item_id for row in selected}
         removal_preferred_id = LiteFrame._preferred_item_after_removal(
-            previous_rows,
+            list_filter.filter_rows(
+                previous_rows,
+                self.filter_box.GetValue()
+                if getattr(self, "filter_box", None) is not None else "",
+            ),
             selected_ids,
         )
         updated_rows = (
@@ -37497,6 +37505,12 @@ class LiteFrame(wx.Frame):
         titles = [row.title for row in rows]
         selected_ids = set(item_ids)
         model_rows = list(self.navigator.session.model.rows)
+        if view == LibraryView.SAVED_QUEUE.value:
+            model_rows = list_filter.filter_rows(
+                model_rows,
+                self.filter_box.GetValue()
+                if getattr(self, "filter_box", None) is not None else "",
+            )
         preferred_id = LiteFrame._preferred_item_after_removal(
             model_rows, selected_ids,
         )
@@ -37638,7 +37652,12 @@ class LiteFrame(wx.Frame):
             return
         selected_ids = {row.item_id for row in rows}
         preferred_id = LiteFrame._preferred_item_after_removal(
-            list(self.navigator.session.model.rows), selected_ids,
+            list_filter.filter_rows(
+                list(self.navigator.session.model.rows),
+                self.filter_box.GetValue()
+                if getattr(self, "filter_box", None) is not None else "",
+            ),
+            selected_ids,
         )
 
         def done(payload: dict) -> None:
