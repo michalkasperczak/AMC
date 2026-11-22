@@ -520,7 +520,7 @@ def test_radioarchiwista_preset_commands_share_shortcuts_help_and_menu() -> None
     assert items[Action.ASSIGN_PRESET].shortcut == "Ctrl+Alt+Shift+P"
 
 
-def test_radioarchiwista_direct_assignment_shortcuts_are_session_specific() -> None:
+def test_direct_assignment_shortcuts_follow_supported_sessions() -> None:
     from amc_wx_lite import menu_model
     from amc_wx_lite.shortcuts import (
         ASSIGN_PRESET_ACTIONS, RADIOARCHIWISTA_SUPPORTED_ACTIONS,
@@ -533,27 +533,74 @@ def test_radioarchiwista_direct_assignment_shortcuts_are_session_specific() -> N
         for menu in menu_model.menus_for_session(SessionId.RADIOARCHIWISTA)
         for item in menu.items if item.action
     }
-    other_actions = {
-        item.action
-        for menu in menu_model.menus_for_session(SessionId.SPOTIFY)
-        for item in menu.items if item.action
-    }
+    supported_sessions = (
+        SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS,
+        SessionId.TIDAL, SessionId.SPOTIFY, SessionId.SONOS,
+        SessionId.RADIOARCHIWISTA,
+    )
     for slot, action in ASSIGN_PRESET_ACTIONS.items():
         shortcut = f"Ctrl+Alt+Shift+{slot % 10}"
         assert resolve(chord_from_canonical(shortcut), player_view=False,
                        radio_session=False, radioarchiwista_session=True) is action
         assert resolve(chord_from_canonical(shortcut), player_view=True,
                        radio_session=False, radioarchiwista_session=True) is action
-        assert action not in other_actions
         assert action in menu_actions
         assert menu_actions[action].shortcut == shortcut
-        assert menu_actions[action].needs_radioarchiwista_preset_folder
+        assert menu_actions[action].needs_preset_target
         assert "Przypisz" in help_entries[shortcut]
+        for session in supported_sessions:
+            entries = {
+                item.action: item
+                for menu in menu_model.menus_for_session(session)
+                for item in menu.items if item.action
+            }
+            assert entries[action].shortcut == shortcut
+            assert entries[action].needs_preset_target
+        for session in (SessionId.APPLE_MUSIC, SessionId.WIIM,
+                        SessionId.FRONTIER_SMART):
+            actions = {
+                item.action
+                for menu in menu_model.menus_for_session(session)
+                for item in menu.items if item.action
+            }
+            assert action not in actions
 
 
-def test_direct_archive_preset_has_english_user_facing_name() -> None:
+def test_direct_preset_has_general_english_user_facing_name() -> None:
     from amc_wx_lite import i18n
     for slot in range(1, 11):
         label = i18n.english_action_name(f"presets.assign.{slot}")
-        assert "Radio Archiwista folder" in label
+        assert "selected item" in label
         assert label.endswith(f"preset {slot % 10}")
+
+
+def test_tidal_track_album_and_playlist_are_preset_targets() -> None:
+    for kind in ("track", "album", "playlist", "artist"):
+        row = Row(
+            f"tidal:{kind}:123", f"TIDAL {kind}", kind,
+            service_id="123", service_kind=kind,
+        )
+        target = target_from_row(SessionId.TIDAL, row)
+        assert target is not None
+        assert target.target_kind == f"tidal-{kind}"
+        assert target.location == "123"
+        entry = target.as_entry(4)
+        assert entry.to_payload()["targetLocation"] == "123"
+        assert choices((entry,))[3].label == "4, TIDAL " + kind + ", Ctrl+Shift+4"
+    assert target_from_row(SessionId.TIDAL, Row(
+        "tidal:loading", "Wczytaj więcej", "loadMore",
+    )) is None
+
+
+def test_direct_preset_assignment_resolves_in_list_and_player() -> None:
+    from amc_wx_lite.shortcuts import (
+        ASSIGN_PRESET_ACTIONS, chord_from_canonical, resolve,
+    )
+    for slot, action in ASSIGN_PRESET_ACTIONS.items():
+        chord = chord_from_canonical(f"Ctrl+Alt+Shift+{slot % 10}")
+        assert chord is not None
+        assert resolve(chord, player_view=False, radio_session=False,
+                       tidal_session=True) is action
+        assert resolve(chord, player_view=True, radio_session=False,
+                       tidal_session=True) is action
+        assert resolve(chord, player_view=False, radio_session=True) is action

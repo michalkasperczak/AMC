@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Iterable
 from urllib.parse import urlparse
 
+from . import i18n
 from .list_model import Row
 from .navigation import SessionId
 
@@ -48,9 +49,9 @@ def shortcut_label(slot: int, *, spoken: bool = False) -> str:
     if slot == 10:
         return "0"
     if slot == 11:
-        return "minus" if spoken else "-"
+        return i18n.tr("presets.key.minus") if spoken else "-"
     if slot == 12:
-        return "znak równości" if spoken else "="
+        return i18n.tr("presets.key.equal") if spoken else "="
     raise ValueError("Numer presetu musi należeć do zakresu od 1 do 12")
 
 
@@ -125,8 +126,11 @@ class PresetChoice:
 
     @property
     def label(self) -> str:
-        title = self.target_title if self.target_id is not None else "pusty"
-        return f"{self.slot_label}, {title}, Ctrl+Shift+{self.spoken_shortcut_label}"
+        title = self.target_title if self.target_id is not None else i18n.tr("presets.empty")
+        return i18n.tr(
+            "presets.choice", slot=self.slot_label, title=title,
+            shortcut=self.spoken_shortcut_label,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -403,6 +407,18 @@ def target_from_row(session: SessionId, row: Row | None) -> PresetTarget | None:
             row.title,
             None,
             sonos_household_id=household,
+        )
+    if (
+        session is SessionId.TIDAL
+        and row.service_id
+        and row.kind in {"track", "album", "playlist", "artist"}
+        and row.service_kind == row.kind
+    ):
+        return PresetTarget(
+            row.item_id,
+            f"tidal-{row.kind}",
+            row.title,
+            row.service_id,
         )
     if (
         session is SessionId.SPOTIFY

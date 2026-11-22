@@ -148,6 +148,7 @@ class MenuItem:
     #: Nagranie Radio Archiwisty z dostępnym adresem audio.
     needs_radioarchiwista_recording: bool = False
     needs_radioarchiwista_preset_folder: bool = False
+    needs_preset_target: bool = False
     #: Wymaga utworu, stacji albo odcinka obsługiwanego przez lokalne playlisty
     #: AMC. Podcast nagłówkowy, kontener TIDAL i urządzenie sieciowe odpadają.
     needs_playlist_item: bool = False
@@ -863,18 +864,6 @@ def build_menus(
                 Action.ASSIGN_PRESET,
                 shortcut="Ctrl+Alt+Shift+P",
             ),
-            *tuple(
-                MenuItem(
-                    (f"&Przypisz do presetu 9" if slot == 9 else
-                     f"Przypisz do prese&tu 0" if slot == 10 else
-                     f"Przypisz do presetu &{slot}"),
-                    Action[f"ASSIGN_PRESET_{slot}"],
-                    shortcut=f"Ctrl+Alt+Shift+{slot % 10}",
-                    visible_sessions=RADIOARCHIWISTA_ONLY,
-                    needs_radioarchiwista_preset_folder=True,
-                )
-                for slot in range(1, 11)
-            ),
             SEPARATOR,
             # Trzy odczyty aktywnosci. Skroty ODCZYTANE z kodu:
             #   MainWindow.xaml:488 "_Historia odtwarzania" Ctrl+H
@@ -1054,13 +1043,13 @@ def build_menus(
             # schowka dodatku NVDA, a skrót pozostaje widoczny w nazwie.
             MenuItem("&Skopiuj nazwę", Action.COPY_NAME, shortcut="Ctrl+C",
                      accelerator=False, needs_selection=True),
-            MenuItem("Skopiuj nazwę pobranego pliku", Action.COPY_DOWNLOAD_NAME,
+            MenuItem("Skopiuj nazwę pobranego pliku (&3)", Action.COPY_DOWNLOAD_NAME,
                      needs_selection=True, visible_sessions=FILES_ONLY),
             MenuItem("W&ytnij lub zaznacz do przeniesienia", Action.CUT_FILE,
                      shortcut="Ctrl+X", accelerator=False),
             MenuItem("Skopiuj &adres lub ścieżkę", Action.COPY_ADDRESS, shortcut="Ctrl+Shift+C",
                      needs_selection=True),
-            MenuItem("Wskaż przeniesiony lub przemianowany pobrany plik…",
+            MenuItem("Wskaż przeniesiony lub przemianowany pobrany plik (&4)…",
                      Action.RELINK_DOWNLOAD, needs_selection=True,
                      visible_sessions=FILES_ONLY),
             MenuItem(
@@ -2149,4 +2138,21 @@ def build_menus(
         ),
     )
 
-    return (files, library, search, radio, playback, view, audio, settings, help_menu)
+    preset_assignments = Menu(
+        "Prese&ty",
+        tuple(
+            MenuItem(
+                f"Przypisz do presetu &{slot % 10}",
+                Action[f"ASSIGN_PRESET_{slot}"],
+                shortcut=f"Ctrl+Alt+Shift+{slot % 10}",
+                visible_sessions=(
+                    SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS,
+                    SessionId.TIDAL, SessionId.SPOTIFY, SessionId.SONOS,
+                    SessionId.RADIOARCHIWISTA,
+                ),
+                needs_preset_target=True,
+            )
+            for slot in range(1, 11)
+        ),
+    )
+    return (files, library, preset_assignments, search, radio, playback, view, audio, settings, help_menu)

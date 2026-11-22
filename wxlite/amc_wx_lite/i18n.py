@@ -31,6 +31,26 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "tidal.login.pending": "Dokończ logowanie odtwarzacza TIDAL w przeglądarce. Możesz ponownie otworzyć stronę tym samym przyciskiem.",
         "tidal.login.openFailed": "Nie udało się otworzyć przeglądarki. Skopiuj adres logowania i otwórz go samodzielnie.",
         "tidal.play.preparing": "Trwa przygotowywanie tego utworu TIDAL",
+        "presets.choice": "{slot}, {title}, Ctrl+Shift+{shortcut}",
+        "presets.dialog.assignTitle": "Przypisz preset — {session}",
+        "presets.dialog.cancel": "Anuluj przypisanie presetu",
+        "presets.list.for": "Presety, {session}. Zaznaczony element: {title}",
+        "presets.assign.slotsFor": "Miejsca presetów dla: {title}",
+        "presets.assign.unsupported": "Element {title} nie może być zapisany jako preset. Zaznacz {types}.",
+        "presets.assign.missingCatalog": "Element {title} nie ma danych katalogowych TIDAL potrzebnych do zapisania presetu",
+        "presets.empty": "pusty",
+        "presets.key.minus": "minus",
+        "presets.key.equal": "znak równości",
+        "presets.assign.directOccupied": "Przypisz preset: {target}. Preset {slot} zajęty przez {old}. Naciśnij dwa razy {key}, następnie Enter, aby zastąpić. Escape anuluje.",
+        "presets.assign.missing": "Zaznacz {types} na liście i ponów przypisanie presetu",
+        "presets.assign.same": "Preset {slot} już zawiera {target}",
+        "presets.assign.types.tidal": "utwór, album, playlistę lub wykonawcę TIDAL",
+        "presets.assign.types.spotify": "utwór, album, playlistę lub wykonawcę Spotify",
+        "presets.assign.types.radio": "stację radiową",
+        "presets.assign.types.archive": "stację lub Najnowsze nagrania",
+        "presets.assign.types.files": "plik, folder lub playlistę",
+        "presets.assign.types.other": "element możliwy do zapisania",
+        "presets.activate.tidalMissing": "Preset {slot} nie ma danych TIDAL potrzebnych do uruchomienia",
         "tidal.playlists.openFailed": "Nie udało się otworzyć okna playlist TIDAL. Spróbuj ponownie.",
         "playlists.add.hint": "Dodaj do playlist {provider}: {target}. Enter dodaje do wskazanej playlisty. Spacja zaznacza kilka playlist, a Enter zatwierdza zaznaczenie. Litery przechodzą po nazwach.",
         "playlists.add.navigation": "Strzałki i litery wybierają playlistę. Enter dodaje do wskazanej playlisty. Spacja pozwala zaznaczyć kilka playlist.",
@@ -273,6 +293,26 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "tidal.login.pending": "Complete TIDAL player sign-in in your browser. Use the same button to open the page again.",
         "tidal.login.openFailed": "Could not open the browser. Copy the sign-in address and open it yourself.",
         "tidal.play.preparing": "This TIDAL track is being prepared",
+        "presets.choice": "{slot}, {title}, Ctrl+Shift+{shortcut}",
+        "presets.dialog.assignTitle": "Assign preset — {session}",
+        "presets.dialog.cancel": "Cancel preset assignment",
+        "presets.list.for": "Presets, {session}. Selected item: {title}",
+        "presets.assign.slotsFor": "Preset slots for: {title}",
+        "presets.assign.unsupported": "{title} cannot be saved as a preset. Select {types}.",
+        "presets.assign.missingCatalog": "{title} lacks the TIDAL catalog details needed to save a preset",
+        "presets.empty": "empty",
+        "presets.key.minus": "minus",
+        "presets.key.equal": "equals sign",
+        "presets.assign.directOccupied": "Assign preset: {target}. Preset {slot} contains {old}. Press {key} twice, then Enter to replace it. Escape cancels.",
+        "presets.assign.missing": "Select {types} in the list and try assigning the preset again",
+        "presets.assign.same": "Preset {slot} already contains {target}",
+        "presets.assign.types.tidal": "a TIDAL track, album, playlist, or artist",
+        "presets.assign.types.spotify": "a Spotify track, album, playlist, or artist",
+        "presets.assign.types.radio": "a radio station",
+        "presets.assign.types.archive": "a station or Latest recordings",
+        "presets.assign.types.files": "a file, folder, or playlist",
+        "presets.assign.types.other": "an item that can be saved",
+        "presets.activate.tidalMissing": "Preset {slot} lacks the TIDAL details needed to start it",
         "tidal.playlists.openFailed": "Could not open the TIDAL playlist window. Try again.",
         "playlists.add.hint": "Add to {provider} playlists: {target}. Enter adds to the focused playlist. Space selects several playlists, then Enter confirms the selection. Type letters to find a name.",
         "playlists.add.navigation": "Arrows and letters choose a playlist. Enter adds to the focused playlist. Space selects several playlists.",
@@ -737,7 +777,7 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
     "library.folderSources.refresh": "Refresh all Library folders",
     "presets.view": "Show presets",
     "presets.assign": "Create or assign a preset",
-    **{f"presets.assign.{slot}": f"Assign Radio Archiwista folder to preset {slot % 10}"
+    **{f"presets.assign.{slot}": f"Assign selected item to preset {slot % 10}"
        for slot in range(1, 11)},
     "library.itemBookmarks": "Item bookmarks",
     "library.allBookmarks": "All bookmarks",
@@ -1721,6 +1761,7 @@ def menu_title(polish_title: str) -> str:
     translated = {
         "Pliki": "&File",
         "Biblioteka": "&Library",
+        "Presety": "Pres&ets",
         "Szukaj": "&Search",
         "Radio": "&Radio",
         "Odtwarzanie": "&Playback",
@@ -1737,4 +1778,7 @@ def menu_action_label(action_value: str, polish_label: str) -> str:
         return polish_label
     name = english_action_name(action_value)
     suffix = "…" if polish_label.rstrip().endswith("…") and not name.endswith("…") else ""
+    if action_value.startswith("presets.assign."):
+        slot = int(action_value.rsplit(".", 1)[-1])
+        return f"{name} (&{slot % 10})"
     return "&" + name + suffix
