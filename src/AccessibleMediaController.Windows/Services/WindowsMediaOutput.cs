@@ -163,6 +163,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
     private static readonly TimeSpan RemotePreparationTimeout = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan SlowSeekLogThreshold = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan EndOfFileGracePeriod = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan ResumeInPlaceTolerance = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan RemoteResumeInPlaceMaxPause = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan EndOfFilePositionTolerance = TimeSpan.FromMilliseconds(350);
     private static readonly TimeSpan OutputDeviceRecoveryCooldown = TimeSpan.FromSeconds(15);
     internal static readonly TimeSpan SmoothTrackTransitionDuration = TimeSpan.FromSeconds(4);
@@ -186,6 +188,7 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
     private long _seekRequestVersion;
     private bool _preparing;
     private bool _pauseRequested;
+    private long _pauseStartedTimestamp;
     private bool _disposed;
 
     public event EventHandler<MediaDurationAvailableEventArgs>? DurationAvailable;
@@ -392,6 +395,8 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         var sourceAccess = MediaSourceAccessPolicy.Classify(item.Source);
         var mayRequireRemoteAccess = sourceAccess.RequiresRemoteAccess;
         PlaybackPipeline? reusable;
+        TimeSpan? pausedAt;
+        TimeSpan pausedFor;
         bool sourceQuarantined;
         TimeSpan? remoteRetryDelay;
         DateTimeOffset startNotBeforeUtc;
@@ -412,6 +417,10 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
             remoteRetryDelay = mayRequireRemoteAccess && reusable is null
                 ? GetRemoteRetryDelayLocked(item.Source)
                 : null;
+            pausedAt = _pauseRequested ? _pendingPosition : null;
+            pausedFor = _pauseRequested
+                ? Stopwatch.GetElapsedTime(_pauseStartedTimestamp)
+                : TimeSpan.Zero;
             _requestedItem = item;
             _pendingPosition = resolvedPosition;
             _playbackRate = resolvedRate;
@@ -441,7 +450,15 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         {
             try
             {
-                SeekPipeline(reusable, resolvedPosition);
+                if (!ResumesInPlace(
+                        pausedAt,
+                        reusable.Output.PlaybackState == PlaybackState.Paused,
+                        resolvedPosition,
+                        pausedFor,
+                        reusable.MayRequireRemoteAccess))
+                {
+                    SeekPipeline(reusable, resolvedPosition);
+                }
                 reusable.VolumeProvider.Volume = resolvedVolume / 100f;
                 ApplyRate(reusable, resolvedRate);
                 AudioOutputPauseGuard.Play(
@@ -1344,6 +1361,9 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         lock (_gate)
         {
             _pendingPosition = position;
+            // Czas pauzy liczy sie od pierwszego Pause; powtorzone go nie
+            // przesuwa.
+            if (!_pauseRequested) _pauseStartedTimestamp = Stopwatch.GetTimestamp();
             _pauseRequested = true;
             if (_preparing)
             {
@@ -1556,6 +1576,35 @@ public sealed class WindowsMediaOutput : IMediaOutput, IPlaybackAudioProcessingO
         }
         if (pipeline is not null) ApplyRate(pipeline, resolved);
     }
+
+    /// <summary>
+    /// Wznowienie po pauzie w tym samym miejscu gra dalej bez przewijania.
+    /// Przewiniecie czysci silnik tempa i dla zrodla sieciowego zamyka ffmpeg,
+    /// ktory pobiera dzwiek od nowa. YouTube oddaje ciagly strumien tylko ok.
+    /// 2x szybciej niz odtwarzanie, wiec przy tempie 2x tor zostawal bez zapasu
+    /// i gubil krotkie fragmenty. Podczas pauzy wyjscie nie czyta, a kolejka
+    /// silnika i dekoder czekaja w tym samym miejscu, wiec wystarczy wznowic
+    /// wyjscie.
+    ///
+    /// Zrodlo sieciowe po dlugiej pauzie idzie jednak dawna droga. Polaczenie
+    /// stalo bezczynne: serwer mogl je zamknac, a po uspieniu komputera albo
+    /// zmianie sieci jest martwe. ffmpeg wznawia je wtedy sam, tym samym
+    /// adresem, ktory YouTube podpisuje tylko na kilka godzin; 403 albo brak
+    /// sieci konczy dekoder, a koniec danych wyglada jak koniec materialu, wiec
+    /// odcinek zostalby uznany za wysluchany. Dawna droga przewija tor; dla
+    /// ffmpeg zwykle oznacza to nowe polaczenie, a jego porazka rzuca wyjatek
+    /// i otwiera tor od nowa (YouTube z nowym adresem).
+    /// </summary>
+    internal static bool ResumesInPlace(
+        TimeSpan? pausedAt,
+        bool outputPaused,
+        TimeSpan requested,
+        TimeSpan pausedFor,
+        bool remoteSource) =>
+        pausedAt is { } paused
+        && outputPaused
+        && (requested - paused).Duration() <= ResumeInPlaceTolerance
+        && (!remoteSource || pausedFor <= RemoteResumeInPlaceMaxPause);
 
     private static void SeekPipeline(PlaybackPipeline pipeline, TimeSpan position)
     {
