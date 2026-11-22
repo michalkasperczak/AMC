@@ -288,8 +288,9 @@ class PublishExistingInstallerTests(unittest.TestCase):
             "tylko odebrane odświeżanie oraz rozdziały YouTube",
             "nie potwierdza szerszego zakresu",
             "Delete kolejki i odzyskiwanie audio nie są włączone",
-            "Status odbioru instalacji: nieprzeprowadzony",
-            "Status żywego odbioru NVDA: nieprzeprowadzony",
+            "Oba gotowe instalatory przeszły próbę instalacji na Windowsie w GitHub Actions",
+            "Nie przeprowadzono odbioru z żywym NVDA",
+            "Defender nie odnotował wykryć ani zdarzeń 1116/1117",
         ):
             self.assertIn(expected, public_notes)
         self.assertIn("AMC Public nie zawiera Apple Music", public_notes)

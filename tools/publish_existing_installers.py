@@ -310,8 +310,8 @@ def _notes(profile: ProfileContract, installer_sha256: str, installer_bytes: int
         "",
         "## Sprawdzenie i ograniczenia",
         "",
-        "- Instalator pochodzi z chronionej budowy GitHub: raport wskazuje aktywną ochronę Defendera, zero wykluczeń oraz brak wykryć i zdarzeń 1116/1117. Nie jest to odbiór instalacji ani żywy odbiór NVDA.",
-        "- Status odbioru instalacji: nieprzeprowadzony. Status żywego odbioru NVDA: nieprzeprowadzony; wymagane pozostają osobne bramki i zgoda.",
+        "- Oba gotowe instalatory przeszły próbę instalacji na Windowsie w GitHub Actions. Sprawdzono wersję, pliki i różnice między kanałami. Defender nie odnotował wykryć ani zdarzeń 1116/1117.",
+        "- Nie przeprowadzono odbioru z żywym NVDA ani próby działania Apple Music na koncie użytkownika.",
         "- Wcześniejszy lokalny alert RCX pozostaje bez analizy historycznych próbek przez Microsoft. Nie jest to werdykt o tym wydaniu.",
 
         "",
