@@ -85,7 +85,9 @@ def connect_account(
             auth_timeout=auth_timeout,
         )
         authenticate = getattr(auth, "authenticate")
-        authenticate()
+        # This call follows an explicit Yes to opening a visible login window.
+        # The upstream default silently returns a valid cached session instead.
+        authenticate(force=True)
     except (AppleMusicCredentialStoreError, AppleMusicLibraryUnavailable):
         raise AppleMusicAccountError() from None
     except Exception:
