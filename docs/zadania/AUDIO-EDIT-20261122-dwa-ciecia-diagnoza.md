@@ -34,12 +34,22 @@ odświeżeniem historii albo zewnętrzną zmianą nazwy. Potrzebna jest osobna
 próba z Escape przed i tuż po zakończeniu na sztucznym pliku, z rejestrem
 faktycznych ścieżek, bez nagrań użytkownika.
 
+Sonda produkcyjnego handlera wxPython z ustawionym stanem „cięcie trwa”
+potwierdziła: skrót Escape rozwiązuje się do „Powrót na listę”, widok wraca,
+stan edycji pozostaje aktywny, a klient hosta nie otrzymuje anulowania.
+Test `wxlite/tests/test_audio_clip_escape_gate.py` uruchomiony bezpośrednio
+przez runtime AMC Test zakończył się **exit 0** zarówno z bieżącej gałęzi,
+jak i z kanonicznych źródeł na D. To próba routingu interfejsu, nie rzeczywisty
+przeplot z `RemoveAsync` ani test żywego NVDA.
+
 ## Kod i testy
 
-- Zmieniono wyłącznie `tests/AccessibleMediaController.Windows.SmokeTests/Program.cs`:
+- W zestawie C# zmieniono wyłącznie `tests/AccessibleMediaController.Windows.SmokeTests/Program.cs`:
   dodano `--audio-clip-double-cut`, który tworzy sztuczne trzysekundowe WAV
   i MP3, tnie je dwukrotnie, kontroluje pierwotną nazwę, możliwość odczytu,
   skrócenie i brak pozostałych `.amc-cut-...`.
+- Dodano test `wxlite/tests/test_audio_clip_escape_gate.py`, który z aktywnym
+  stanem edycji sprawdza drogę Escape do listy bez wywołania anulowania hosta.
 - `dotnet run --no-restore --project tests/AccessibleMediaController.Windows.SmokeTests/AccessibleMediaController.Windows.SmokeTests.csproj -- --audio-clip-double-cut`:
   **exit 0**; „OK: dwa kolejne cięcia WAV i MP3 zachowały pierwotną nazwę na lokalnym dysku”.
 - Istniejący `--audio-clip-original`: **exit 1** dla testowego MP3; czytnik Windows
