@@ -79,6 +79,17 @@
   opublikować zweryfikowane wydanie GitHub, ale nie zamykaj ani nie podmieniaj
   lokalnej aplikacji; instalację odłóż. Pytaj tylko wtedy, gdy stanu nagrywania
   rzeczywiście nie da się bezpiecznie ustalić albo wystąpi inna nowa blokada.
+- Korekta użytkownika z 22 listopada 2026 r. **zastępuje część powyższej
+  decyzji o automatycznej lokalnej instalacji**: po przygotowaniu i sprawdzeniu
+  uzgodnionego wydania publikuj automatycznie oba profile na GitHubie, AMC Test
+  jako wstępne `test`, a AMC Public jako zwykłe `stable`, bez ponownego pytania
+  o termin. Użytkownik sam aktualizuje swoje instalacje. Nie zamykaj AMC ani
+  nie uruchamiaj instalatora lub widocznej próby NVDA tylko z powodu publikacji.
+  Jeśli użytkownik osobno zleci instalację lub próbę na żywym programie, nadal
+  najpierw odczytowo sprawdź nagrania i chroń trwającą pracę. Po faktycznej
+  publikacji poprawki Huberta poinformuj go w odpowiednim zgłoszeniu GitHub
+  albo innym jawnie wskazanym kanale; nie przedstawiaj samego commitu lub
+  kompilacji jako wydania. Zapisz wyniki i ograniczenia na D dla Hermesa.
 - Po publikacji wydania usuń jego lokalny ZIP z `publish` dopiero po
   zweryfikowaniu, że odpowiadający mu załącznik GitHub Releases został
   skutecznie wysłany i jest dostępny (nazwa, rozmiar i, gdy dostępny, SHA-256).
