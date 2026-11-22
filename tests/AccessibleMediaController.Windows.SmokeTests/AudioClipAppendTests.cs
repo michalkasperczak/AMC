@@ -587,7 +587,13 @@ internal static class AudioClipAppendTests
             Check(read>0,"Dekoder skończył przed badanym oknem dźwięku");toSkip-=read;
         }
         var buffer=new float[samples.WaveFormat.SampleRate*samples.WaveFormat.Channels/2];
-        var count=samples.Read(buffer,0,buffer.Length);
+        var count=0;
+        while(count<buffer.Length)
+        {
+            var read=samples.Read(buffer,count,buffer.Length-count);
+            if(read==0)break;
+            count+=read;
+        }
         var crossings=0;var frames=0;float previous=0;
         for(var i=0;i<count;i+=samples.WaveFormat.Channels)
         {
@@ -595,7 +601,9 @@ internal static class AudioClipAppendTests
             if(frames>0 && ((previous<0 && value>=0)||(previous>=0 && value<0)))crossings++;
             previous=value;frames++;
         }
-        Check(frames>samples.WaveFormat.SampleRate/4,"Za mało zdekodowanych próbek do sprawdzenia kolejności");
+        Check(frames>samples.WaveFormat.SampleRate/4,
+            $"Za mało zdekodowanych próbek do sprawdzenia kolejności przy {seconds:0.0} s: "
+            + $"{frames} klatek, wymagane ponad {samples.WaveFormat.SampleRate/4}.");
         return crossings/2d/(frames/(double)samples.WaveFormat.SampleRate);
     }
 

@@ -42,8 +42,10 @@ kod i instalatory zwykle po etapach, najpóźniej co 2–3 dni.
    Ctrl+Shift+T tylko czyta zapamiętany czas i nie otwiera pliku; podczas
    edycji podaje teraz stan zamiast starej długości. Końcowy brak pliku po
    zapisie dostaje uczciwy komunikat (commit `f7b2f61a`).
-   Test krótkiego dopisania MP3 nadal zawodzi; cała edycja synchronizowana
-   pozostaje do bezpiecznego rozwiązania i odbioru. Szczegóły:
+   Korekta diagnozy z 22.11: test krótkiego dopisania MP3 zawodził przez
+   pojedynczy, niepełny odczyt w teście; po jego poprawieniu 16/16 przypadków
+   przeszło. Granica cięcia długiego MP3 i edycja synchronizowana pozostają
+   do osobnego zbadania oraz odbioru. Szczegóły:
    `docs/zadania/AUDIO-EDIT-20261122-Tok-odzysk-i-zabezpieczenie.md`.
 4. Codex prowadzi oddzielny zakres Apple Music: wymuszenie widocznego logowania
    po „Tak” i rozróżnienie błędów 401/braku połączenia podczas wyszukiwania są

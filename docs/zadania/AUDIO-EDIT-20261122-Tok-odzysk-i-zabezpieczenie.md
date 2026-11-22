@@ -105,10 +105,13 @@ potwierdzony, i prosi o zachowanie plików technicznych. Nie twierdzi wtedy,
   `test_transport_parity_gui_wiring.py` przeszło; w tym brak wywołania hosta
   przez skrót czasu. Ponowny build LiteHost po korekcie końcowego błędu:
   exit 0, zero ostrzeżeń i błędów. Nie wykonywano żywego testu NVDA.
-- Sąsiedni zestaw `--audio-clip-append`: 15/16 przechodzi; przypadek MP3 dwa
-  razy kończy się „Za mało zdekodowanych próbek do sprawdzenia kolejności”
-  przy odczycie końcówki krótkiego pliku. Nie zaliczamy go; brak dowodu, że
-  nowe zabezpieczenie spowodowało ten problem. Wymaga osobnej diagnozy.
+- Korekta diagnozy z 22.11.2026: sąsiedni zestaw `--audio-clip-append` miał
+  15/16 zaliczonych przypadków, ponieważ sam test uznawał pojedynczy krótki
+  odczyt z dekodera MP3 za całe półsekundowe okno. Odczyt próbki powtarza się
+  teraz do wypełnienia okna albo rzeczywistego końca strumienia. Po tej
+  korekcie zestaw ma **16 OK / 0 BŁĄD, exit 0**; MP3 zachowuje około 5 s,
+  początek 220 Hz i dołączony koniec 1200 Hz. To dowodzi poprawności tego
+  krótkiego syntetycznego przypadku, nie granicy cięcia w długim nagraniu.
 - Nie było testu rzeczywistego cięcia w iCloud, NVDA, instalacji, całego
   pakietu ani nowego GitHub Release. Kod źródłowy i build to osobne etapy.
 
@@ -120,7 +123,7 @@ potwierdzony, i prosi o zachowanie plików technicznych. Nie twierdzi wtedy,
    przez synchronizację.
 3. Na osobnym sztucznym pliku w katalogu synchronizowanym przetestować
    odmowę wstępną i komunikat NVDA, bez użycia nagrań Michała.
-4. Osobno zbadać test dopisywania MP3 i dokładność granicy cięcia MP3.
+4. Zbadać dokładność granicy cięcia MP3 na syntetycznym długim pliku.
 5. Po zaliczeniu bramki wydać Test/Public na GitHub z kodem i instalatorami;
    Michał chce aktualizacje co 2–3 dni, bez równoległej pracy Hermesa.
 
