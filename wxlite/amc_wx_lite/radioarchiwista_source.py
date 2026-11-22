@@ -788,6 +788,7 @@ class RadioarchiwistaSource:
         self._cache_dir = self._dir / "cache"
         self._settings_path = self._dir / "settings.json"
         self._favorites_path = self._dir / "favorites.json"
+        self._aliases_path = self._dir / "aliases.json"
         self._queue_path = self._dir / "queue.json"
         self._queue_lock = threading.Lock()
         self._positions_path = self._dir / "positions.json"
@@ -1093,7 +1094,13 @@ class RadioarchiwistaSource:
             self.load_favorites(),
             positions=self.load_positions(),
         ))
-        return rows
+        unique = []
+        seen: set[str] = set()
+        for row in rows:
+            if row.item_id not in seen:
+                unique.append(row)
+                seen.add(row.item_id)
+        return self.apply_aliases(unique)
 
     def search_station_rows(self) -> list[Row]:
         """Pobierz wyłącznie indeks stacji dla Ctrl+F.
@@ -1105,7 +1112,82 @@ class RadioarchiwistaSource:
         """
 
         index, _from_cache = self.stations(force=False)
-        return station_rows(index)
+        return self.apply_aliases(station_rows(
+            index, favorite_ids=self.favorite_ids(),
+        ))
+
+    def load_aliases(self) -> dict[str, str]:
+        """Nazwy prywatnego profilu; klucze to trwałe ID, nie adresy plików."""
+
+        try:
+            data = json.loads(self._aliases_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        return {
+            key: label
+            for key, value in data.items()
+            if isinstance(key, str)
+            and key.startswith(("rarch:station:", "rarch:rec:"))
+            and isinstance(value, str)
+            if (label := _clean_text(value)) and len(label) <= 160
+        }
+
+    def alias_for(self, item_id: str) -> str | None:
+        return self.load_aliases().get(item_id)
+
+    def set_alias(self, item_id: str, title: str) -> bool:
+        """Zapisz lokalną nazwę; pusta nazwa przywraca katalogową."""
+
+        valid_station = item_id.startswith("rarch:station:") and (
+            item_id == station_item_id(item_id.removeprefix("rarch:station:"))
+        )
+        valid_recording = (
+            item_id.startswith("rarch:rec:") and 0 < len(item_id) <= 512
+            and not any(ord(char) < 32 or ord(char) == 127 for char in item_id)
+        )
+        if not (valid_station or valid_recording):
+            raise RadioarchiwistaError("Wybierz stację lub nagranie Radio Archiwisty")
+        label = _clean_text(title)
+        if len(label) > 160:
+            raise RadioarchiwistaError("Nazwa może mieć najwyżej 160 znaków")
+        aliases = self.load_aliases()
+        if aliases.get(item_id, "") == label:
+            return False
+        if label:
+            aliases[item_id] = label
+        else:
+            aliases.pop(item_id, None)
+        self._dir.mkdir(parents=True, exist_ok=True)
+        temporary = self._aliases_path.with_suffix(".json.tmp")
+        temporary.write_text(
+            json.dumps(aliases, ensure_ascii=False, indent=2), encoding="utf-8",
+        )
+        temporary.replace(self._aliases_path)
+        return True
+
+    def apply_aliases(self, rows: list[Row]) -> list[Row]:
+        aliases = self.load_aliases()
+        result = []
+        for row in rows:
+            label = aliases.get(row.item_id)
+            original = row.original_title or row.title
+            if label is None:
+                result.append(
+                    replace(row, title=original, original_title=None)
+                    if row.original_title is not None else row
+                )
+                continue
+            if row.service_kind == "rarchStation":
+                station_name = row.service_title or original
+                suffix = original[len(station_name):] if original.startswith(station_name) else ""
+                result.append(replace(
+                    row, title=label + suffix, original_title=original,
+                ))
+            else:
+                result.append(replace(row, title=label, original_title=original))
+        return result
 
     def load_favorites(self) -> list[dict]:
         try:
@@ -1126,11 +1208,11 @@ class RadioarchiwistaSource:
 
     def queue_rows(self) -> list[Row]:
         positions = self.load_positions()
-        return [
+        return self.apply_aliases([
             replace(_recording_row_from_record(_favorite_to_recording(item)),
                     position_seconds=positions.get(_clean_text(item.get("item_id")), 0.0))
             for item in self.load_queue()
-        ]
+        ])
 
     def toggle_queue(
         self, recording: ArchiveRecording, *, play_next: bool = False,

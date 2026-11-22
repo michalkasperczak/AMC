@@ -108,6 +108,9 @@ class Row:
     # Krótka nazwa użytkowa kontenera, gdy tytuł listy zawiera licznik.
     # Nie jest automatycznie wstawiana do kolumn ani nazwy dostępnościowej.
     service_title: str | None = None
+    # Katalogowa nazwa sprzed nałożenia prywatnego aliasu Radio Archiwisty.
+    # Pozwala przywrócić ją bez pobierania katalogu po wyczyszczeniu aliasu.
+    original_title: str | None = None
     # Czas źródłowy transmisji lub innego zdalnego zdarzenia. Pozostaje
     # wyłącznie danymi modelu: lista i UI Automation dostają przygotowany
     # tekst ``detail``, nigdy surowy znacznik czasu ani nazwę tego pola.

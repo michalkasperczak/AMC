@@ -143,6 +143,11 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "rarch.selectForFavorite": "Zaznacz stację lub nagranie, aby zmienić ulubione",
         "rarch.favorite.added": "Dodano do ulubionych: {title}",
         "rarch.favorite.removed": "Usunięto z ulubionych: {title}",
+        "rarch.alias.select": "Zaznacz stację lub nagranie, aby zmienić nazwę w AMC",
+        "rarch.alias.saved": "Zapisano nazwę w AMC: {title}",
+        "rarch.alias.restored": "Przywrócono nazwę z katalogu",
+        "rarch.alias.unchanged": "Nazwa nie została zmieniona",
+        "rarch.alias.failed": "Nie zapisano nazwy: {error}",
         "rarch.selectForDownload": "Zaznacz nagranie, aby je pobrać",
         "rarch.download.busy": "Trwa już pobieranie nagrania",
         "rarch.download.title": "Pobieranie nagrania Radio Archiwisty",
@@ -404,6 +409,11 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "rarch.selectForFavorite": "Select a station or recording to change favorites",
         "rarch.favorite.added": "Added to favorites: {title}",
         "rarch.favorite.removed": "Removed from favorites: {title}",
+        "rarch.alias.select": "Select a station or recording to rename in AMC",
+        "rarch.alias.saved": "Saved the name in AMC: {title}",
+        "rarch.alias.restored": "Restored the catalog name",
+        "rarch.alias.unchanged": "The name was not changed",
+        "rarch.alias.failed": "Could not save the name: {error}",
         "rarch.selectForDownload": "Select a recording to download it",
         "rarch.download.busy": "A recording download is already in progress",
         "rarch.download.title": "Downloading Radio Archiwista recording",
@@ -943,6 +953,7 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
     "sonos.target.select": "Select a Sonos group",
     "frontierSmart.mode.select": "Select Frontier Smart mode",
     "radioarchiwista.favorite.toggle": "Toggle favorite station or recording",
+    "radioarchiwista.alias.rename": "Rename station or recording in AMC",
     "radioarchiwista.download.selected": "Download the selected recording",
     "radioarchiwista.catalog.refresh": "Refresh the Radio Archiwista catalog",
 }
@@ -951,6 +962,11 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
 # Static labels and accessibility text which do not have a command/event ID.
 # Commands and messages deliberately use their stronger stable models above.
 _UI_TEXT_EN: dict[str, str] = {
+    "Zmień nazwę stacji lub nagrania w AMC": "Rename station or recording in AMC",
+    "&Nowa nazwa w AMC:": "&New name in AMC:",
+    "Nowa nazwa w AMC": "New name in AMC",
+    "Nazwa zmienia się tylko w AMC. Wyczyść pole, aby przywrócić nazwę z katalogu.":
+        "The name changes only in AMC. Clear the field to restore the catalog name.",
     "&Otwórz element lub pokaż sposób otwarcia utworu": "&Open item or explain how to open track",
     "Otwórz kategorię, album lub playlistę Apple Music; na utworze pokaż sposób otwarcia w oryginalnej aplikacji": "Open an Apple Music category, album or playlist; on a track, explain how to open it in the original app",
     "Otwórz utwór w oryginalnym Apple &Music": "Open track in the original Apple &Music app",

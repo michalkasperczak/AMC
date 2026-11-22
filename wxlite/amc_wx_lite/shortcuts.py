@@ -389,6 +389,7 @@ class Action(Enum):
     GO_TO_RELATED_PODCAST = "podcasts.goToRelated"
     TOGGLE_PODCAST_FAVORITE = "podcasts.favorite.toggle"
     TOGGLE_RADIOARCHIWISTA_FAVORITE = "radioarchiwista.favorite.toggle"
+    RENAME_RADIOARCHIWISTA_ITEM = "radioarchiwista.alias.rename"
     TOGGLE_PODCAST_LIBRARY = "podcasts.library.toggle"
     PODCAST_PLAYBACK_OPTIONS = "podcasts.playbackOptions"
     VIEW_ALL_FILES = "library.allFiles"
@@ -1387,6 +1388,7 @@ RADIOARCHIWISTA_SUPPORTED_ACTIONS = frozenset(
         Action.TOGGLE_PLAY_NEXT,
         Action.COPY_ADDRESS,
         Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,
+        Action.RENAME_RADIOARCHIWISTA_ITEM,
         Action.RADIOARCHIWISTA_DOWNLOAD,
         Action.RADIOARCHIWISTA_DOWNLOAD_FRAGMENT,
         Action.RADIOARCHIWISTA_REFRESH,
@@ -2070,6 +2072,7 @@ RADIOARCHIWISTA_SESSION_VIEW: dict[str, Action] = {
     "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
     "Ctrl+U": Action.VIEW_FAVORITES,
     "Ctrl+Shift+U": Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,
+    "F2": Action.RENAME_RADIOARCHIWISTA_ITEM,
     "Ctrl+Shift+C": Action.COPY_ADDRESS,
     "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
     "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
@@ -2702,6 +2705,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.VIEW_MUSIC_ARTISTS: "Pokaż wykonawców",
         Action.RADIOARCHIWISTA_REFRESH: "Odśwież katalog Radio Archiwisty",
         Action.TOGGLE_RADIOARCHIWISTA_FAVORITE: "Dodaj lub usuń stację albo nagranie z ulubionych",
+        Action.RENAME_RADIOARCHIWISTA_ITEM: "Zmień lokalną nazwę stacji lub nagrania",
         Action.RADIOARCHIWISTA_DOWNLOAD: "Pobierz wybrane nagranie",
         Action.RADIOARCHIWISTA_DOWNLOAD_FRAGMENT: "Pobierz fragment nagrania Radio Archiwisty",
         Action.SEEK_BACK_10: "Przewin 10 sekund wstecz",

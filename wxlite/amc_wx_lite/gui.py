@@ -12028,6 +12028,10 @@ class LiteFrame(wx.Frame):
                 menu_model.radioarchiwista_favorite_target(selected_row)
             ):
                 enabled = False
+            if entry.needs_radioarchiwista_alias_target and not (
+                menu_model.radioarchiwista_alias_target(selected_row)
+            ):
+                enabled = False
             if entry.needs_playlist_item and not (
                 selected_kind in playlist_kinds.get(self.navigator.active, set())
                 and (
@@ -18746,6 +18750,8 @@ class LiteFrame(wx.Frame):
             self._run(self.navigator.open_library_view(LibraryView.ALL_FILES))
         elif action is Action.TOGGLE_RADIOARCHIWISTA_FAVORITE:
             self._toggle_radioarchiwista_favorite()
+        elif action is Action.RENAME_RADIOARCHIWISTA_ITEM:
+            self._rename_radioarchiwista_item()
         elif action is Action.RADIOARCHIWISTA_DOWNLOAD:
             self._download_radioarchiwista_recording()
         elif action is Action.RADIOARCHIWISTA_DOWNLOAD_FRAGMENT:
@@ -22432,7 +22438,7 @@ class LiteFrame(wx.Frame):
                 show_kind=False,
                 service_kind="rarchLatest",
             ))
-            return rows
+            return source.apply_aliases(rows)
 
         def done(rows: list[Row]) -> None:
             self._radioarchiwista_hours_loaded = 0
@@ -22500,7 +22506,7 @@ class LiteFrame(wx.Frame):
                     favorite_ids=source.favorite_ids(),
                     loaded_count=self._radioarchiwista_hours_loaded,
                 )
-            return intent.view, rows
+            return intent.view, source.apply_aliases(rows)
 
         def done(result: tuple[LibraryView, list[Row]]) -> None:
             view, rows = result
@@ -22539,7 +22545,7 @@ class LiteFrame(wx.Frame):
                 positions=source.load_positions(),
                 favorite_ids=source.favorite_ids(),
             )
-            return rows, stamp
+            return source.apply_aliases(rows), stamp
 
         def done(result: tuple[list[Row], str]) -> None:
             rows, stamp = result
@@ -22575,10 +22581,10 @@ class LiteFrame(wx.Frame):
             return
 
         def work() -> list[Row]:
-            return _radioarchiwista_module.favorite_rows(
+            return source.apply_aliases(_radioarchiwista_module.favorite_rows(
                 source.load_favorites(),
                 positions=source.load_positions(),
-            )
+            ))
 
         def done(rows: list[Row]) -> None:
             self._run(self.navigator.apply_radioarchiwista_rows(
@@ -22651,6 +22657,55 @@ class LiteFrame(wx.Frame):
             ))
 
         self.runner.submit("radioarchiwista.favorite", work, done, failed)
+
+    def _rename_radioarchiwista_item(self) -> None:
+        """Zmień wyłącznie lokalną nazwę, zachowując ID i plik źródłowy."""
+
+        row = LiteFrame._description_target_row(self, SessionId.RADIOARCHIWISTA)
+        if not menu_model.radioarchiwista_alias_target(row):
+            self.announcer.say(i18n.tr("rarch.alias.select"))
+            return
+        source = self._radioarchiwista_source()
+        if source is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+        current = source.alias_for(row.item_id) or (
+            (row.service_title or row.title) if row.service_kind == "rarchStation"
+            else row.original_title or row.title
+        )
+        with RenameItemDialog(
+            self,
+            title=i18n.ui_text("Zmień nazwę stacji lub nagrania w AMC"),
+            prompt=i18n.ui_text("&Nowa nazwa w AMC:"),
+            field_name=i18n.ui_text("Nowa nazwa w AMC"),
+            value=current,
+            help_text=i18n.ui_text(
+                "Nazwa zmienia się tylko w AMC. Wyczyść pole, aby przywrócić nazwę z katalogu."
+            ),
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                self._restore_focus_after_dialog()
+                return
+            title = dialog.value
+        try:
+            changed = source.set_alias(row.item_id, title)
+        except (OSError, _radioarchiwista_module.RadioarchiwistaError) as error:
+            self._restore_focus_after_dialog()
+            self.announcer.say(i18n.tr("rarch.alias.failed", error=error))
+            return
+        state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
+        if changed:
+            state.model.replace(
+                source.apply_aliases(list(state.model.rows)),
+                preferred_id=row.item_id,
+            )
+            self._sync_views()
+        self._restore_focus_after_dialog()
+        message_key = (
+            "rarch.alias.unchanged" if not changed
+            else "rarch.alias.saved" if title else "rarch.alias.restored"
+        )
+        self.announcer.say(i18n.tr(message_key, title=title))
 
     def _open_radioarchiwista_queue(self) -> None:
         source = self._radioarchiwista_source()

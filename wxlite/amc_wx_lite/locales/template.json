@@ -101,6 +101,11 @@
     "rarch.catalog.addressTitle": "",
     "rarch.catalog.loading": "",
     "rarch.catalog.refreshing": "",
+    "rarch.alias.failed": "",
+    "rarch.alias.restored": "",
+    "rarch.alias.saved": "",
+    "rarch.alias.select": "",
+    "rarch.alias.unchanged": "",
     "rarch.command.unavailable": "",
     "rarch.detail.incomplete": "",
     "rarch.detail.remaining": "",
@@ -2046,6 +2051,10 @@
       "description": ""
     },
     "radioarchiwista.catalog.refresh": {
+      "name": "",
+      "description": ""
+    },
+    "radioarchiwista.alias.rename": {
       "name": "",
       "description": ""
     },

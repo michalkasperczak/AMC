@@ -64,6 +64,15 @@ def radioarchiwista_favorite_target(row: Row | None) -> bool:
     ))
 
 
+def radioarchiwista_alias_target(row: Row | None) -> bool:
+    return bool(row is not None and (
+        row.kind == "recording" and row.item_id.startswith("rarch:rec:")
+        or row.kind == "folder"
+        and row.service_kind == "rarchStation"
+        and bool(row.service_id)
+    ))
+
+
 @dataclass(frozen=True, slots=True)
 class MenuItem:
     """Jedna pozycja. ``action`` prowadzi do dispatchera, ``builtin`` do okna.
@@ -161,6 +170,7 @@ class MenuItem:
     needs_radioarchiwista_recording: bool = False
     #: Cała stacja Radio Archiwisty albo nagranie, bez podfolderów dat.
     needs_radioarchiwista_favorite_target: bool = False
+    needs_radioarchiwista_alias_target: bool = False
     needs_radioarchiwista_preset_folder: bool = False
     needs_preset_target: bool = False
     #: Wymaga utworu, stacji albo odcinka obsługiwanego przez lokalne playlisty
@@ -771,6 +781,15 @@ def build_menus(
                 accelerator=False,
                 needs_selection=True,
                 needs_radioarchiwista_favorite_target=True,
+                visible_sessions=RADIOARCHIWISTA_ONLY,
+            ),
+            MenuItem(
+                "Zmień &lokalną nazwę stacji lub nagrania",
+                Action.RENAME_RADIOARCHIWISTA_ITEM,
+                shortcut="F2",
+                accelerator=False,
+                needs_selection=True,
+                needs_radioarchiwista_alias_target=True,
                 visible_sessions=RADIOARCHIWISTA_ONLY,
             ),
             MenuItem(
