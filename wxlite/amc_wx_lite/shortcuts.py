@@ -2701,7 +2701,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.VIEW_MUSIC_ALBUMS: "Pokaż albumy",
         Action.VIEW_MUSIC_ARTISTS: "Pokaż wykonawców",
         Action.RADIOARCHIWISTA_REFRESH: "Odśwież katalog Radio Archiwisty",
-        Action.TOGGLE_RADIOARCHIWISTA_FAVORITE: "Dodaj lub usuń nagranie z ulubionych",
+        Action.TOGGLE_RADIOARCHIWISTA_FAVORITE: "Dodaj lub usuń stację albo nagranie z ulubionych",
         Action.RADIOARCHIWISTA_DOWNLOAD: "Pobierz wybrane nagranie",
         Action.RADIOARCHIWISTA_DOWNLOAD_FRAGMENT: "Pobierz fragment nagrania Radio Archiwisty",
         Action.SEEK_BACK_10: "Przewin 10 sekund wstecz",

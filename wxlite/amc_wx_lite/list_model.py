@@ -105,6 +105,9 @@ class Row:
     # nawigacyjnego, np. folderu „Albumy” wykonawcy TIDAL.
     service_id: str | None = None
     service_kind: str | None = None
+    # Krótka nazwa użytkowa kontenera, gdy tytuł listy zawiera licznik.
+    # Nie jest automatycznie wstawiana do kolumn ani nazwy dostępnościowej.
+    service_title: str | None = None
     # Czas źródłowy transmisji lub innego zdalnego zdarzenia. Pozostaje
     # wyłącznie danymi modelu: lista i UI Automation dostają przygotowany
     # tekst ``detail``, nigdy surowy znacznik czasu ani nazwę tego pola.

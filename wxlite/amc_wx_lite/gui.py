@@ -12024,6 +12024,10 @@ class LiteFrame(wx.Frame):
                 and bool(selected_row.url)
             ):
                 enabled = False
+            if entry.needs_radioarchiwista_favorite_target and not (
+                menu_model.radioarchiwista_favorite_target(selected_row)
+            ):
+                enabled = False
             if entry.needs_playlist_item and not (
                 selected_kind in playlist_kinds.get(self.navigator.active, set())
                 and (
@@ -22418,7 +22422,9 @@ class LiteFrame(wx.Frame):
 
         def work() -> list[Row]:
             index, _from_cache = source.stations(force=refresh)
-            rows = _radioarchiwista_module.station_rows(index)
+            rows = _radioarchiwista_module.station_rows(
+                index, favorite_ids=source.favorite_ids()
+            )
             rows.insert(0, Row(
                 item_id="rarch:latest",
                 title=i18n.tr("rarch.latest.menu"),
@@ -22561,7 +22567,7 @@ class LiteFrame(wx.Frame):
     def _open_radioarchiwista_favorites(
         self, preferred_id: str | None = None,
     ) -> None:
-        """Ulubione nagrania: w pełni offline, bez dotykania katalogu."""
+        """Ulubione stacje i nagrania: offline, bez dotykania katalogu."""
 
         source = self._radioarchiwista_source()
         if source is None:
@@ -22589,11 +22595,15 @@ class LiteFrame(wx.Frame):
         self.runner.submit("radioarchiwista.catalog", work, done, failed)
 
     def _toggle_radioarchiwista_favorite(self) -> None:
-        """Przełącz ulubione zaznaczonego nagrania i odśwież jego wiersz."""
+        """Przełącz ulubioną stację lub nagranie i odśwież wiersz."""
 
         state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
         row = LiteFrame._description_target_row(self, SessionId.RADIOARCHIWISTA)
-        if row is None or row.kind != "recording":
+        station_target = (
+            row is not None and row.kind == "folder"
+            and row.service_kind == "rarchStation" and bool(row.service_id)
+        )
+        if not menu_model.radioarchiwista_favorite_target(row):
             self.announcer.say(i18n.tr("rarch.selectForFavorite"))
             return
         source = self._radioarchiwista_source()
@@ -22602,6 +22612,9 @@ class LiteFrame(wx.Frame):
             return
 
         def work() -> tuple[bool, str]:
+            if station_target:
+                title = row.service_title or row.title
+                return source.toggle_station_favorite(row.service_id, title), title
             recording = source.recording_by_id(row.item_id)
             if recording is None:
                 raise _radioarchiwista_module.RadioarchiwistaError(

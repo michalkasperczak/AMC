@@ -29,6 +29,7 @@ from dataclasses import dataclass, replace
 from typing import Mapping
 
 from . import i18n
+from .list_model import Row
 from .navigation import SessionId
 from . import session_order as session_order_model
 from .profile_layout import common_data_commands_available
@@ -50,6 +51,17 @@ from .shortcuts import (
     normalize_shortcut_overrides,
     readable_shortcut,
 )
+
+
+def radioarchiwista_favorite_target(row: Row | None) -> bool:
+    """Jedna bramka dla menu i wykonania Ctrl+Shift+U."""
+
+    return bool(row is not None and (
+        row.kind == "recording" and bool(row.url)
+        or row.kind == "folder"
+        and row.service_kind == "rarchStation"
+        and bool(row.service_id)
+    ))
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,6 +159,8 @@ class MenuItem:
     needs_favorite_item: bool = False
     #: Nagranie Radio Archiwisty z dostępnym adresem audio.
     needs_radioarchiwista_recording: bool = False
+    #: Cała stacja Radio Archiwisty albo nagranie, bez podfolderów dat.
+    needs_radioarchiwista_favorite_target: bool = False
     needs_radioarchiwista_preset_folder: bool = False
     needs_preset_target: bool = False
     #: Wymaga utworu, stacji albo odcinka obsługiwanego przez lokalne playlisty
@@ -751,12 +765,12 @@ def build_menus(
                 visible_sessions=RADIOARCHIWISTA_ONLY,
             ),
             MenuItem(
-                "Zmień stan &ulubionych nagrania",
+                "Zmień stan &ulubionych stacji lub nagrania",
                 Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,
                 shortcut="Ctrl+Shift+U",
                 accelerator=False,
                 needs_selection=True,
-                needs_radioarchiwista_recording=True,
+                needs_radioarchiwista_favorite_target=True,
                 visible_sessions=RADIOARCHIWISTA_ONLY,
             ),
             MenuItem(

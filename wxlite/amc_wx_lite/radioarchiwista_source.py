@@ -296,7 +296,9 @@ def parse_recordings(payload: object, station: StationRecord) -> tuple[ArchiveRe
     return tuple(recordings)
 
 
-def station_rows(index: StationsIndex) -> list[Row]:
+def station_rows(
+    index: StationsIndex, *, favorite_ids: set[str] | None = None,
+) -> list[Row]:
     """Wiersze poziomu stacji.
 
     Licznik nagrań wchodzi do TYTUŁU, a nie do kolumny „Szczegóły":
@@ -304,6 +306,7 @@ def station_rows(index: StationsIndex) -> list[Row]:
     ciągiem, zamiast wymieniać nagłówek kolumny przed liczbą.
     """
 
+    favorite_ids = favorite_ids or set()
     return [
         Row(
             item_id=station_item_id(station.slug),
@@ -317,6 +320,8 @@ def station_rows(index: StationsIndex) -> list[Row]:
             show_kind=False,
             service_id=station.slug,
             service_kind="rarchStation",
+            service_title=station.public_name,
+            state_prefix="★ " if station_item_id(station.slug) in favorite_ids else "",
         )
         for station in sorted(index.stations, key=lambda s: s.public_name.casefold())
     ]
@@ -530,7 +535,7 @@ def favorite_rows(
     *,
     positions: dict[str, float] | None = None,
 ) -> list[Row]:
-    """Wiersze ulubionych nagrań: najnowsze dodane na górze, bez sieci."""
+    """Wiersze ulubionych stacji i nagrań: ostatnio dodane na górze."""
 
     positions = positions or {}
     ordered = sorted(
@@ -538,12 +543,24 @@ def favorite_rows(
         key=lambda item: (_as_float(item.get("added_at")), _clean_text(item.get("item_id"))),
         reverse=True,
     )
-    rows = [
-        _recording_row_from_record(_favorite_to_recording(item)) for item in ordered
-    ]
+    rows = []
+    for item in ordered:
+        if item.get("kind") == "station":
+            slug = _clean_text(item.get("station_slug"))
+            if not _SLUG_PATTERN.fullmatch(slug):
+                continue
+            name = _clean_text(item.get("station_name"), slug)
+            rows.append(Row(
+                item_id=station_item_id(slug), title=name, kind="folder",
+                show_kind=False, service_id=slug, service_kind="rarchStation",
+                service_title=name, state_prefix="★ ",
+            ))
+        else:
+            rows.append(_recording_row_from_record(_favorite_to_recording(item)))
     if positions:
         rows = [
             replace(row, position_seconds=positions.get(row.item_id, 0.0))
+            if row.kind == "recording" else row
             for row in rows
         ]
     return rows
@@ -1001,7 +1018,7 @@ class RadioarchiwistaSource:
         if found is not None:
             return found
         for item in self.load_favorites():
-            if item.get("item_id") == item_id:
+            if item.get("item_id") == item_id and item.get("kind") != "station":
                 return _favorite_to_recording(item)
         for item in self.load_queue():
             if item.get("item_id") == item_id:
@@ -1188,6 +1205,27 @@ class RadioarchiwistaSource:
             remaining.append(favorite_record(recording, self._clock()))
         self.save_favorites(remaining)
         return not added
+
+    def toggle_station_favorite(self, slug: str, name: str) -> bool:
+        """Przełącz ulubioną stację bez mieszania jej z nagraniami."""
+
+        slug = check_slug(slug)
+        item_id = station_item_id(slug)
+        favorites = self.load_favorites()
+        remaining = [
+            item for item in favorites
+            if _clean_text(item.get("item_id")) != item_id
+        ]
+        added = len(remaining) == len(favorites)
+        if added:
+            remaining.append({
+                "kind": "station", "item_id": item_id,
+                "station_slug": slug,
+                "station_name": _clean_text(name, slug),
+                "added_at": self._clock(),
+            })
+        self.save_favorites(remaining)
+        return added
 
     def is_favorite(self, item_id: str) -> bool:
         return any(

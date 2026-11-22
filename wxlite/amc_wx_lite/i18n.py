@@ -140,7 +140,7 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "rarch.latest.announcement":
             "Najnowsze nagrania, godzina {label} UTC, {phrase}",
         "rarch.error": "Radio Archiwista: {error}",
-        "rarch.selectForFavorite": "Zaznacz nagranie, aby zmienić ulubione",
+        "rarch.selectForFavorite": "Zaznacz stację lub nagranie, aby zmienić ulubione",
         "rarch.favorite.added": "Dodano do ulubionych: {title}",
         "rarch.favorite.removed": "Usunięto z ulubionych: {title}",
         "rarch.selectForDownload": "Zaznacz nagranie, aby je pobrać",
@@ -401,7 +401,7 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "rarch.latest.announcement":
             "Latest recordings, {label} UTC, {phrase}",
         "rarch.error": "Radio Archiwista: {error}",
-        "rarch.selectForFavorite": "Select a recording to change favorites",
+        "rarch.selectForFavorite": "Select a station or recording to change favorites",
         "rarch.favorite.added": "Added to favorites: {title}",
         "rarch.favorite.removed": "Removed from favorites: {title}",
         "rarch.selectForDownload": "Select a recording to download it",
@@ -942,7 +942,7 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
     "sonos.ownStreams.paste": "Paste the Sonos stream",
     "sonos.target.select": "Select a Sonos group",
     "frontierSmart.mode.select": "Select Frontier Smart mode",
-    "radioarchiwista.favorite.toggle": "Toggle favorite recording",
+    "radioarchiwista.favorite.toggle": "Toggle favorite station or recording",
     "radioarchiwista.download.selected": "Download the selected recording",
     "radioarchiwista.catalog.refresh": "Refresh the Radio Archiwista catalog",
 }
