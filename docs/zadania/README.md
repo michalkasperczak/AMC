@@ -1,5 +1,7 @@
 # Rejestr zadań AMC
 
+**HEOS-001 (23.11.2026): W trakcie; przerwane na prośbę Michała do następnego dnia.** Odczytowy adapter CLI i 8 testów na atrapach gotowe; urządzenia „HEOS 200” nie wykryto przez SSDP. Sesja AMC Test, próba na sprzęcie, build, instalacja i wydanie pozostają otwarte. [Zadanie](HEOS-001-20261123-rekonesans-i-adapter-odczytowy.md).
+
 **Jedna aktywna gałąź i przekazanie 22.11.2026:** [bieżący stan oraz kolejność pracy](AMC-HANDOFF-20261122-jedna-galaz.md).
 
 **AUDIO-EDIT Tok 22.11.2026:** [odzyskano kopię nagrania i zabezpieczono edycję plików synchronizowanych](AUDIO-EDIT-20261122-Tok-odzysk-i-zabezpieczenie.md). Oryginalna nazwa zniknęła po cięciu; jest kopia na D. Zmiana źródeł jeszcze nie została wydana.
