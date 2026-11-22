@@ -52,3 +52,7 @@ Poprawka aktywnego planu została sprawdzona kompilacją, ale nie próbą z praw
 ## Wersja i commit
 
 Gałąź `codex/live-radio-recording-20261122`, źródła i testy commit `f21fb18d`. Kod i testy: tak. Kompilacja LiteHost: tak. Instalacja Test/Public: nie. Publikacja GitHub: nie. Odbiór użytkownika i NVDA: nie.
+
+## Dalszy stan 22.11.2026
+
+Ten przyrost został połączony z kandydatem `codex/alpha512-update-candidate-20261122`. Późniejszy commit `cadc8ead` dodaje trwały adres kanału przy odświeżaniu stacji YouTube, jednoznaczny komunikat Ctrl+R podczas planu oraz lokalną korektę diagnozy. Szczegóły i testy są w `YOUTUBE-RADIO-HERMANICE-20261122.md`, a pełny stan kandydata w `ALPHA512-INTEGRATION-20261122.md`. Wcześniejsze polecenie „zintegrować tę gałąź” zostało wykonane w kodzie; nadal nie wykonano instalacji, odbioru NVDA ani publikacji.
