@@ -1,5 +1,7 @@
 # Rejestr zadań AMC
 
+**AUDIO-EDIT 22.11.2026:** dwa kolejne cięcia sztucznych WAV/MP3 na lokalnym NTFS przeszły; incydentu Dwójki w katalogu synchronizowanym nie odtworzono. Istniejący test czasu MP3 nadal nie przechodzi. Bez poprawki produktu i wydania. [Diagnoza](AUDIO-EDIT-20261122-dwa-ciecia-diagnoza.md).
+
 **Zapis i wycinanie nagrań — nowe zgłoszenie Michała, 19.11.2026:**
 potwierdzono na głównym PC brak obu pierwotnych plików Dwójki po cięciu,
 pozostawione wyniki pod technicznymi nazwami oraz log sukcesu zapisu/usunięcia

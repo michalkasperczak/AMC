@@ -556,6 +556,11 @@ if (args.Contains("--audio-clip-original", StringComparer.Ordinal))
     try { TestAudioClipOriginalEditor(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--audio-clip-double-cut", StringComparer.Ordinal))
+{
+    try { TestAudioClipDoubleCut(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--audio-clip-shortcuts", StringComparer.Ordinal))
 {
     AudioClipShortcutAcceptanceTests.Run(); return 0;
@@ -2184,6 +2189,93 @@ static void TestAudioClipExporter()
                 $"Nieprawidłowa długość fragmentu FLAC: {flacReader.TotalTime}.");
             Console.WriteLine("OK: zweryfikowany FFmpeg zapisuje bez konwersji i do FLAC");
         }
+    }
+    finally
+    {
+        Directory.Delete(directory, recursive: true);
+    }
+}
+
+static void TestAudioClipDoubleCut()
+{
+    Assert(AudioClipOriginalEditor.IsAvailable, "FFmpeg jest wymagany do próby dwóch cięć.");
+    var directory = Path.Combine(Path.GetTempPath(), $"amc-double-cut-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(directory);
+    var source = Path.Combine(directory, "recording.wav");
+    try
+    {
+        var format = new WaveFormat(8_000, 16, 1);
+        using (var writer = new WaveFileWriter(source, format))
+        {
+            writer.Write(new byte[format.AverageBytesPerSecond * 3]);
+        }
+        var mp3WaveSource = Path.Combine(directory, "mp3-reference.wav");
+        File.Copy(source, mp3WaveSource);
+
+        foreach (var (start, end, before, after) in new[]
+                 {
+                     (1d, 2d, 3d, 2d),
+                     (0.25d, 0.5d, 2d, 1.75d)
+                 })
+        {
+            var outcome = AudioClipOriginalEditor.RemoveAsync(
+                    new AudioClipRemovalRequest(
+                        source,
+                        TimeSpan.FromSeconds(start),
+                        TimeSpan.FromSeconds(end),
+                        TimeSpan.FromSeconds(before)),
+                    progress: null,
+                    CancellationToken.None,
+                    keepBackup: false)
+                .GetAwaiter().GetResult();
+            Assert(File.Exists(source), "Po cięciu nie ma pliku pod pierwotną nazwą.");
+            Assert(outcome.BackupPath.Length == 0, "Kopia została zachowana mimo sprawdzonego zapisu.");
+            using var reader = new WaveFileReader(source);
+            Assert(Math.Abs(reader.TotalTime.TotalSeconds - after) < 0.02d,
+                $"Po cięciu oczekiwano {after} s, jest {reader.TotalTime}.");
+            Assert(!Directory.EnumerateFiles(directory).Any(path =>
+                    Path.GetFileName(path).Contains(".amc-cut-", StringComparison.Ordinal)),
+                "Po cięciu pozostała techniczna nazwa wyniku.");
+        }
+        var ffmpeg = FfmpegRadioWaveProvider.FindExecutable()
+            ?? throw new InvalidOperationException("FFmpeg zniknął podczas testu.");
+        var mp3 = Path.Combine(directory, "recording.mp3");
+        using (var conversion = Process.Start(new ProcessStartInfo
+        {
+            FileName = ffmpeg,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            ArgumentList =
+            {
+                "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
+                "-i", mp3WaveSource, "-c:a", "libmp3lame", "-b:a", "128k", mp3
+            }
+        }) ?? throw new InvalidOperationException("Nie uruchomiono kodowania testowego MP3."))
+        {
+            conversion.WaitForExit();
+            Assert(conversion.ExitCode == 0, "Nie przygotowano testowego MP3.");
+        }
+        TimeSpan previousDuration;
+        using (var originalMp3 = WindowsMediaOutput.OpenReaderForExport(mp3))
+            previousDuration = originalMp3.TotalTime;
+        foreach (var (start, end) in new[] { (1d, 2d), (0.25d, 0.5d) })
+        {
+            var outcome = AudioClipOriginalEditor.RemoveAsync(
+                    new AudioClipRemovalRequest(mp3,
+                        TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(end), previousDuration),
+                    progress: null, CancellationToken.None, keepBackup: false)
+                .GetAwaiter().GetResult();
+            Assert(File.Exists(mp3), "Po cięciu MP3 nie ma pliku pod pierwotną nazwą.");
+            Assert(outcome.BackupPath.Length == 0, "Po cięciu MP3 kopia nie została usunięta.");
+            using var reader = WindowsMediaOutput.OpenReaderForExport(mp3);
+            Assert(reader.TotalTime < previousDuration,
+                "Cięcie MP3 nie skróciło nagrania.");
+            previousDuration = reader.TotalTime;
+            Assert(!Directory.EnumerateFiles(directory).Any(path =>
+                    Path.GetFileName(path).Contains(".amc-cut-", StringComparison.Ordinal)),
+                "Po cięciu MP3 pozostała techniczna nazwa wyniku.");
+        }
+        Console.WriteLine("OK: dwa kolejne cięcia WAV i MP3 zachowały pierwotną nazwę na lokalnym dysku");
     }
     finally
     {
