@@ -71,6 +71,9 @@ oddzielnymi zadaniami.
 - Test `--cloud-overwrite-guard`: RED przed kodem (brak nowej funkcji), GREEN
   po kodzie, exit 0. Obejmuje rzeczywiście zaobserwowany zestaw atrybutów
   0x80420, zwykły lokalny plik, Pinned bez ReparsePoint oraz sam symlink.
+- Sonda z nowo zbudowanej biblioteki Core na rzeczywistych ścieżkach, wyłącznie
+  odczyt metadanych: ocalały plik iCloud daje `RequiresSafeCopyForOverwrite=True`,
+  kopia w `D:\Projekty Codex` daje `False`. Nie wykonywano na nich edycji.
 - `--audio-clip-double-cut` na sztucznych WAV/MP3: exit 0, obie pierwotne
   nazwy zachowane na lokalnym NTFS.
 - Build projektu `AccessibleMediaController.LiteHost`: exit 0, zero ostrzeżeń
