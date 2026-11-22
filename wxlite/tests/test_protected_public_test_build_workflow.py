@@ -11,6 +11,7 @@ GUARD_PATH = ROOT / "wxlite" / "tools" / "Enable-AMCDiagnosticProtection.ps1"
 PROPS_PATH = ROOT / "Directory.Build.props"
 AUTHORIZED_BRANCH = "codex/amc-protected-public-test-20261119-playback-r1"
 AUTHORIZED_VERSION = "0.1.0-alpha.512"
+CURRENT_VERSION = "0.1.0-alpha.513"
 
 
 def _workflow() -> str:
@@ -35,11 +36,11 @@ def _assert_authorized_one_shot_contract(workflow: str, guard: str, props: str) 
     assert contract["workflow_trigger"] == [AUTHORIZED_BRANCH]
     assert contract["workflow_job"] == [AUTHORIZED_BRANCH]
     assert contract["powershell_guard"] == [AUTHORIZED_BRANCH]
-    assert contract["props_version"] == [AUTHORIZED_VERSION]
+    assert contract["props_version"] == [CURRENT_VERSION]
     assert contract["workflow_version"] == [AUTHORIZED_VERSION]
 
 
-def test_one_shot_workflow_guard_and_version_share_the_new_authorization() -> None:
+def test_historical_one_shot_workflow_and_current_version_remain_explicit() -> None:
     guard = GUARD_PATH.read_text(encoding="utf-8-sig")
     props = PROPS_PATH.read_text(encoding="utf-8")
     _assert_authorized_one_shot_contract(_workflow(), guard, props)
@@ -51,7 +52,7 @@ def test_one_shot_workflow_guard_and_version_share_the_new_authorization() -> No
         ("trigger", AUTHORIZED_BRANCH, "codex/amc-protected-public-test-mismatched-trigger"),
         ("job", f"refs/heads/{AUTHORIZED_BRANCH}", "refs/heads/codex/amc-protected-public-test-mismatched-job"),
         ("guard", f"refs/heads/{AUTHORIZED_BRANCH}", "refs/heads/codex/amc-protected-public-test-mismatched-guard"),
-        ("props", AUTHORIZED_VERSION, "0.1.0-alpha.999"),
+        ("props", CURRENT_VERSION, "0.1.0-alpha.999"),
         ("workflow_version", AUTHORIZED_VERSION, "0.1.0-alpha.999"),
     ),
 )
