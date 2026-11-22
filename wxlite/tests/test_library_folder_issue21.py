@@ -48,7 +48,7 @@ def test_root_folder_rows_use_disambiguated_source_labels() -> None:
         FolderSource(id="one", ordinal=0, path=r"X:\a\cd", display_name="cd", resume_mode=0),
         FolderSource(id="two", ordinal=1, path=r"X:\b\CD\\", display_name="CD", resume_mode=0),
     ]
-    database = SimpleNamespace(folder_sources=lambda: sources, active_items_under=lambda _root: [])
+    database = SimpleNamespace(folder_sources=lambda: sources, active_items_under=lambda _root, **_kwargs: [])
 
     assert [row.title for row in folder_rows(cast(LibraryDatabase, database), None)] == ["cd (X:\\a)", "CD (X:\\b)"]
 

@@ -372,8 +372,19 @@ class LibraryDatabase:
         return sources
 
     def active_items_under(
-        self, folder: str | None, limit: int | None = None
+        self,
+        folder: str | None,
+        limit: int | None = None,
+        *,
+        by_title: bool = True,
     ) -> list[LibraryItem]:
+        """Czytaj aktywne rekordy; widok Foldery zachowuje kolejność rowid.
+
+        Foldery sortują widoczne nazwy już po zbudowaniu wierszy. Kosztowne
+        sortowanie SQL przez polską kolację Pythona jest tam zbędne. Kolejność
+        rowid zachowuje remisy i pisownię pierwszego napotkanego podfolderu.
+        Pozostali wywołujący domyślnie otrzymują dotychczasowy porządek.
+        """
         completed = self._recording_completed_expression()
         sql = (
             "SELECT id, title, path, duration_ticks, is_favorite, is_available, "
@@ -385,7 +396,7 @@ class LibraryDatabase:
             norm = normalize_path(folder)
             sql += " AND (path = ? COLLATE NOCASE OR path LIKE ? ESCAPE '\\')"
             args += [norm, _like_prefix(norm)]
-        sql += " ORDER BY title COLLATE AMC_PL"
+        sql += " ORDER BY title COLLATE AMC_PL" if by_title else " ORDER BY rowid"
         if limit is not None:
             sql += " LIMIT ?"
             args.append(limit)
@@ -530,7 +541,7 @@ def folder_rows(db: LibraryDatabase, current_folder: str | None) -> list[Row]:
         rows = [_folder_row(s.path, labels[s.id]) for s in sources]
         orphans = [
             item
-            for item in db.active_items_under(None)
+            for item in db.active_items_under(None, by_title=False)
             if not any(is_same_or_descendant(item.path, s.path) for s in sources)
         ]
         orphans.sort(key=lambda i: _ci_key(i.title))
@@ -549,7 +560,7 @@ def folder_rows(db: LibraryDatabase, current_folder: str | None) -> list[Row]:
     current = normalize_path(current_folder)
     child_folders: dict[str, str] = {}
     direct_files: list[LibraryItem] = []
-    for item in db.active_items_under(current):
+    for item in db.active_items_under(current, by_title=False):
         parent = ntpath.dirname(normalize_path(item.path))
         if parent.lower() == current.lower():
             direct_files.append(item)
