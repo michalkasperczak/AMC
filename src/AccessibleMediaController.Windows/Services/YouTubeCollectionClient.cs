@@ -139,6 +139,16 @@ internal sealed class YouTubeCollectionClient
         }
     }
 
+    internal Task<IReadOnlyDictionary<string, YouTubeFeedEntry>> FetchChannelFeedEntriesAsync(
+        string channelId, CancellationToken cancellationToken)
+    {
+        var address = YouTubeChannelFeedClient.TryBuildFeedAddress(channelId, isChannel: true);
+        return address is null
+            ? Task.FromResult<IReadOnlyDictionary<string, YouTubeFeedEntry>>(
+                new Dictionary<string, YouTubeFeedEntry>(StringComparer.Ordinal))
+            : channelFeed.FetchEntriesAsync(address, cancellationToken);
+    }
+
     private static async Task<YtDlpResult> RunYtDlpAsync(
         string executable,
         Uri address,
@@ -590,7 +600,7 @@ internal sealed class YouTubeCollectionClient
         var known = document.Feed.Episodes
             .Select(episode => episode.SourceIdentifier)
             .ToHashSet(StringComparer.Ordinal);
-        return feedEntries.Keys.Any(videoId => !known.Contains(videoId));
+        return feedEntries.Any(item => !item.Value.IsShort && !known.Contains(item.Key));
     }
 
     internal static YouTubeCollectionDocument CompleteFromChannelFeed(

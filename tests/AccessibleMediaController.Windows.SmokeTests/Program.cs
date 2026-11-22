@@ -3029,6 +3029,12 @@ static void TestYouTubeCollectionResults()
     Assert(
         preciselyDatedCollection.Feed.Episodes[0].SourceIdentifier == "LiveId_9876",
         "Dokładne daty z feedu nie poprawiły kolejności materiałów kanału.");
+    var onlyUnknownShort = new Dictionary<string, YouTubeFeedEntry>(matchingFeed, StringComparer.Ordinal)
+    {
+        ["NewShort123"] = new(null, "Krótki film", IsShort: true)
+    };
+    Assert(!YouTubeCollectionClient.ShouldFetchArchivedStreams(collection, onlyUnknownShort),
+        "Nowy Short z RSS nie może uruchamiać dwóch odczytów karty Transmisje.");
     var splitFeed = new Dictionary<string, YouTubeFeedEntry>(matchingFeed, StringComparer.Ordinal)
     {
         ["Archived_2026"] = new(null, "Transmisja zakończona")
@@ -7111,6 +7117,12 @@ static void TestYouTubeChannelFeedParsing()
             <published>to nie jest data</published>
           </entry>
           <entry>
+            <yt:videoId>short123456</yt:videoId>
+            <title>Short</title>
+            <published>2026-09-02T10:00:00+00:00</published>
+            <link rel="alternate" href="https://www.youtube.com/shorts/short123456" />
+          </entry>
+          <entry>
             <yt:videoId>zly/znak</yt:videoId>
             <title>Odrzucony identyfikator</title>
             <published>2026-09-01T00:00:00+00:00</published>
@@ -7118,8 +7130,10 @@ static void TestYouTubeChannelFeedParsing()
         </feed>
         """;
     var entries = YouTubeChannelFeedClient.ParseEntries(feed);
-    Assert(entries.Count == 3,
+    Assert(entries.Count == 4,
         "Kanałowe źródło dat YouTube nie odrzuciło materiału o niebezpiecznym identyfikatorze.");
+    Assert(entries["short123456"].IsShort && !entries["sffEm2k2hK0"].IsShort,
+        "Adres Shorts w RSS musi odróżniać krótki film od zwykłego.");
     Assert(entries["sffEm2k2hK0"].Published == new DateTimeOffset(2026, 9, 10, 13, 0, 26, TimeSpan.Zero)
            && entries["sffEm2k2hK0"].Title == "Skąd wiem, co dobre, a co złe?",
         "Dokładna data publikacji albo tytuł nie zostały odczytane z kanałowego źródła.");

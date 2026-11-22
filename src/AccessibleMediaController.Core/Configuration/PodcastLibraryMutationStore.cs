@@ -22,6 +22,9 @@ public sealed class PodcastLibraryMutationStore(string databasePath)
     public IReadOnlyList<PodcastRefreshTarget> GetRefreshTargets(string? subscriptionId = null) =>
         _database.GetRefreshTargets(subscriptionId);
 
+    public PodcastYouTubeFeedSnapshot? GetYouTubeFeedSnapshot(string subscriptionId) =>
+        _database.GetYouTubeFeedSnapshot(subscriptionId);
+
     public IReadOnlyList<PodcastRefreshTarget> GetDueRefreshTargets(DateTime utcNow) =>
         _database.GetDueRefreshTargets(utcNow);
 
@@ -172,6 +175,10 @@ public sealed record PodcastRefreshTarget(
     string Title,
     string FeedUrl,
     PodcastSourceKind SourceKind);
+
+public sealed record PodcastYouTubeFeedSnapshot(
+    long LastFullRefreshUtcTicks,
+    IReadOnlySet<string> KnownVideoIds);
 
 public sealed record PodcastAutomaticRefreshPlan(
     IReadOnlyList<PodcastRefreshTarget> Targets,

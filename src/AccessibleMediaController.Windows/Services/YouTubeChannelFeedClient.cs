@@ -138,7 +138,13 @@ internal sealed class YouTubeChannelFeedClient
 
             var title = ((string?)entry.Element(AtomNamespace + "title") ?? string.Empty).Trim();
             if (published is null && title.Length == 0) continue;
-            entries[videoId] = new YouTubeFeedEntry(published, title);
+            var isShort = entry.Elements(AtomNamespace + "link").Any(link =>
+                string.Equals((string?)link.Attribute("rel"), "alternate", StringComparison.Ordinal)
+                && Uri.TryCreate((string?)link.Attribute("href"), UriKind.Absolute, out var uri)
+                && uri.Scheme == Uri.UriSchemeHttps
+                && uri.Host is "www.youtube.com" or "youtube.com"
+                && string.Equals(uri.AbsolutePath, "/shorts/" + videoId, StringComparison.Ordinal));
+            entries[videoId] = new YouTubeFeedEntry(published, title, isShort);
         }
 
         return entries;
@@ -149,4 +155,4 @@ internal sealed class YouTubeChannelFeedClient
 /// A single material described by the channel feed. Both members are optional:
 /// the feed completes yt-dlp data and never replaces it with nothing.
 /// </summary>
-internal sealed record YouTubeFeedEntry(DateTimeOffset? Published, string Title);
+internal sealed record YouTubeFeedEntry(DateTimeOffset? Published, string Title, bool IsShort = false);

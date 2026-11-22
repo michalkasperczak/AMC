@@ -22,6 +22,7 @@ internal static class Program
         ("--playback-history", PlaybackHistoryMutationTests.Run),
         ("--radio-library", RadioLibraryMutationTests.Run),
         ("--podcast-progress", PodcastProgressStoreTests.Run),
+        ("--youtube-rss-first", YouTubeRssFirstTests.Run),
         ("--podcast-file-import", PodcastFileImportTests.Run),
         ("--podcast-chapters", PodcastChapterCoordinatorTests.Run),
         ("--facebook-page", FacebookPageTests.Run),

@@ -129,6 +129,21 @@ internal sealed class LitePodcastProgressStore : IDisposable
         }
     }
 
+    public PodcastYouTubeFeedSnapshot? GetYouTubeFeedSnapshot(string subscriptionId)
+    {
+        EnsureFullAmcIsClosed(
+            "Zamknij najpierw główne AMC. Równoczesne odświeżanie z dwóch wersji mogłoby utracić dane.");
+        try
+        {
+            return _store.GetYouTubeFeedSnapshot(subscriptionId);
+        }
+        catch (Exception exception) when (IsDatabaseFailure(exception))
+        {
+            Console.Error.WriteLine("[lite-host] odczyt identyfikatorów kanału YouTube: " + exception);
+            throw new LiteRequestException("Baza Podcastów jest chwilowo niedostępna.");
+        }
+    }
+
     public PodcastAutomaticRefreshPlan GetDueRefreshPlan(
         DateTime utcNow,
         TimeSpan schedulingCadence)

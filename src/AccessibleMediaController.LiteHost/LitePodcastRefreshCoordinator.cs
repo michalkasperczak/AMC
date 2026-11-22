@@ -24,6 +24,7 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
     private readonly YouTubeCollectionClient? _youTubeClient;
     private readonly FacebookPublicPageClient? _facebookClient;
     private readonly Func<PodcastRefreshTarget, CancellationToken, Task<PodcastFeedDocument>> _fetch;
+    private readonly Func<PodcastRefreshTarget, CancellationToken, Task<bool>>? _rssProbe;
     private readonly TimeProvider _timeProvider;
     private readonly TimeSpan _automaticTimeBudget;
     private int _refreshInProgress;
@@ -38,6 +39,7 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
         _youTubeClient = new YouTubeCollectionClient();
         _facebookClient = new FacebookPublicPageClient();
         _fetch = FetchAsync;
+        _rssProbe = ProbeYouTubeChannelAsync;
         _timeProvider = TimeProvider.System;
         _automaticTimeBudget = AutomaticTimeBudget;
     }
@@ -47,11 +49,13 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
         LiteBookmarkStore? bookmarks,
         Func<PodcastRefreshTarget, CancellationToken, Task<PodcastFeedDocument>> fetch,
         TimeSpan? automaticTimeBudget = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        Func<PodcastRefreshTarget, CancellationToken, Task<bool>>? rssProbe = null)
     {
         _podcasts = podcasts ?? throw new ArgumentNullException(nameof(podcasts));
         _bookmarks = bookmarks;
         _fetch = fetch ?? throw new ArgumentNullException(nameof(fetch));
+        _rssProbe = rssProbe;
         _automaticTimeBudget = automaticTimeBudget ?? AutomaticTimeBudget;
         if (_automaticTimeBudget <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(automaticTimeBudget));
@@ -178,6 +182,16 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
                         break;
                     }
                     requested++;
+                    // A successful Atom probe with no unseen IDs needs no yt-dlp
+                    // and no rewrite of the saved catalogue. A missing feed or a
+                    // new ID falls through to the ordinary full refresh.
+                    if (automatic && target.SourceKind == PodcastSourceKind.YouTubeChannel
+                        && _rssProbe is not null
+                        && _rssProbe(target, cancellationToken).GetAwaiter().GetResult())
+                    {
+                        succeeded++;
+                        continue;
+                    }
                     var feed = _fetch(target, cancellationToken).GetAwaiter().GetResult();
                     var hasChapters = feed.Episodes.Any(episode =>
                         episode.Chapters is { Count: > 0 });
@@ -246,6 +260,33 @@ internal sealed class LitePodcastRefreshCoordinator : IDisposable
         {
             Volatile.Write(ref _refreshInProgress, 0);
         }
+    }
+
+    private async Task<bool> ProbeYouTubeChannelAsync(
+        PodcastRefreshTarget target, CancellationToken cancellationToken)
+    {
+        if (!YouTubeSubscriptionsExporter.TryParseSubscriptionId(
+                target.SubscriptionId, out var channelId, out var isChannel)
+            || !isChannel) return false;
+        var snapshot = _podcasts.GetYouTubeFeedSnapshot(target.SubscriptionId);
+        if (snapshot is null) return false;
+        var entries = await _youTubeClient!.FetchChannelFeedEntriesAsync(
+            channelId, cancellationToken).ConfigureAwait(false);
+        return CanSkipYouTubeExtraction(snapshot, entries, DateTime.UtcNow);
+    }
+
+    internal static bool CanSkipYouTubeExtraction(
+        PodcastYouTubeFeedSnapshot snapshot,
+        IReadOnlyDictionary<string, YouTubeFeedEntry> entries,
+        DateTime utcNow)
+    {
+        // A periodic full extraction catches gaps that the bounded feed never
+        // exposed. A future or stale timestamp cannot authorize skipping.
+        var age = utcNow.ToUniversalTime().Ticks - snapshot.LastFullRefreshUtcTicks;
+        return age >= 0
+            && age < TimeSpan.FromHours(24).Ticks
+            && entries.Count > 0
+            && entries.Keys.All(snapshot.KnownVideoIds.Contains);
     }
 
     private async Task<PodcastFeedDocument> FetchAsync(

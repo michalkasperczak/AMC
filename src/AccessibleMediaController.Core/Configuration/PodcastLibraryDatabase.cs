@@ -451,6 +451,42 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
         }
     }
 
+    /// <summary>Read only one saved channel and its video IDs for the cheap Atom probe.</summary>
+    public PodcastYouTubeFeedSnapshot? GetYouTubeFeedSnapshot(string subscriptionId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(subscriptionId);
+        lock (_gate)
+        {
+            using var connection = OpenConnection();
+            EnsureSchema(connection);
+            using var source = connection.CreateCommand();
+            source.CommandText = "SELECT payload_json FROM podcast_subscriptions WHERE id = $id AND is_in_library = 1;";
+            source.Parameters.AddWithValue("$id", subscriptionId);
+            var payload = source.ExecuteScalar() as string;
+            if (payload is null) return null;
+            var subscription = JsonSerializer.Deserialize<PodcastSubscriptionSettings>(payload, PayloadJsonOptions);
+            if (subscription is null
+                || subscription.SourceKind != PodcastSourceKind.YouTubeChannel
+                || subscription.LastRefreshUtcTicks <= 0) return null;
+
+            var known = new HashSet<string>(StringComparer.Ordinal);
+            using var episodes = connection.CreateCommand();
+            episodes.CommandText = "SELECT payload_json FROM podcast_episodes WHERE subscription_id = $id;";
+            episodes.Parameters.AddWithValue("$id", subscriptionId);
+            using var reader = episodes.ExecuteReader();
+            while (reader.Read())
+            {
+                var episode = JsonSerializer.Deserialize<PodcastEpisodeSettings>(
+                    reader.GetString(0), PayloadJsonOptions);
+                if (!string.IsNullOrWhiteSpace(episode?.SourceIdentifier))
+                    known.Add(episode.SourceIdentifier);
+            }
+            return known.Count == 0
+                ? null
+                : new PodcastYouTubeFeedSnapshot(subscription.LastRefreshUtcTicks, known);
+        }
+    }
+
     public PodcastGlobalSettingsSnapshot GetGlobalSettings()
     {
         lock (_gate)
