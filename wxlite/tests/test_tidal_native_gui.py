@@ -612,3 +612,105 @@ def test_native_tidal_bookmark_uses_playing_track_id() -> None:
         "item_id": "tidal:123", "item_title": "Utwór", "session_id": "tidal", "name": None,
     }]
     assert spoken == ["Dodano zakładkę: 2:00"]
+def test_native_start_stays_on_list_without_extra_manual_announcement() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    state = nav.sessions[SessionId.TIDAL]
+    first = Row("tidal:tracks:1", "Pierwszy", "track", service_id="tracks:1")
+    second = Row("tidal:tracks:2", "Drugi", "track", service_id="tracks:2")
+    state.model.replace([first, second], preferred_id=second.item_id)
+    state.view = View.LIST
+    spoken = []
+    frame = SimpleNamespace(
+        navigator=nav,
+        _tidal_native_pending_track_id="1",
+        _tidal_native_pending_item_id=first.item_id,
+        _tidal_native_pending_title=first.title,
+        _tidal_native_pending_row=first,
+        _session_open_player_on_enter=lambda _session: False,
+        _playing_session=None,
+        _playing_sessions=set(),
+        _window_alive=lambda: True,
+        _close_tidal_native_challenge=lambda: None,
+        _record_streamer_history_row=lambda *args, **kwargs: None,
+        announcer=SimpleNamespace(say=spoken.append),
+        _refresh_menu_state=lambda: None,
+        _refresh_status=lambda: None,
+        _sync_views=lambda: None,
+    )
+    LiteFrame._on_tidal_native_status(frame, "started", "1", "Odtwarzanie rozpoczęte")
+    assert state.view is View.LIST
+    assert state.model.selected_id == second.item_id
+    assert state.now_playing_id == first.item_id
+    assert spoken == []
+
+
+def test_native_automatic_advance_says_only_next_title_on_list() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    state = nav.sessions[SessionId.TIDAL]
+    first = Row("tidal:tracks:1", "Pierwszy", "track", service_id="tracks:1")
+    second = Row("tidal:tracks:2", "Drugi", "track", service_id="tracks:2")
+    state.model.replace([first, second], preferred_id=first.item_id)
+    state.view = View.LIST
+    spoken = []
+    frame = SimpleNamespace(
+        navigator=nav,
+        _tidal_native_pending_track_id="2",
+        _tidal_native_pending_item_id=second.item_id,
+        _tidal_native_pending_title=second.title,
+        _tidal_native_pending_row=second,
+        _tidal_native_pending_auto_advance=True,
+        _session_open_player_on_enter=lambda _session: False,
+        _playing_session=None,
+        _playing_sessions=set(),
+        _window_alive=lambda: True,
+        _close_tidal_native_challenge=lambda: None,
+        _record_streamer_history_row=lambda *args, **kwargs: None,
+        announcer=SimpleNamespace(say=spoken.append),
+        _refresh_menu_state=lambda: None,
+        _refresh_status=lambda: None,
+        _sync_views=lambda: None,
+    )
+    LiteFrame._on_tidal_native_status(frame, "started", "2", "Odtwarzanie rozpoczęte")
+    assert state.view is View.LIST
+    assert state.model.selected_id == first.item_id
+    assert spoken == ["Drugi"]
+
+
+def test_old_end_does_not_override_newer_manual_enter() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    spoken = []
+    frame = SimpleNamespace(
+        navigator=nav,
+        _tidal_native_active_track_id="1",
+        _tidal_native_pending_track_id="2",
+        _tidal_native_adjacent_row=lambda _forward: (_ for _ in ()).throw(
+            AssertionError("stale end must not look for a successor")
+        ),
+        _window_alive=lambda: True,
+        announcer=SimpleNamespace(say=spoken.append),
+    )
+    LiteFrame._on_tidal_native_status(frame, "ended", "1", "Koniec utworu")
+    assert frame._tidal_native_active_track_id == "1"
+    assert spoken == []
+def test_enter_on_already_playing_tidal_track_respects_stay_on_list() -> None:
+    nav = Navigator()
+    nav.active = SessionId.TIDAL
+    row = Row("tidal:tracks:1", "Pierwszy", "track", service_id="tracks:1")
+    nav.sessions[SessionId.TIDAL].model.replace([row])
+    nav.sessions[SessionId.TIDAL].view = View.LIST
+    frame = SimpleNamespace(
+        navigator=nav,
+        _tidal_native_adapter=object(),
+        client=object(),
+        _tidal_native_has_playback=True,
+        _tidal_native_active_track_id="1",
+        _session_open_player_on_enter=lambda _session: False,
+        _refresh_menu_state=lambda: None,
+        _refresh_status=lambda: None,
+        _sync_views=lambda: None,
+    )
+    assert LiteFrame._play_tidal_native_row(frame, row) is True
+    assert nav.sessions[SessionId.TIDAL].view is View.LIST

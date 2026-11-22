@@ -30907,6 +30907,18 @@ class LiteFrame(wx.Frame):
             self._close_tidal_native_challenge()
             if track_id != getattr(self, "_tidal_native_pending_track_id", None):
                 return
+            automatic = bool(getattr(self, "_tidal_native_pending_auto_advance", False))
+            self._tidal_native_pending_auto_advance = False
+            tidal_state = self.navigator.sessions[SessionId.TIDAL]
+            selected_before = tidal_state.model.selected_id
+            was_list = tidal_state.view is View.LIST
+            open_setting = getattr(self, "_session_open_player_on_enter", None)
+            open_player = (
+                tidal_state.view is View.PLAYER if automatic
+                else (not was_list or (
+                    open_setting(SessionId.TIDAL) if callable(open_setting) else True
+                ))
+            )
             self._tidal_native_active_track_id = track_id
             self._tidal_native_has_playback = True
             self.navigator.note_tidal_playback_started(
@@ -30923,10 +30935,13 @@ class LiteFrame(wx.Frame):
                         and history_row.related_album_service_id
                     ),
                 )
-            self.navigator.sessions[SessionId.TIDAL].view = View.PLAYER
+            if was_list and not open_player and selected_before:
+                tidal_state.model.select_id(selected_before)
+            if open_player:
+                tidal_state.view = View.PLAYER
             self._playing_session = SessionId.TIDAL
             self._playing_sessions.add(SessionId.TIDAL)
-            resume = self._tidal_post_update_resume
+            resume = getattr(self, "_tidal_post_update_resume", None)
             self._tidal_post_update_resume = None
             if resume is not None and resume.get("trackId") == track_id:
                 client = self.client
@@ -30949,10 +30964,20 @@ class LiteFrame(wx.Frame):
                             "wszystkich ustawień odtwarzania"
                         ),
                     )
-            self.announcer.say(
-                f"{self._tidal_native_pending_title}: {message}"
-            )
+            if automatic:
+                self.announcer.say(self._tidal_native_pending_title)
+            elif open_player:
+                self.announcer.say(
+                    f"{self._tidal_native_pending_title}: {message}"
+                )
         elif kind in {"failed", "ended", "stopped"}:
+            if (
+                kind == "ended"
+                and track_id != getattr(self, "_tidal_native_pending_track_id", track_id)
+            ):
+                # A newer Enter already owns the next start. The previous
+                # track's late end must not start another successor or speak.
+                return
             self._close_tidal_native_challenge()
             if (
                 kind == "failed"
@@ -30970,6 +30995,7 @@ class LiteFrame(wx.Frame):
                 if following is not None and self._play_tidal_native_row(
                     following, preserve_source=True
                 ):
+                    self._tidal_native_pending_auto_advance = True
                     # Zachowaj źródło albumu i odtwarzacz w trakcie
                     # przygotowywania następnego utworu. Zdarzenie started
                     # dopiero potwierdzi faktyczne odtwarzanie.
@@ -31012,7 +31038,9 @@ class LiteFrame(wx.Frame):
             return False
         if (getattr(self, "_tidal_native_has_playback", False)
                 and track_id == getattr(self, "_tidal_native_active_track_id", None)):
-            self.navigator.sessions[SessionId.TIDAL].view = View.PLAYER
+            open_setting = getattr(self, "_session_open_player_on_enter", None)
+            if not callable(open_setting) or open_setting(SessionId.TIDAL):
+                self.navigator.sessions[SessionId.TIDAL].view = View.PLAYER
             self._refresh_menu_state()
             self._refresh_status()
             self._sync_views()
@@ -31034,6 +31062,7 @@ class LiteFrame(wx.Frame):
         if not started:
             self.announcer.say("Odtwarzacz TIDAL jest zajęty; spróbuj ponownie")
             return False
+        self._tidal_native_pending_auto_advance = False
         self._tidal_native_pending_track_id = track_id
         self._tidal_native_pending_item_id = row.item_id
         self._tidal_native_pending_title = row.title
