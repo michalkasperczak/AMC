@@ -44,6 +44,10 @@ niepotwierdzone. Nie odczytywano tokenów, cookies ani osobistej Biblioteki.
 - Sąsiednie testy bezpiecznego magazynu i zależności: 8/8 zaliczonych.
 - Odczyt zainstalowanego modułu `applemusic.auth` potwierdził obsługę
   `authenticate(force=True)` i pomijanie okna przy `force=False` z cache.
+- Sąsiednia próba pojedynczego testu GUI wyszukiwania wypisała kropkę
+  wykonania, ale proces pytest nie zakończył się po około 50 s i został
+  przerwany. Nie liczymy jej jako zaliczonego przebiegu. Przy następnym
+  etapie GUI trzeba rozdzielić wynik asercji od problemu zamykania wx.
 - Nie uruchamiano logowania, Apple Music, widocznego okna, odtwarzania,
   instalatora ani testu NVDA. Nie zbudowano ani nie opublikowano nowego wydania.
 
