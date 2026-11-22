@@ -91,3 +91,31 @@ aprobaty użytkownika przed publikacją jako przewodnik.
 Commit poprawki źródłowej: `5f1297a771ce7dde01a657a4738d5b3bbb125bce` (bieżąca gałąź `codex/amc-test-public-20261109`). Paczka próbna została odświeżona po commicie; pozostałe niezależne dokumenty są nadal zmianami roboczymi, dlatego manifest uczciwie zgłasza `sourceDirty=true`.
 
 Dodatkowy commit testu komunikatu PL/EN: `a12aafb7`.
+
+## Korekta 22.11.2026 — wydanie GitHub przed odbiorem NVDA
+
+Użytkownik doprecyzował, że chce teraz wydania na GitHubie; próby z NVDA
+wykonuje zwykle po wydaniu. Ta decyzja zastępuje wcześniejsze oczekiwanie na
+zgodę na widoczną próbę NVDA przed publikacją. Nie obejmuje żądania lokalnej
+instalacji ani uruchomienia programu.
+
+Połączony kandydat AMC Test `0.1.0-alpha.513` ma czysty commit
+`a07b11c0a8bbdf76e413ed695479d8b2ee4e757d`. Commit `a01fbfe2` w jego
+historii ma taki sam stabilny patch-id poprawki presetów jak `5f1297a7`, a
+`1d5e68b2` dodaje test komunikatu PL/EN. Na kandydacie zaliczono 180 celowanych
+testów presetów, TIDAL, skrótów, menu, palety i tłumaczeń; dwa wcześniejsze
+testy pełnej inwentaryzacji językowej świadomie wyłączono. Nie oznacza to
+zaliczenia pełnej regresji ani żywej próby TIDAL i NVDA.
+
+GitHub już zawiera opublikowane wydanie wstępne Test
+`test-2026.11.22.1851` pod adresem
+`https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.22.1851`.
+Odczyt przez API potwierdził: tag wskazuje dokładnie commit `a07b11c0`,
+`prerelease=true`, trzy zasoby mają stan `uploaded`. Instalator
+`AMC-Test-2026-11-22-1851.exe` ma 214422916 bajtów i SHA-256
+`51c7fcdd3225632d0d1c2966075c91765a4e7f8ef5e57e58480232c89a92c4a3`;
+wartości GitHub są równe lokalnemu plikowi i manifestowi integralności.
+Wydanie powstało równolegle podczas tej pracy; nie tworzono duplikatu.
+GitHub CLI w tym środowisku ma nieważne uwierzytelnienie, ale odczyt przez
+złącze GitHub potwierdził stan zdalny. Public `public-2026.11.22.1853` nie
+istnieje w chwili kontroli. Lokalnej instalacji i próby NVDA nie wykonano.
