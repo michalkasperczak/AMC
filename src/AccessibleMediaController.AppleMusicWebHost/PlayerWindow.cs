@@ -178,7 +178,14 @@ internal sealed class PlayerWindow : Form
                 await PlayerMatchesAsync(songId);
         }
         if (!matched)
-            return Failure("Apple Music nie przyjęło odtwarzania wskazanego utworu.");
+        {
+            // The site's row can start a different track before the MusicKit
+            // fallback fails. Never leave that track playing behind an error.
+            var stopped = await StopFailedSelectionAsync();
+            return Failure(stopped
+                ? "Apple Music nie przyjęło odtwarzania wskazanego utworu. Odtwarzanie zatrzymano."
+                : "Apple Music nie przyjęło odtwarzania wskazanego utworu. Otwórz okno odtwarzacza Apple Music i zatrzymaj odtwarzanie.");
+        }
         WindowState = FormWindowState.Minimized;
         status.Text = "Odtwarzanie Apple Music działa w tle.";
         return new { handled = true, title,
@@ -249,6 +256,24 @@ internal sealed class PlayerWindow : Form
                 return true;
         }
         return false;
+    }
+
+    private async Task<bool> StopFailedSelectionAsync()
+    {
+        var result = await ScriptAsync("""
+            (async () => {
+              const music = window.MusicKit?.getInstance?.();
+              if (!music) return {stopped:true};
+              try { await music.stop(); }
+              catch {
+                try { await music.pause(); }
+                catch { /* Report that playback could not be stopped. */ }
+              }
+              return {stopped:!music.isPlaying};
+            })()
+            """);
+        return result?.TryGetProperty("stopped", out var stopped) == true &&
+            stopped.ValueKind == JsonValueKind.True;
     }
 
     private async Task<object> StateAsync()
