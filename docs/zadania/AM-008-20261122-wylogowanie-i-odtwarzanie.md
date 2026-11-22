@@ -70,6 +70,8 @@ Funkcja nie należy do profilu AMC Public.
 
 ## Źródła i wersja
 
+- Gałąź do pobrania przez Hermesa: `codex/apple-account-20261122`
+  w repozytorium `michalkasperczak/AMC`.
 - Apple Music API: https://developer.apple.com/documentation/applemusicapi
 - MusicKit on the Web: https://developer.apple.com/musickit/
 - Autoryzacja MusicKit: https://developer.apple.com/documentation/applemusicapi/user-authentication-for-musickit
