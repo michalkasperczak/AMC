@@ -37360,6 +37360,9 @@ class LiteFrame(wx.Frame):
 
     def _remove_selected_items(self) -> None:
         view = self.navigator.session.library_view
+        if self.navigator.active is SessionId.PODCASTS and view is LibraryView.PODCAST_QUEUE:
+            self._remove_podcast_queue_items()
+            return
         if self.navigator.active is SessionId.FILES and view is LibraryView.LIVE_QUEUE:
             self._remove_live_queue_items()
             return
@@ -37524,6 +37527,76 @@ class LiteFrame(wx.Frame):
             ),
             done,
             lambda error: self.announcer.say(f"Nie usunięto: {error}"),
+        )
+
+    def _remove_podcast_queue_items(self) -> None:
+        """Delete podcast and saved YouTube episodes from their visible queue."""
+        if getattr(self, "_podcast_queue_removal_pending", False):
+            return
+        rows = [
+            row for row in self._selected_action_rows() if row.kind == "episode"
+        ]
+        if not rows:
+            self.announcer.say("Wybierz odcinek w kolejce do usunięcia")
+            return
+        client = self._profile_edit_client()
+        if client is None:
+            return
+        state = self.navigator.sessions[SessionId.PODCASTS]
+        selected_ids = {row.item_id for row in rows}
+        visible_rows = list_filter.filter_rows(
+            list(state.model.rows),
+            self.filter_box.GetValue()
+            if getattr(self, "filter_box", None) is not None else "",
+        )
+        preferred_id = LiteFrame._preferred_item_after_removal(
+            visible_rows, selected_ids,
+        )
+        selected_at_start = state.model.selected_id
+        item_ids = [row.item_id for row in rows]
+        label = rows[0].title if len(rows) == 1 else format_item_count(len(rows))
+        self._podcast_queue_removal_pending = True
+
+        def still_here() -> bool:
+            return (
+                self.navigator.active is SessionId.PODCASTS
+                and state.view is View.LIST
+                and state.library_view is LibraryView.PODCAST_QUEUE
+            )
+
+        def done(payload: object) -> None:
+            self._podcast_queue_removal_pending = False
+            if not still_here():
+                return
+            if isinstance(payload, dict) and int(payload.get("removedCount") or 0) == 0:
+                self.announcer.say("Kolejka pozostała bez zmian")
+                return
+            current_id = state.model.selected_id
+            if current_id != selected_at_start and current_id not in selected_ids:
+                preferred = current_id
+            else:
+                preferred = preferred_id
+            self._open_podcast_aggregate(
+                OpenPodcastAggregateView(
+                    LibraryView.PODCAST_QUEUE, preferred_id=preferred,
+                ),
+                completion_message=f"Usunięto z Kolejki podcastów: {label}",
+            )
+
+        def failed(error: Exception) -> None:
+            self._podcast_queue_removal_pending = False
+            if still_here():
+                self.announcer.say(f"Nie usunięto z Kolejki podcastów: {error}")
+
+        self.runner.submit(
+            "podcast-queue-remove",
+            lambda: client.remove_profile_items(
+                SessionId.PODCASTS.value,
+                LibraryView.PODCAST_QUEUE.value,
+                item_ids,
+            ),
+            done,
+            failed,
         )
 
     def _remove_live_queue_items(self) -> None:
