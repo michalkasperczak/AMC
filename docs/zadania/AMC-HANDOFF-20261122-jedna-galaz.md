@@ -40,8 +40,10 @@ Osobne pliki zadań służą porządkowi diagnoz, a nie uruchamianiu drugiej pra
    Szczegóły: `docs/zadania/AUDIO-EDIT-20261122-dwa-ciecia-diagnoza.md`.
 4. Codex prowadzi oddzielny zakres Apple Music: wymuszenie widocznego logowania
    po „Tak” i rozróżnienie błędów 401/braku połączenia podczas wyszukiwania są
-   poprawione w źródłach (commit `15951987`); działanie na żywym koncie, NVDA
-   i pełne odtwarzanie dokładnie wskazanego utworu pozostają do odbioru.
+   poprawione w źródłach (commit `15951987`). Web host zatrzymuje możliwy
+   niewłaściwy utwór po błędzie dopasowania (commit `c57f209f`, celowany build
+   zaliczony). Działanie na żywym koncie, NVDA i pełne odtwarzanie dokładnie
+   wskazanego utworu pozostają do odbioru.
    Szczegóły: `docs/zadania/AM-008-20261122-wylogowanie-i-odtwarzanie.md`.
 
 ## Następny konkretny krok
@@ -59,5 +61,6 @@ Brak nowej aktualizacji po alpha.513. Test Escape wskazuje, że powrót na list�
 nie jest poleceniem anulowania cięcia; nie wyjaśnia jeszcze incydentu Dwójki.
 Potwierdzenie „Konto Apple Music” po przyszłej aktualizacji ma uruchomić
 widoczne logowanie. Wyszukiwanie ma podpowiedzieć ponowne logowanie przy 401
-i ponowienie próby przy błędzie połączenia. Pełne odtwarzanie wskazanego
-utworu nie jest jeszcze potwierdzone.
+i ponowienie próby przy błędzie połączenia. Po błędzie dopasowania utworu web
+host ma spróbować zatrzymać odtwarzanie i uczciwie zgłosić wynik. Pełne
+odtwarzanie wskazanego utworu nie jest jeszcze potwierdzone.

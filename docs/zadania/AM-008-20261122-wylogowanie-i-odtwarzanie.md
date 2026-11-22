@@ -36,9 +36,12 @@ niepotwierdzone. Nie odczytywano tokenów, cookies ani osobistej Biblioteki.
   W AMC `AppleMusic.exe /url` i SMTC nie dowiodły takiego wyboru. Web host
   próbuje kliknięcia wiersza i `MusicKit.setQueue({song:id})`, po czym porównuje
   `nowPlayingItem.id`; żywa próba na obecnym wydaniu nie została wykonana.
-  Dodatkowo po niezgodności ID web host zgłasza błąd, ale w obecnym kodzie
-  nie zatrzymuje możliwego wcześniejszego dźwięku. To osobna granica
-  bezpieczeństwa przed uznaniem odtwarzania za gotowe.
+  Po niezgodności ID web host wcześniej zgłaszał błąd, ale nie zatrzymywał
+  możliwego wcześniejszego dźwięku. Poprawka z 22.11.2026 zastępuje tę
+  decyzję: po nieudanej weryfikacji próbuje `stop()`, a po jego błędzie
+  `pause()`. Dopiero potwierdzony stan bez odtwarzania daje komunikat
+  „Odtwarzanie zatrzymano”; w innym przypadku komunikat nakazuje otworzyć
+  okno odtwarzacza i zatrzymać dźwięk ręcznie. To nadal wymaga próby na żywo.
 
 ## Kod, testy i wyniki
 
@@ -59,6 +62,13 @@ niepotwierdzone. Nie odczytywano tokenów, cookies ani osobistej Biblioteki.
   Wbudowany Python AMC ignoruje `PYTHONPATH`, więc testy uruchomiono z
   `sys.path.insert(0, <aktywne źródła>/wxlite)`; bez tego ładował starą kopię
   modułu z `D:\Projekty Codex\AMC Python\app` i pozornie nie przechodził.
+- `src/AccessibleMediaController.AppleMusicWebHost/PlayerWindow.cs` zatrzymuje
+  odtwarzanie po niezgodności ID wybranego utworu. Celowany build projektu
+  AppleMusicWebHost: kod 0, zero błędów, jedno ostrzeżenie o konflikcie wersji
+  `WindowsBase`. Pierwsza próba buildu bez dostępu do NuGet nie pobrała audytu
+  pakietów (`NU1900`); powtórzono ją z lokalnego cache, z `NuGetAudit=false`,
+  do osobnego katalogu roboczego. Projektu nie zainstalowano ani nie uruchomiono.
+  Nie oznacza to zbudowania całego AMC ani potwierdzenia dźwięku na żywo.
 - Odczyt zainstalowanego modułu `applemusic.auth` potwierdził obsługę
   `authenticate(force=True)` i pomijanie okna przy `force=False` z cache.
 - Sąsiednia próba pojedynczego testu GUI wyszukiwania wypisała kropkę
@@ -79,7 +89,9 @@ niepotwierdzone. Nie odczytywano tokenów, cookies ani osobistej Biblioteki.
    odbiór widocznego interfejsu nadal czeka.
 3. Dwa znane różne utwory z katalogowymi ID odtworzyć kolejno przez tor webowy;
    potwierdzić `nowPlayingItem.id`, słyszalne pełne nagranie, pauzę/wznowienie,
-   czas i zatrzymanie dźwięku po błędzie lub zmianie toru. Nie uznawać
+   czas i zatrzymanie dźwięku po błędzie lub zmianie toru. Osobno sprawdzić
+   niezgodność ID, automatyczne zatrzymanie oraz komunikat ręcznego zatrzymania
+   po jego błędzie. Nie uznawać
    otwartego linku ani samego licznika za pełny sukces.
 
 ## Materiał do dokumentacji użytkownika
@@ -105,5 +117,7 @@ Konta przy odrzuceniu sesji oraz ponowienie próby przy błędzie połączenia.
 - Zintegrowany commit poprawki: `918c1cc8`.
 - Zintegrowany commit komunikatów wyszukiwania:
   `159519872bc4dd21d97195300a97d1e35e279fce`.
-  Stan: źródła i celowane testy; bez buildu,
-  instalacji, publikacji i żywego odbioru.
+- Zintegrowany commit bezpiecznego zatrzymania:
+  `c57f209f02f1dfa8778f6c51a0454d3ec34a8f4f`.
+  Stan: źródła, celowane testy i build projektu AppleMusicWebHost; bez
+  instalacji, nowego wydania i żywego odbioru.
