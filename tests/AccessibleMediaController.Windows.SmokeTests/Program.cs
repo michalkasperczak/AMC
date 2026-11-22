@@ -46,6 +46,11 @@ if (args.Contains("--resume-in-place-only", StringComparer.Ordinal))
     ResumeInPlaceTests.Run();
     return 0;
 }
+if (args.Contains("--default-output-follow-only", StringComparer.Ordinal))
+{
+    DefaultOutputFollowTests.Run();
+    return 0;
+}
 if (args.Contains("--mp3-peaks-only", StringComparer.Ordinal))
 {
     Mp3PeakPlaybackTests.Run();
@@ -744,6 +749,7 @@ var tests = new (string Name, Action Test)[]
     ("State Persistence Queue", TestStatePersistenceQueue),
     ("Periodic Playback Checkpoints", PeriodicPlaybackCheckpointTests.Run),
     ("Wznowienie po pauzie w tym samym miejscu nie przewija toru", ResumeInPlaceTests.Run),
+    ("Wyjście bez wybranego urządzenia idzie za domyślnym w Windows", DefaultOutputFollowTests.Run),
     ("Radio Recognition Announcement Policy", TestRadioRecognitionAnnouncementPolicy),
     ("Radio Recognition Scheduling Policy", TestRadioRecognitionSchedulingPolicy),
     ("Radio Recognition Setting Accessibility", TestRadioRecognitionSettingAccessibility),

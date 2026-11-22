@@ -16,12 +16,20 @@ internal sealed record AudioOutputDeviceChoice(
 internal sealed class AudioOutputDeviceLease(
     WasapiOut output,
     MMDevice? device,
-    bool usesDefaultDevice) : IDisposable
+    bool usesDefaultDevice,
+    string? endpointId = null) : IDisposable
 {
     private int _disposed;
 
     public WasapiOut Output { get; } = output;
     public bool UsesDefaultDevice { get; } = usesDefaultDevice;
+
+    /// <summary>
+    /// Identyfikator urządzenia, na którym faktycznie gra to wyjście, albo
+    /// null, gdy nie dało się go ustalić. Przy urządzeniu domyślnym pozwala
+    /// sprawdzić, czy Windows nie wskazuje już innego.
+    /// </summary>
+    public string? EndpointId { get; } = endpointId;
 
     public void Dispose()
     {
@@ -130,14 +138,31 @@ internal static class AudioOutputDeviceCatalog
             && string.Equals(choice.Id, deviceId, StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// Czy urządzenie o tym identyfikatorze nadal jest aktywne. Odłączone
+    /// słuchawki już nie są; takie wyjście obsługuje odzyskiwanie po utracie
+    /// urządzenia, a nie przejście za nowym urządzeniem domyślnym.
+    /// </summary>
+    public static bool IsEndpointActive(string? endpointId)
+    {
+        if (string.IsNullOrWhiteSpace(endpointId)) return false;
+        try
+        {
+            using var enumerator = new MMDeviceEnumerator();
+            using var device = enumerator.GetDevice(endpointId);
+            return device.State == DeviceState.Active;
+        }
+        catch (Exception exception) when (IsDeviceEnumerationFailure(exception))
+        {
+            return false;
+        }
+    }
+
     public static AudioOutputDeviceLease CreateOutput(string? deviceId, int latencyMilliseconds)
     {
         if (string.IsNullOrWhiteSpace(deviceId))
         {
-            return new AudioOutputDeviceLease(
-                new WasapiOut(AudioClientShareMode.Shared, true, latencyMilliseconds),
-                null,
-                true);
+            return CreateDefaultOutput(latencyMilliseconds);
         }
 
         MMDevice? selectedDevice = null;
@@ -154,7 +179,7 @@ internal static class AudioOutputDeviceCatalog
                 AudioClientShareMode.Shared,
                 true,
                 latencyMilliseconds);
-            return new AudioOutputDeviceLease(output, selectedDevice, false);
+            return new AudioOutputDeviceLease(output, selectedDevice, false, deviceId);
         }
         catch (Exception exception) when (IsDeviceEnumerationFailure(exception))
         {
@@ -163,6 +188,35 @@ internal static class AudioOutputDeviceCatalog
                 "audio-device",
                 $"Wybrane urządzenie jest niedostępne; użyto domyślnego. Identyfikator {deviceId}; " +
                 $"błąd {exception.GetType().Name}: {exception.Message}");
+            return CreateDefaultOutput(latencyMilliseconds);
+        }
+    }
+
+    /// <summary>
+    /// Otwiera domyślne urządzenie tak samo jak bezargumentowy WasapiOut
+    /// (wyjście renderowania, rola Console), ale zapamiętuje jego identyfikator.
+    /// </summary>
+    private static AudioOutputDeviceLease CreateDefaultOutput(int latencyMilliseconds)
+    {
+        MMDevice? defaultDevice = null;
+        try
+        {
+            using var enumerator = new MMDeviceEnumerator();
+            defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Console);
+            var endpointId = defaultDevice.ID;
+            var output = new WasapiOut(
+                defaultDevice,
+                AudioClientShareMode.Shared,
+                true,
+                latencyMilliseconds);
+            return new AudioOutputDeviceLease(output, defaultDevice, true, endpointId);
+        }
+        catch (Exception exception) when (IsDeviceEnumerationFailure(exception))
+        {
+            defaultDevice?.Dispose();
+            DiagnosticLog.Warning(
+                "audio-device",
+                $"Nie można ustalić domyślnego wyjścia audio; użyto wyboru NAudio. Błąd {exception.GetType().Name}.");
             return new AudioOutputDeviceLease(
                 new WasapiOut(AudioClientShareMode.Shared, true, latencyMilliseconds),
                 null,
