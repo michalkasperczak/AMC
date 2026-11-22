@@ -91,3 +91,25 @@ def test_english_preset_labels_menu_and_missing_target(tmp_path) -> None:
         ]
     finally:
         i18n.configure(old_language)
+
+
+def test_selected_tidal_row_without_catalog_id_is_named_in_both_languages(tmp_path) -> None:
+    from amc_wx_lite import i18n
+    from amc_wx_lite.list_model import Row
+
+    frame, spoken, _intents = _frame(tmp_path)
+    frame._current_preset_target = lambda: None
+    frame.navigator.session.model.replace([
+        Row("tidal:track:missing", "Widoczny utwór", "track", service_kind="track")
+    ])
+    old_language = i18n.active_language()
+    try:
+        for language, expected in (
+            ("pl", "Element Widoczny utwór nie ma danych katalogowych TIDAL potrzebnych do zapisania presetu"),
+            ("en", "Widoczny utwór lacks the TIDAL catalog details needed to save a preset"),
+        ):
+            i18n.configure(language)
+            LiteFrame._assign_preset(frame, 1)
+            assert spoken[-1] == expected
+    finally:
+        i18n.configure(old_language)
