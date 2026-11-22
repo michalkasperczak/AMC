@@ -11,12 +11,16 @@ from urllib.parse import parse_qs, urlsplit
 
 from amc_wx_lite.apple_music_credentials import AppleMusicWebCredentials
 from amc_wx_lite.apple_music_library import (
+    AppleMusicAuthenticationRejected,
+    AppleMusicConnectionUnavailable,
+    AppleMusicLibraryClient,
     AppleMusicLibraryError,
     AppleMusicNotConnected,
     AppleMusicPageCursor,
     library_membership_direction,
     open_apple_music_library,
     read_apple_music_batch,
+    search_failure_message,
 )
 from amc_wx_lite.apple_music_source import records_from_resources
 from amc_wx_lite.profile_layout import private_sandbox
@@ -556,6 +560,41 @@ class AppleMusicLibraryTests(unittest.TestCase):
             )
 
         self.assertEqual(str(caught.exception), "Apple Music nie jest zalogowane.")
+        self.assertEqual(
+            search_failure_message(caught.exception, "Błąd ogólny"),
+            "Apple Music nie jest zalogowane. Otwórz Konto Apple Music (Ctrl+F5).",
+        )
+
+    def test_search_distinguishes_authentication_from_network_without_provider_text(self) -> None:
+        class ProviderFailure(Exception):
+            def __init__(self, status_code: int) -> None:
+                super().__init__(PRIVATE_TOKEN + PRIVATE_COOKIE)
+                self.status_code = status_code
+
+        for status, expected_type, expected_text in (
+            (401, AppleMusicAuthenticationRejected,
+             "Apple Music odrzuciło logowanie. Otwórz Konto Apple Music (Ctrl+F5)."),
+            (0, AppleMusicConnectionUnavailable,
+             "Nie udało się połączyć z Apple Music. Spróbuj ponownie."),
+        ):
+            def fail(*_args, **_kwargs):
+                raise ProviderFailure(status)
+
+            library = AppleMusicLibraryClient(SimpleNamespace(_get=fail, search=fail))
+            for search in (library.search_library, library.search_catalog):
+                with self.assertRaises(expected_type) as caught:
+                    search("próba")
+                message = search_failure_message(caught.exception, "Błąd ogólny")
+                self.assertEqual(message, expected_text)
+                self.assertNotIn(PRIVATE_TOKEN, message)
+                self.assertNotIn(PRIVATE_COOKIE, message)
+
+        library = AppleMusicLibraryClient(
+            SimpleNamespace(_get=lambda *_a, **_k: (_ for _ in ()).throw(ProviderFailure(500)))
+        )
+        with self.assertRaises(AppleMusicLibraryError) as caught:
+            library.search_library("próba")
+        self.assertEqual(search_failure_message(caught.exception, "Błąd ogólny"), "Błąd ogólny")
 
     def test_public_profile_refuses_before_touching_the_dependency(self) -> None:
         with self.assertRaises(AppleMusicLibraryError) as caught:

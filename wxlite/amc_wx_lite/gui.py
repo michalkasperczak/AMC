@@ -318,6 +318,7 @@ if "session.apple-music" in _RELEASE_PROFILE.capabilities:
         library_membership_direction,
         open_apple_music_library,
         read_apple_music_batch,
+        search_failure_message,
     )
     from .apple_music_source import (
         AppleMusicRecord,
@@ -13271,15 +13272,19 @@ class LiteFrame(wx.Frame):
                         catalog_records: tuple[AppleMusicRecord, ...] = ()
                         try:
                             library_records = library.search_library(query)
-                        except AppleMusicLibraryError:
+                        except AppleMusicLibraryError as error:
                             warnings.append(
-                                "Nie udało się przeszukać Biblioteki Apple Music"
+                                search_failure_message(
+                                    error, "Nie udało się przeszukać Biblioteki Apple Music"
+                                )
                             )
                         try:
                             catalog_records = library.search_catalog(query)
-                        except AppleMusicLibraryError:
+                        except AppleMusicLibraryError as error:
                             warnings.append(
-                                "Nie udało się przeszukać katalogu Apple Music"
+                                search_failure_message(
+                                    error, "Nie udało się przeszukać katalogu Apple Music"
+                                )
                             )
                     known = {candidate.row.item_id for candidate in results}
                     seen_catalog = {
@@ -13309,8 +13314,10 @@ class LiteFrame(wx.Frame):
                             ),
                         ))
                     apple_music_records = tuple(added)
-                except AppleMusicLibraryError:
-                    warnings.append("Nie udało się otworzyć Apple Music")
+                except AppleMusicLibraryError as error:
+                    warnings.append(
+                        search_failure_message(error, "Nie udało się otworzyć Apple Music")
+                    )
             if SessionId.RADIO in sessions:
                 client = self.client
                 if client is None:

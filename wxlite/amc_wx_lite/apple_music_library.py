@@ -59,6 +59,37 @@ class AppleMusicNotConnected(AppleMusicLibraryError):
         return "Apple Music nie jest zalogowane."
 
 
+class AppleMusicAuthenticationRejected(AppleMusicLibraryError):
+    def __str__(self) -> str:
+        return "Apple Music odrzuciło logowanie. Otwórz Konto Apple Music (Ctrl+F5)."
+
+
+class AppleMusicConnectionUnavailable(AppleMusicLibraryError):
+    def __str__(self) -> str:
+        return "Nie udało się połączyć z Apple Music. Spróbuj ponownie."
+
+
+def search_failure_message(error: AppleMusicLibraryError, fallback: str) -> str:
+    """Expose only intentional, actionable account/search messages to NVDA."""
+
+    if isinstance(error, AppleMusicNotConnected):
+        return str(error) + " Otwórz Konto Apple Music (Ctrl+F5)."
+    if isinstance(error, (AppleMusicAuthenticationRejected, AppleMusicConnectionUnavailable)):
+        return str(error)
+    return fallback
+
+
+def _sanitized_search_error(error: Exception) -> AppleMusicLibraryError:
+    # The optional provider puts HTTP 401 and network failures on this numeric
+    # field. Never include its exception text or response body in UI messages.
+    status_code = getattr(error, "status_code", None)
+    if type(status_code) is int and status_code == 401:
+        return AppleMusicAuthenticationRejected()
+    if type(status_code) is int and status_code == 0:
+        return AppleMusicConnectionUnavailable()
+    return AppleMusicLibraryError()
+
+
 class AppleMusicLibraryMutationError(AppleMusicLibraryError):
     """A sanitized failure specific to an account mutation."""
 
@@ -266,8 +297,8 @@ class AppleMusicLibraryClient:
             return tuple(found)
         except AppleMusicLibraryError:
             raise
-        except Exception:
-            raise AppleMusicLibraryError() from None
+        except Exception as error:
+            raise _sanitized_search_error(error) from None
 
     def search_catalog(self, query: str) -> tuple[AppleMusicRecord, ...]:
         """Search navigable resources in the account's storefront."""
@@ -295,8 +326,8 @@ class AppleMusicLibraryClient:
             return tuple(found)
         except AppleMusicLibraryError:
             raise
-        except Exception:
-            raise AppleMusicLibraryError() from None
+        except Exception as error:
+            raise _sanitized_search_error(error) from None
 
     def resolve_catalog_artist(self, artist: AppleMusicRecord) -> AppleMusicRecord:
         """Resolve one library artist by exact public name without guessing."""
