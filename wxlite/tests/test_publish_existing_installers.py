@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -26,18 +27,12 @@ def _write_json(archive: zipfile.ZipFile, name: str, payload: object) -> None:
 
 
 def _contract_for_fixture(binary_zip: Path, evidence_zip: Path):
-    public = CONTRACT.profiles["public"]
-    test = CONTRACT.profiles["test"]
     return replace(
         CONTRACT,
         binary_artifact_sha256=hashlib.sha256(binary_zip.read_bytes()).hexdigest(),
         binary_artifact_bytes=binary_zip.stat().st_size,
         evidence_artifact_sha256=hashlib.sha256(evidence_zip.read_bytes()).hexdigest(),
         evidence_artifact_bytes=evidence_zip.stat().st_size,
-        profiles={
-            "public": replace(public, installer_name="AMC-Public-2026-11-18-0329.exe"),
-            "test": replace(test, installer_name="AMC-Test-2026-11-18-0337.exe"),
-        },
     )
 
 
@@ -58,8 +53,8 @@ def _make_archives(tmp_path: Path) -> tuple[Path, Path]:
     binary_zip = tmp_path / "binary.zip"
     evidence_zip = tmp_path / "evidence.zip"
     installers = {
-        "public": ("AMC-Public-2026-11-18-0329.exe", b"fixture public installer"),
-        "test": ("AMC-Test-2026-11-18-0337.exe", b"fixture test installer"),
+        "public": (CONTRACT.profiles["public"].installer_name, b"fixture public installer"),
+        "test": (CONTRACT.profiles["test"].installer_name, b"fixture test installer"),
     }
     with zipfile.ZipFile(binary_zip, "w") as archive:
         for profile, (name, content) in installers.items():
@@ -173,6 +168,76 @@ def _make_archives(tmp_path: Path) -> tuple[Path, Path]:
 
 
 class PublishExistingInstallerTests(unittest.TestCase):
+    def test_alpha512_contract_is_pinned_to_authorized_inputs_and_wrapper_names(self) -> None:
+        self.assertEqual(CONTRACT.source_revision, "d360cd89f622b90ae351f1ed876904b38856b625")
+        self.assertEqual(CONTRACT.version, "0.1.0-alpha.512")
+        self.assertEqual(CONTRACT.binary_artifact_sha256, "f56a2b11c650f890bfe39571f99257ead3934fe25c0ebf29080dc1d8928a6f71")
+        self.assertEqual(CONTRACT.evidence_artifact_sha256, "c438451b243408bdcad4e871545de24d158f3381449e5538ed52959c4aa34175")
+        self.assertEqual(CONTRACT.profiles["public"].display_version, "22.11.2026, 11:29")
+        self.assertEqual(CONTRACT.profiles["public"].tag, "public-2026.11.22.1129")
+        self.assertEqual(CONTRACT.profiles["public"].installer_name, "AMC-Public-2026-11-22-1129.exe")
+        self.assertEqual(CONTRACT.profiles["test"].display_version, "22.11.2026, 11:37")
+        self.assertEqual(CONTRACT.profiles["test"].tag, "test-2026.11.22.1137")
+        self.assertEqual(CONTRACT.profiles["test"].installer_name, "AMC-Test-2026-11-22-1137.exe")
+
+    def test_release_notes_preserve_alpha512_scope_and_unperformed_acceptance(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            binary_zip, evidence_zip = _make_archives(Path(temporary))
+            notes = verify_archives(binary_zip, evidence_zip, _contract_for_fixture(binary_zip, evidence_zip))
+
+        public_notes = notes["public"].notes
+        test_notes = notes["test"].notes
+        for expected in (
+            "Radio Archiwista",
+            "pełny opis jest kopiowany do schowka",
+            "Skrzynka: pamiętana jest pozycja",
+            "NVDA + End: parametry są odczytywane przed nazwą",
+            "dokładnego URI WiiM",
+            "własnych streamów Sonos",
+            "Ulubionych, playlist, Frontier ani Apple",
+            "Odebrane odświeżanie oraz rozdziały YouTube",
+            "Delete kolejki i odzyskiwanie audio nie są włączone",
+            "Status odbioru instalacji: nieprzeprowadzony",
+            "Status żywego odbioru NVDA: nieprzeprowadzony",
+        ):
+            self.assertIn(expected, public_notes)
+        self.assertIn("AMC Public nie zawiera Apple Music", public_notes)
+        self.assertIn("Biblioteka, wyszukiwanie i dodawanie bez odtwarzania ani naprawy logowania", test_notes)
+
+    @unittest.skipUnless(os.environ.get("AMC_REAL_EVIDENCE_ZIP"), "requires AMC_REAL_EVIDENCE_ZIP")
+    def test_real_alpha512_evidence_archive_and_tampering_fail_closed(self) -> None:
+        evidence_zip = Path(os.environ["AMC_REAL_EVIDENCE_ZIP"])
+        self.assertTrue(evidence_zip.is_file())
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            binary_zip, _ = _make_archives(root)
+            self.assertEqual(evidence_zip.stat().st_size, CONTRACT.evidence_artifact_bytes)
+            self.assertEqual(hashlib.sha256(evidence_zip.read_bytes()).hexdigest(), CONTRACT.evidence_artifact_sha256)
+            contract = replace(
+                CONTRACT,
+                binary_artifact_sha256=hashlib.sha256(binary_zip.read_bytes()).hexdigest(),
+                binary_artifact_bytes=binary_zip.stat().st_size,
+            )
+            result = verify_archives(binary_zip, evidence_zip, contract)
+            self.assertEqual(set(result), {"public", "test"})
+
+            tampered = root / "tampered-evidence.zip"
+            with zipfile.ZipFile(evidence_zip) as source, zipfile.ZipFile(tampered, "w") as target:
+                for info in source.infolist():
+                    payload = source.read(info.filename)
+                    if info.filename == "source.json":
+                        value = json.loads(payload)
+                        value["sourceVersion"] = "0.1.0-alpha.511"
+                        payload = json.dumps(value).encode("utf-8")
+                    target.writestr(info, payload)
+            tampered_contract = replace(
+                contract,
+                evidence_artifact_sha256=hashlib.sha256(tampered.read_bytes()).hexdigest(),
+                evidence_artifact_bytes=tampered.stat().st_size,
+            )
+            with self.assertRaisesRegex(VerificationError, "Dowód źródeł"):
+                verify_archives(binary_zip, tampered, tampered_contract)
+
     def test_fixture_archives_create_profiled_release_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             binary_zip, evidence_zip = _make_archives(Path(temporary))
@@ -186,7 +251,7 @@ class PublishExistingInstallerTests(unittest.TestCase):
         self.assertIs(result["public"].update_manifest["prerelease"], False)
         self.assertIs(result["test"].update_manifest["prerelease"], True)
         self.assertEqual(result["public"].update_manifest["sourceRevision"], CONTRACT.source_revision)
-        self.assertIn("brak odtwarzania", result["test"].notes.lower())
+        self.assertIn("bez odtwarzania", result["test"].notes.lower())
         self.assertIn("RCX", result["public"].notes)
 
     def test_fixture_archives_reject_extra_binary_payload(self) -> None:
@@ -221,16 +286,53 @@ class PublishExistingInstallerTests(unittest.TestCase):
                     "digest": "sha256:" + hashlib.sha256(asset_path.read_bytes()).hexdigest(),
                 })
             release = {
+                "id": 6001,
                 "tag_name": contract.profiles["public"].tag,
                 "target_commitish": CONTRACT.source_revision,
                 "draft": True,
                 "prerelease": False,
                 "assets": assets,
             }
-            verify_release_readback(release, verified["public"], downloaded, draft=True)
+            verify_release_readback(release, verified["public"], downloaded, draft=True, expected_release_id=6001)
             assets[-1]["digest"] = "sha256:" + "0" * 64
             with self.assertRaisesRegex(VerificationError, "Metadane assetu"):
-                verify_release_readback(release, verified["public"], downloaded, draft=True)
+                verify_release_readback(release, verified["public"], downloaded, draft=True, expected_release_id=6001)
+
+    def test_release_readback_requires_the_created_release_id(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            temporary_path = Path(temporary)
+            binary_zip, evidence_zip = _make_archives(temporary_path)
+            contract = _contract_for_fixture(binary_zip, evidence_zip)
+            verified = write_release_inputs(binary_zip, evidence_zip, temporary_path / "prepared", contract)
+            profile_dir = temporary_path / "prepared" / "public"
+            installer = profile_dir / contract.profiles["public"].installer_name
+            downloaded = profile_dir / f"{installer.name}.downloaded"
+            downloaded.write_bytes(installer.read_bytes())
+            assets = [
+                {
+                    "name": asset_path.name,
+                    "state": "uploaded",
+                    "size": asset_path.stat().st_size,
+                    "digest": "sha256:" + hashlib.sha256(asset_path.read_bytes()).hexdigest(),
+                }
+                for asset_path in (
+                    installer,
+                    profile_dir / f"{installer.name}.integrity.json",
+                    profile_dir / "amc-update-public.json",
+                )
+            ]
+            release = {
+                "id": 7001,
+                "tag_name": contract.profiles["public"].tag,
+                "target_commitish": CONTRACT.source_revision,
+                "draft": True,
+                "prerelease": False,
+                "assets": assets,
+            }
+            verify_release_readback(release, verified["public"], downloaded, draft=True, expected_release_id=7001)
+            release["id"] = 7002
+            with self.assertRaisesRegex(VerificationError, "ID"):
+                verify_release_readback(release, verified["public"], downloaded, draft=True, expected_release_id=7001)
 
     def test_github_request_field_types(self) -> None:
         # Exercise the real inline payload producer, not a copied JSON fixture.

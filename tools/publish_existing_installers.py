@@ -21,18 +21,18 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Mapping, NoReturn
 
 REPOSITORY = "michalkasperczak/AMC"
-SOURCE_REVISION = "1723786c4557ef68bb3922189a028099ce96db31"
-VERSION = "0.1.0-alpha.511"
-RUN_ID = 44229055217
+SOURCE_REVISION = "d360cd89f622b90ae351f1ed876904b38856b625"
+VERSION = "0.1.0-alpha.512"
+RUN_ID = 45016390370
 RUN_ATTEMPT = 1
-BINARY_ARTIFACT_ID = 14395074212
-BINARY_ARTIFACT_NAME = "amc-protected-public-test-installers-1723786c4557ef68bb3922189a028099ce96db31"
-BINARY_ARTIFACT_BYTES = 347586692
-BINARY_ARTIFACT_SHA256 = "8c6a7d6daa5a621eb9231ea5204b6930006b55e9e535fdda4ec9191eeec1a5f3"
-EVIDENCE_ARTIFACT_ID = 14395482588
-EVIDENCE_ARTIFACT_NAME = "amc-protected-public-test-evidence-1723786c4557ef68bb3922189a028099ce96db31"
-EVIDENCE_ARTIFACT_BYTES = 5995
-EVIDENCE_ARTIFACT_SHA256 = "24f0f8ff72139f328d28e37a70ccd549eae24d865df790b0419c833cedc95682"
+BINARY_ARTIFACT_ID = 14752053921
+BINARY_ARTIFACT_NAME = "amc-protected-public-test-installers-d360cd89f622b90ae351f1ed876904b38856b625"
+BINARY_ARTIFACT_BYTES = 347655437
+BINARY_ARTIFACT_SHA256 = "f56a2b11c650f890bfe39571f99257ead3934fe25c0ebf29080dc1d8928a6f71"
+EVIDENCE_ARTIFACT_ID = 14752572396
+EVIDENCE_ARTIFACT_NAME = "amc-protected-public-test-evidence-d360cd89f622b90ae351f1ed876904b38856b625"
+EVIDENCE_ARTIFACT_BYTES = 6000
+EVIDENCE_ARTIFACT_SHA256 = "c438451b243408bdcad4e871545de24d158f3381449e5538ed52959c4aa34175"
 
 
 class VerificationError(RuntimeError):
@@ -84,24 +84,24 @@ CONTRACT = VerificationContract(
         "public": ProfileContract(
             profile="public",
             display_name="AMC Public",
-            display_version="18.11.2026, 03:29",
-            tag="public-2026.11.18.0329",
+            display_version="22.11.2026, 11:29",
+            tag="public-2026.11.22.1129",
             prerelease=False,
             update_channel="stable",
             product_id="org.accessible-media-controller.public",
             install_id="AMC.Public.win-x64",
-            installer_name="AMC-Public-2026-11-18-0329.exe",
+            installer_name="AMC-Public-2026-11-22-1129.exe",
         ),
         "test": ProfileContract(
             profile="test",
             display_name="AMC Test",
-            display_version="18.11.2026, 03:37",
-            tag="test-2026.11.18.0337",
+            display_version="22.11.2026, 11:37",
+            tag="test-2026.11.22.1137",
             prerelease=True,
             update_channel="test",
             product_id="org.accessible-media-controller.test",
             install_id="AMC.Test.win-x64",
-            installer_name="AMC-Test-2026-11-18-0337.exe",
+            installer_name="AMC-Test-2026-11-22-1137.exe",
         ),
     },
 )
@@ -291,13 +291,17 @@ def _notes(profile: ProfileContract, installer_sha256: str, installer_bytes: int
         "",
         "## Co obejmuje to wydanie",
         "",
-        "- Foldery Biblioteki: komunikat po dodaniu, odświeżeniu lub błędzie jest przekazywany jeden raz przez aktywny dialog. Przy konflikcie wskazywana jest ścieżka istniejącego folderu.",
-        "- Foldery o tej samej nazwie są rozróżniane dopiskiem folderu nadrzędnego; ich ścieżki, identyfikatory i dane nie są zmieniane.",
-
+        "- Radio Archiwista: wyszukiwanie materiałów.",
+        "- Podcasty: pełny opis jest kopiowany do schowka.",
+        "- Skrzynka: pamiętana jest pozycja odtwarzania.",
+        "- NVDA + End: parametry są odczytywane przed nazwą materiału.",
+        "- Oznaczenie zidentyfikowanego materiału działa wyłącznie dla dokładnego URI WiiM oraz własnych streamów Sonos; nie obejmuje Ulubionych, playlist, Frontier ani Apple.",
+        "- Odebrane odświeżanie oraz rozdziały YouTube są objęte tym wydaniem.",
+        "- Poprawka Delete kolejki i odzyskiwanie audio nie są włączone w tym wydaniu.",
     ]
     if profile.profile == "test":
         lines.extend([
-            "- AMC Test zawiera eksperymentalne Apple Music. Potwierdzono wyszukiwanie i dodawanie do Biblioteki; brak odtwarzania pozostaje ograniczeniem.",
+            "- AMC Test zawiera eksperymentalne Apple Music: zachowane są Biblioteka, wyszukiwanie i dodawanie bez odtwarzania ani naprawy logowania.",
         ])
     else:
         lines.extend(["- AMC Public nie zawiera Apple Music."])
@@ -305,7 +309,8 @@ def _notes(profile: ProfileContract, installer_sha256: str, installer_bytes: int
         "",
         "## Sprawdzenie i ograniczenia",
         "",
-        "- Instalator pochodzi z chronionej budowy GitHub; raport tej budowy wskazuje aktywną ochronę Defendera bez wykryć. Nie jest to odbiór instalacji ani żywy odbiór NVDA.",
+        "- Instalator pochodzi z chronionej budowy GitHub: raport wskazuje aktywną ochronę Defendera, zero wykluczeń oraz brak wykryć i zdarzeń 1116/1117. Nie jest to odbiór instalacji ani żywy odbiór NVDA.",
+        "- Status odbioru instalacji: nieprzeprowadzony. Status żywego odbioru NVDA: nieprzeprowadzony; wymagane pozostają osobne bramki i zgoda.",
         "- Wcześniejszy lokalny alert RCX pozostaje bez analizy historycznych próbek przez Microsoft. Nie jest to werdykt o tym wydaniu.",
 
         "",
@@ -404,7 +409,16 @@ def _load_json(path: Path) -> dict[str, Any]:
     return value
 
 
-def verify_release_readback(release: Mapping[str, Any], item: VerifiedProfile, downloaded_installer: Path, *, draft: bool) -> None:
+def verify_release_readback(
+    release: Mapping[str, Any],
+    item: VerifiedProfile,
+    downloaded_installer: Path,
+    *,
+    draft: bool,
+    expected_release_id: int,
+) -> None:
+    if isinstance(expected_release_id, bool) or expected_release_id <= 0 or release.get("id") != expected_release_id:
+        _fail("Release nie odpowiada utworzonemu ID")
     if release.get("tag_name") != item.contract.tag or release.get("target_commitish") != SOURCE_REVISION:
         _fail("Release nie wskazuje dozwolonego tagu i commitu źródeł")
     if release.get("draft") is not draft or release.get("prerelease") is not item.contract.prerelease:
@@ -456,6 +470,7 @@ def main(argv: list[str] | None = None) -> int:
     readback.add_argument("--profile", choices=("public", "test"), required=True)
     readback.add_argument("--downloaded-installer", type=Path, required=True)
     readback.add_argument("--draft", choices=("true", "false"), required=True)
+    readback.add_argument("--release-id", type=int, required=True)
     args = parser.parse_args(argv)
     try:
         if args.command == "prepare":
@@ -466,7 +481,13 @@ def main(argv: list[str] | None = None) -> int:
             prepared = args.downloaded_installer.parent / "verified-release-input.json"
             manifest = _load_json(prepared)
             item = VerifiedProfile(profile, manifest["installer"]["bytes"], manifest["installer"]["sha256"], {}, {}, "")
-            verify_release_readback(_load_json(args.release_json), item, args.downloaded_installer, draft=args.draft == "true")
+            verify_release_readback(
+                _load_json(args.release_json),
+                item,
+                args.downloaded_installer,
+                draft=args.draft == "true",
+                expected_release_id=args.release_id,
+            )
     except VerificationError as error:
         print(f"FAIL-CLOSED: {error}", file=sys.stderr)
         return 1

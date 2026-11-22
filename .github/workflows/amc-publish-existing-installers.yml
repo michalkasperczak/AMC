@@ -3,7 +3,7 @@ name: AMC — publish verified existing Public and Test installers
 on:
   push:
     branches:
-      - codex/amc-publish-existing-20261118
+      - codex/amc-publish-existing-20261122-alpha512
 
 permissions: {}
 
@@ -13,7 +13,7 @@ jobs:
     if: >-
       github.run_attempt == '1' &&
       github.event.before == '0000000000000000000000000000000000000000' &&
-      github.ref == 'refs/heads/codex/amc-publish-existing-20261118'
+      github.ref == 'refs/heads/codex/amc-publish-existing-20261122-alpha512'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -22,12 +22,12 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       AMC_REPOSITORY: michalkasperczak/AMC
-      AMC_SOURCE_REVISION: 1723786c4557ef68bb3922189a028099ce96db31
-      AMC_RUN_ID: '44229055217'
-      AMC_BINARY_ARTIFACT_ID: '14395074212'
-      AMC_EVIDENCE_ARTIFACT_ID: '14395482588'
-      AMC_PUBLIC_TAG: public-2026.11.18.0329
-      AMC_TEST_TAG: test-2026.11.18.0337
+      AMC_SOURCE_REVISION: d360cd89f622b90ae351f1ed876904b38856b625
+      AMC_RUN_ID: '45016390370'
+      AMC_BINARY_ARTIFACT_ID: '14752053921'
+      AMC_EVIDENCE_ARTIFACT_ID: '14752572396'
+      AMC_PUBLIC_TAG: public-2026.11.22.1129
+      AMC_TEST_TAG: test-2026.11.22.1137
 
     steps:
       - name: Check out the exact publisher commit
@@ -44,7 +44,7 @@ jobs:
           test "$GITHUB_EVENT_NAME" = push
           test "$GITHUB_RUN_ATTEMPT" = 1
           test "${{ github.event.before }}" = 0000000000000000000000000000000000000000
-          test "${{ github.ref }}" = refs/heads/codex/amc-publish-existing-20261118
+          test "${{ github.ref }}" = refs/heads/codex/amc-publish-existing-20261122-alpha512
 
       - name: Read immutable run and artifact metadata
         shell: bash
@@ -63,8 +63,8 @@ jobs:
           if (run.get('id'), run.get('head_sha'), run.get('run_attempt'), run.get('status'), run.get('conclusion')) != (int(os.environ['AMC_RUN_ID']), source, 1, 'completed', 'success'):
               raise SystemExit('fail-closed: source run is not the approved successful first attempt')
           expected = {
-              'binary-artifact.json': (14395074212, 'amc-protected-public-test-installers-' + source, 347586692, 'sha256:8c6a7d6daa5a621eb9231ea5204b6930006b55e9e535fdda4ec9191eeec1a5f3'),
-              'evidence-artifact.json': (14395482588, 'amc-protected-public-test-evidence-' + source, 5995, 'sha256:24f0f8ff72139f328d28e37a70ccd549eae24d865df790b0419c833cedc95682'),
+              'binary-artifact.json': (14752053921, 'amc-protected-public-test-installers-' + source, 347655437, 'sha256:f56a2b11c650f890bfe39571f99257ead3934fe25c0ebf29080dc1d8928a6f71'),
+              'evidence-artifact.json': (14752572396, 'amc-protected-public-test-evidence-' + source, 6000, 'sha256:c438451b243408bdcad4e871545de24d158f3381449e5538ed52959c4aa34175'),
           }
           for file_name, (artifact_id, name, size, digest) in expected.items():
               artifact = json.loads((root / file_name).read_text())
@@ -126,8 +126,8 @@ jobs:
           import json, sys
           tag, profile, prerelease, latest, notes = sys.argv[1:]
           from pathlib import Path
-          title = ('AMC Public' if profile == 'public' else 'AMC Test') + (' — 18.11.2026, 03:29' if profile == 'public' else ' — 18.11.2026, 03:37')
-          print(json.dumps({'tag_name': tag, 'target_commitish': '1723786c4557ef68bb3922189a028099ce96db31', 'name': title, 'body': Path(notes).read_text(encoding='utf-8'), 'draft': True, 'prerelease': prerelease == 'true', 'make_latest': latest}))
+          title = ('AMC Public' if profile == 'public' else 'AMC Test') + (' — 22.11.2026, 11:29' if profile == 'public' else ' — 22.11.2026, 11:37')
+          print(json.dumps({'tag_name': tag, 'target_commitish': 'd360cd89f622b90ae351f1ed876904b38856b625', 'name': title, 'body': Path(notes).read_text(encoding='utf-8'), 'draft': True, 'prerelease': prerelease == 'true', 'make_latest': latest}))
           PY
             gh api --method POST "repos/$AMC_REPOSITORY/releases" --input "create-$profile.json" > "created-$profile.json"
             local release_id
@@ -164,7 +164,8 @@ jobs:
               --release-json "draft-$profile.json" \
               --profile "$profile" \
               --downloaded-installer "$directory/$installer.downloaded" \
-              --draft true
+              --draft true \
+              --release-id "$release_id"
             gh api --method PATCH "repos/$AMC_REPOSITORY/releases/$release_id" \
               -F draft=false \
               -F prerelease="$prerelease" \
@@ -174,7 +175,8 @@ jobs:
               --release-json "published-readback-$profile.json" \
               --profile "$profile" \
               --downloaded-installer "$directory/$installer.downloaded" \
-              --draft false
+              --draft false \
+              --release-id "$release_id"
             gh api "repos/$AMC_REPOSITORY/git/ref/tags/$tag" > "tag-$profile.json"
             python3 - "$profile" "$tag" <<'PY'
           import json, os, sys
@@ -195,7 +197,7 @@ jobs:
           python3 - <<'PY'
           import json, re
           releases = json.load(open('updater-releases.json', encoding='utf-8'))
-          for profile, tag, prerelease in (('public', 'public-2026.11.18.0329', False), ('test', 'test-2026.11.18.0337', True)):
+          for profile, tag, prerelease in (('public', 'public-2026.11.22.1129', False), ('test', 'test-2026.11.22.1137', True)):
               prefix = 'public-' if profile == 'public' else 'test-'
               selected = next((entry for entry in releases if not entry.get('draft') and entry.get('prerelease') is prerelease and re.fullmatch(prefix + r'\d{4}\.\d{2}\.\d{2}\.\d{4}', entry.get('tag_name', ''))), None)
               if selected is None or selected.get('tag_name') != tag:
