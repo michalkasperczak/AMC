@@ -2,7 +2,7 @@
 
 **Jedna aktywna gałąź i przekazanie 22.11.2026:** [bieżący stan oraz kolejność pracy](AMC-HANDOFF-20261122-jedna-galaz.md).
 
-**AUDIO-EDIT 22.11.2026:** dwa kolejne cięcia sztucznych WAV/MP3 na lokalnym NTFS przeszły; incydentu Dwójki w katalogu synchronizowanym nie odtworzono. Istniejący test czasu MP3 nadal nie przechodzi. Bez poprawki produktu i wydania. [Diagnoza](AUDIO-EDIT-20261122-dwa-ciecia-diagnoza.md).
+**AUDIO-EDIT 22.11.2026:** dwa kolejne cięcia sztucznych WAV/MP3 na lokalnym NTFS przeszły; incydentu Dwójki w katalogu synchronizowanym nie odtworzono. Test wszystkich formatów przechodzi po korekcie pomiaru czasu MP3; granica cięcia nadal do zbadania. Bez poprawki produktu i wydania. [Diagnoza](AUDIO-EDIT-20261122-dwa-ciecia-diagnoza.md).
 **AM-008 22.11.2026:** poprawiono źródłowo wymuszenie widocznego logowania Apple Music po potwierdzeniu; RED/GREEN 5 testów konta, 8 testów magazynu. Żywe logowanie i dokładne odtwarzanie nadal do odbioru; bez wydania. [Zadanie](AM-008-20261122-wylogowanie-i-odtwarzanie.md).
 
 **Zapis i wycinanie nagrań — nowe zgłoszenie Michała, 19.11.2026:**

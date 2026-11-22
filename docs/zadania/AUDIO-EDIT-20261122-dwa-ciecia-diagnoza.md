@@ -52,20 +52,21 @@ przeplot z `RemoveAsync` ani test żywego NVDA.
   stanem edycji sprawdza drogę Escape do listy bez wywołania anulowania hosta.
 - `dotnet run --no-restore --project tests/AccessibleMediaController.Windows.SmokeTests/AccessibleMediaController.Windows.SmokeTests.csproj -- --audio-clip-double-cut`:
   **exit 0**; „OK: dwa kolejne cięcia WAV i MP3 zachowały pierwotną nazwę na lokalnym dysku”.
-- Istniejący `--audio-clip-original`: **exit 1** dla testowego MP3; czytnik Windows
-  zgłosił 2,23 s po wycięciu 1 s z około 3 s, podczas gdy asercja oczekuje
-  około 2 s (tolerancja 0,2 s). Nie wiadomo jeszcze, czy rozbieżność leży
-  w nagłówku/czytniku czasu MP3, czy w zawartości wyniku. Nie zaliczać
-  pełnego zestawu testów cięcia na podstawie nowej próby.
+- Diagnoza istniejącego testu MP3: źródło Windows miało 3 s; po cięciu
+  oś pakietów FFmpeg wyniosła 2,165875 s, a szacunek czytnika Windows 2,23 s.
+  Poprzednia asercja mierzyła szacunek Windows, chociaż edytor weryfikuje
+  oś FFmpeg. Skorygowano tylko asercję, zachowując próbę otwarcia MP3.
+  Ponowny `--audio-clip-original`: **exit 0**, włącznie z macierzą formatów.
+  Nie jest to dowód idealnej dokładności cięcia MP3 ani poprawka silnika.
 - Pierwsza próba kompilacji w ograniczonym sandboxie nie mogła zapisać `bin/obj`;
   po dopuszczeniu pracy w izolowanym worktree przywrócono zależności i testy
   uruchomiły się. To nie był błąd aplikacji.
 
 ## Następny krok
 
-1. Na sztucznym MP3 porównać rzeczywistą oś ramek FFmpeg, czas odczytu Windows
-   i odsłuch/dekodowanie po jednym oraz dwóch cięciach. W razie potwierdzonego
-   błędu granic przygotować RED i małą poprawkę.
+1. Na sztucznym MP3 zbadać resztkowe około 0,166 s po cięciu 1 s: granice
+   ramek, opóźnienie kodera, zawartość audio i ponowny zapis. W razie
+   potwierdzonego błędu granic przygotować RED i małą poprawkę.
 2. Odtworzyć kontrolowaną sekwencję zapisu w *nowym, testowym* katalogu
    synchronizowanym, gdy będzie dostępny bez ryzyka dla nagrań użytkownika;
    zapisać stan nazwy przed/po późniejszej synchronizacji i zachować wynik.
@@ -88,5 +89,7 @@ zapisem pośrednim i nie jest drugim torem pracy.
 Baza testu: `7751dee7c0d417ce58e941745a0a81ebdfc03ada` (po publikacji
 alpha.513). Zintegrowany test i pierwsza diagnoza: `efd6acd0`;
 test Escape: `cebfdb02`.
+Korekta asercji MP3 po pomiarze osi FFmpeg i Windows: kod testu w kolejnej
+zmianie tej samej gałęzi, bez zmiany produktu.
 Kod produkcyjny bez zmian. Pakiet, instalacja, publikacja i żywy test NVDA:
 niewykonane.

@@ -35,7 +35,8 @@ Osobne pliki zadań służą porządkowi diagnoz, a nie uruchamianiu drugiej pra
    Nowy link Hermanic może pojawić się dopiero przy kolejnej transmisji.
 3. Codex bada wycinanie: lokalne dwa cięcia WAV/MP3 i routing Escape przeszły,
    ale zniknięcia plików w synchronizowanym folderze nie odtworzono.
-   Istniejący test dokładności czasu MP3 nadal nie przechodzi.
+   Po porównaniu osi FFmpeg z szacunkiem Windows skorygowany test wszystkich
+   formatów przechodzi; dokładność granicy MP3 nadal wymaga oceny audio.
    Szczegóły: `docs/zadania/AUDIO-EDIT-20261122-dwa-ciecia-diagnoza.md`.
 4. Codex prowadzi oddzielny zakres Apple Music: wymuszenie widocznego logowania
    po „Tak” jest poprawione w źródłach; działanie na żywym koncie i pełne
@@ -45,7 +46,7 @@ Osobne pliki zadań służą porządkowi diagnoz, a nie uruchamianiu drugiej pra
 ## Następny konkretny krok
 
 Kontynuować na jednej gałęzi `codex/alpha512-update-candidate-20261122`:
-najpierw odtworzyć dokładność MP3 i bezpieczny wyścig zapisu/Escape na
+najpierw zbadać granicę MP3 i bezpieczny wyścig zapisu/Escape na
 sztucznych plikach, a osobno rozróżnić w Apple Music wygasłą sesję od
 błędu sieci. Nie używać nagrań ani tokenów Michała. Rzeczywisty odbiór
 MusicKit i katalogu synchronizowanego wymaga odrębnych, bezpiecznych prób.
