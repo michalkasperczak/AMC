@@ -1,6 +1,6 @@
 # Kandydat aktualizacji AMC po alpha.512 — integracja
 
-Stan 22.11.2026: gałąź `codex/alpha512-update-candidate-20261122`, commit kodu `5c249c68`, w osobnym worktree. Kod nie jest zainstalowany na głównym komputerze ani Hermesie i nie jest opublikowany jako wydanie GitHub.
+Stan 22.11.2026: gałąź `codex/alpha512-update-candidate-20261122`, commit kodu `e7a89c93`, w osobnym worktree. Kod nie jest zainstalowany na głównym komputerze ani Hermesie i nie jest opublikowany jako wydanie GitHub.
 
 ## Zintegrowane przyrosty
 
@@ -15,6 +15,8 @@ Stan 22.11.2026: gałąź `codex/alpha512-update-candidate-20261122`, commit kod
 9. Kolejka Podcastów i zapisanych filmów YouTube: Delete wybiera widocznego sąsiada, pojedynczo potwierdza wynik i ignoruje spóźnioną odpowiedź po zmianie widoku; commit `76b00d66`. Raport `QUEUE-DELETE-20261122-podcast-youtube.md`.
 10. TIDAL: zachowanie znanej długości utworu w prywatnej Kolejce, ustawienie Entera listy/odtwarzacza, mowa tylko tytułu przy automatycznym przejściu i ignorowanie spóźnionego końca po nowym Enterze; commity `b6cc7c0b`, `0ed160af`. Raport `TIDAL-QUEUE-ENTER-20261122.md`.
 11. Kolejki Spotify, TIDAL i Plików: Delete przy aktywnym filtrze wybiera widocznego sąsiada; commit `5c249c68`. Raport `QUEUE-FILTER-DELETE-20261122.md`.
+12. Hubert #28/PR #29: wznowienie dźwięku po krótkiej pauzie bez zbędnego szukania; commit `56b9a203` z autorstwem Huberta. Raport `HUBERT-28-30-20261122-audio.md`.
+13. Hubert #30/PR #31: podążanie za domyślnym wyjściem dźwięku Windows w LiteHost, także dla radia, z zachowaniem ręcznego wyboru; commit `e7a89c93` z autorstwem Huberta. Ten sam raport.
 
 ## Weryfikacja
 
@@ -28,6 +30,7 @@ Stan 22.11.2026: gałąź `codex/alpha512-update-candidate-20261122`, commit kod
 - Po poprawce Delete Podcastów/YouTube: **6 nowych testów passed** oraz **26 testów nawigacji i członkostwa kolejki passed**. Szerszy zestaw z prawdziwym hostem nie zakończył się po 32 początkowych testach i został przerwany; nie zaliczono go. Pełny zestaw, build i NVDA nadal niewykonane dla obecnego HEAD.
 - Po poprawce TIDAL: **138 passed** w zestawie czasu Kolejki; **115 passed, 1 deselected** w zestawie Entera i mowy. Wyłączony test pomocy kontekstowej pada identycznie na niezmienionej gałęzi kanonicznej z powodu niepełnej atrapy GUI. Nadal bez próby na koncie, NVDA, pełnego zestawu i builda dla obecnego HEAD.
 - Po poprawce filtrów kolejek: **25 passed** w zestawie członkostwa, czasów i Delete. Odbiór rzeczywistego hosta i NVDA pozostaje otwarty; nadal bez pełnego zestawu i builda dla obecnego HEAD.
+- Po PR #29 i #31: Windows SmokeTests oraz LiteHost Release zbudowane z **0 ostrzeżeń i 0 błędów** po każdym przyroście. `--resume-in-place-only` przeszedł po obu; `--default-output-follow-only` po PR #31 zakończył się kodem 0. LiteHost ProtocolTests **40/40 PASS** po każdym przyroście, z jedną opcjonalną podpróbą ustawień sesji pominiętą z braku próbki. Brak odsłuchu na urządzeniach i NVDA. Pełnego Pythona nie powtórzono po tych commitach.
 - Bramka budowania po commicie `8ee17bd7`: `dotnet build` LiteHost Release oraz ProtocolTests Release zakończyły się z **0 ostrzeżeń i 0 błędów**. Zestawy protokołu `--queue --radio-library --youtube-rss-first --youtube-account --youtube-public-broadcasts`: **5/5 PASS**. To nie jest jeszcze paczka Test/Public ani instalacja.
 - Pełny Python w katalogach `APPDATA`, `LOCALAPPDATA` i `AMC_WX_LITE_HOME` skierowanych do izolowanego `work/full_suite_isolated` przestał posuwać się po około 36% i został przerwany. Nie liczy się jako wynik pełnego zestawu. Przebieg `-x` zatrzymał się na pierwszym błędzie po **527 passed, 12 skipped, 17 subtests passed**: `test_full_backup_combines_core_and_sanitized_ui_state`, ponieważ walidator odrzucił nieznane dane stanu UI. Ten sam test pada tak samo w kanonicznej gałęzi sprzed zmian. Wcześniejszy pełny zestaw z 30 niepowodzeniami nadal jest ostatnim ukończonym pełnym przebiegiem, a nie dowodem dla bieżącego HEAD.
 - Nie zbudowano instalatora ani pełnego bundle. `Build-AMCBundle.ps1` wymaga osobnych przypiętych źródeł TIDAL, Sonos i Apple Music; w sprawdzonych katalogach znaleziono zainstalowany runtime oraz środowisko wxPython, lecz nie osobne źródła wszystkich trzech usług. Nie użyto działającej instalacji jako źródła zastępczego. Przed pakowaniem trzeba ustalić odizolowane zależności oraz przeprowadzić odbiór GUI/NVDA i kont usług.
@@ -35,4 +38,4 @@ Stan 22.11.2026: gałąź `codex/alpha512-update-candidate-20261122`, commit kod
 
 ## Ograniczenia i kolejność
 
-Przed wydaniem należy rozstrzygnąć 30 niepowodzeń pełnego zestawu, wykonać próbę na odrębnym profilu i sprawdzić działanie z NVDA. Instalację planować dopiero po potwierdzeniu braku aktywnego nagrania. Nie przenosić tej gałęzi na działającą instalację tylko na podstawie kompilacji. Po wydaniu poinformować Huberta w zgłoszeniach dotyczących faktycznie wydanych poprawek. Następne przyrosty: pozostałe kolejki i wyjścia audio. Nagrania Dwójki i Apple Music pozostają na później zgodnie z decyzją Michała.
+Przed wydaniem należy rozstrzygnąć 30 niepowodzeń pełnego zestawu, wykonać próbę na odrębnym profilu i sprawdzić działanie z NVDA, w tym wznowienie i przełączanie urządzeń. Instalację planować dopiero po potwierdzeniu braku aktywnego nagrania. Nie przenosić tej gałęzi na działającą instalację tylko na podstawie kompilacji. Po wydaniu poinformować Huberta w zgłoszeniach dotyczących faktycznie wydanych poprawek. Nagrania Dwójki i Apple Music pozostają na później zgodnie z decyzją Michała.
