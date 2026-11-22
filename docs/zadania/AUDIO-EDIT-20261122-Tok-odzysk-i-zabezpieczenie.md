@@ -112,6 +112,13 @@ potwierdzony, i prosi o zachowanie plików technicznych. Nie twierdzi wtedy,
   korekcie zestaw ma **16 OK / 0 BŁĄD, exit 0**; MP3 zachowuje około 5 s,
   początek 220 Hz i dołączony koniec 1200 Hz. To dowodzi poprawności tego
   krótkiego syntetycznego przypadku, nie granicy cięcia w długim nagraniu.
+- Osobna próba `--audio-clip-long-mp3` na syntetycznym MP3 o długości 1000 s
+  z granicami z incydentu Tok (514,7636666–890,169414 s): exit 0. Po cięciu
+  zachowała się pierwotna nazwa, wynik miał 10:24,654 zamiast oczekiwanych
+  około 10:24,594, a kopia zapasowa miała identyczny SHA-256 jak wejście.
+  W oknach przed i po złączeniu zmierzono odpowiednio 212 Hz i 1152 Hz
+  (źródło: 220 Hz i 1200 Hz); usuwany środek miał 660 Hz. To lokalny test
+  FFmpeg, nie pięciogodzinne nagranie ani ścieżka iCloud.
 - Nie było testu rzeczywistego cięcia w iCloud, NVDA, instalacji, całego
   pakietu ani nowego GitHub Release. Kod źródłowy i build to osobne etapy.
 
@@ -123,7 +130,8 @@ potwierdzony, i prosi o zachowanie plików technicznych. Nie twierdzi wtedy,
    przez synchronizację.
 3. Na osobnym sztucznym pliku w katalogu synchronizowanym przetestować
    odmowę wstępną i komunikat NVDA, bez użycia nagrań Michała.
-4. Zbadać dokładność granicy cięcia MP3 na syntetycznym długim pliku.
+4. Rozszerzyć próbę dokładności MP3 o odbiór odtwarzacza AMC i ścieżkę
+   synchronizowaną; lokalny test kilkunastominutowy przeszedł.
 5. Po zaliczeniu bramki wydać Test/Public na GitHub z kodem i instalatorami;
    Michał chce aktualizacje co 2–3 dni, bez równoległej pracy Hermesa.
 

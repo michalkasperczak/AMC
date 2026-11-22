@@ -561,6 +561,11 @@ if (args.Contains("--audio-clip-double-cut", StringComparer.Ordinal))
     try { TestAudioClipDoubleCut(); return 0; }
     catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
 }
+if (args.Contains("--audio-clip-long-mp3", StringComparer.Ordinal))
+{
+    try { AudioClipLongMp3Tests.Run(); return 0; }
+    catch (Exception exception) { Console.Error.WriteLine(exception); return 1; }
+}
 if (args.Contains("--audio-clip-shortcuts", StringComparer.Ordinal))
 {
     AudioClipShortcutAcceptanceTests.Run(); return 0;
