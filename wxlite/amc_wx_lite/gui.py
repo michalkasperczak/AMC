@@ -3600,7 +3600,7 @@ class PresetListDialog(wx.Dialog):
         session_name: str,
         current_target: profile_presets.PresetTarget | None,
     ) -> None:
-        super().__init__(parent, title=f"Presety — {session_name}")
+        super().__init__(parent, title=i18n.ui_text(f"Presety — {session_name}"))
         self._choices = choices
         panel = wx.Panel(self)
         layout = wx.BoxSizer(wx.VERTICAL)
@@ -3610,6 +3610,7 @@ class PresetListDialog(wx.Dialog):
             "Enter lub Spacja uruchamia zajętą pozycję. "
             "Ctrl+Alt+Shift+P przypisuje bieżący element."
         )
+        description_text = i18n.ui_text(description_text)
         description = wx.StaticText(panel, label=description_text)
         description.SetName(description_text)
         layout.Add(description, 0, wx.ALL | wx.EXPAND, 12)
@@ -3619,10 +3620,15 @@ class PresetListDialog(wx.Dialog):
             choices=[choice.label for choice in choices],
             style=wx.LB_SINGLE,
         )
-        self.preset_list.SetName(f"Presety, {session_name}")
-        self.preset_list.SetToolTip(
-            "Cyfra, minus lub znak równości wybiera miejsce. Enter albo Spacja uruchamia."
+        self.preset_list.SetName(
+            i18n.tr("presets.list.for", session=session_name,
+                    title=current_target.title)
+            if current_target is not None
+            else i18n.ui_text(f"Presety, {session_name}")
         )
+        self.preset_list.SetToolTip(i18n.ui_text(
+            "Cyfra, minus lub znak równości wybiera miejsce. Enter albo Spacja uruchamia."
+        ))
         selected = next(
             (index for index, choice in enumerate(choices)
              if current_target is not None
@@ -3637,18 +3643,19 @@ class PresetListDialog(wx.Dialog):
         self.preset_list.SetSelection(selected)
         layout.Add(self.preset_list, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 12)
 
-        self.status = wx.StaticText(panel, label="Gotowe")
-        self.status.SetName("Gotowe")
+        ready = i18n.ui_text("Gotowe")
+        self.status = wx.StaticText(panel, label=ready)
+        self.status.SetName(ready)
         self._announcer = Announcer(self.status)
         layout.Add(self.status, 0, wx.ALL | wx.EXPAND, 12)
         panel.SetSizer(layout)
 
         buttons = wx.StdDialogButtonSizer()
-        self.activate_button = wx.Button(self, wx.ID_OK, label="&Uruchom")
-        self.activate_button.SetName("Uruchom preset")
+        self.activate_button = wx.Button(self, wx.ID_OK, label=i18n.ui_text("&Uruchom"))
+        self.activate_button.SetName(i18n.ui_text("Uruchom preset"))
         self.activate_button.SetDefault()
-        close = wx.Button(self, wx.ID_CANCEL, label="&Zamknij")
-        close.SetName("Zamknij listę presetów")
+        close = wx.Button(self, wx.ID_CANCEL, label=i18n.ui_text("&Zamknij"))
+        close.SetName(i18n.ui_text("Zamknij listę presetów"))
         buttons.AddButton(self.activate_button)
         buttons.AddButton(close)
         buttons.Realize()
@@ -3946,11 +3953,12 @@ class PresetAssignmentDialog(wx.Dialog):
         first_free_slot: int | None,
         initial_slot: int,
         session_name: str,
+        direct_slot: int | None = None,
         fixed_target_title: str = "",
         fixed_target_available: bool = False,
         fixed_target_initially_selected: bool = False,
     ) -> None:
-        super().__init__(parent, title=f"Przypisz preset — {session_name}")
+        super().__init__(parent, title=i18n.tr("presets.dialog.assignTitle", session=session_name))
         self._target = target
         self._choices = choices
         self.selected_slot = 0
@@ -3962,7 +3970,19 @@ class PresetAssignmentDialog(wx.Dialog):
 
         panel = wx.Panel(self)
         layout = wx.BoxSizer(wx.VERTICAL)
-        if first_free_slot is not None:
+        direct_choice = (
+            choices[direct_slot - 1]
+            if direct_slot is not None and 1 <= direct_slot <= len(choices)
+            else None
+        )
+        if direct_choice is not None and direct_choice.target_id is not None:
+            description_text = i18n.tr(
+                "presets.assign.directOccupied",
+                target=target.title, slot=direct_choice.slot_label,
+                old=direct_choice.target_title,
+                key=direct_choice.spoken_shortcut_label,
+            )
+        elif first_free_slot is not None:
             free = profile_presets.shortcut_label(first_free_slot, spoken=True)
             description_text = (
                 f"Dodaj preset: {target.title}. Pierwsze wolne miejsce: "
@@ -3976,6 +3996,7 @@ class PresetAssignmentDialog(wx.Dialog):
                 "Aby zastąpić zajęty preset, wskaż dwukrotnie to samo miejsce "
                 "i naciśnij Enter. Escape anuluje."
             )
+        description_text = i18n.ui_text(description_text)
         description = wx.StaticText(panel, label=description_text)
         description.SetName(description_text)
         layout.Add(description, 0, wx.ALL | wx.EXPAND, 12)
@@ -3985,11 +4006,13 @@ class PresetAssignmentDialog(wx.Dialog):
             choices=[choice.label for choice in choices],
             style=wx.LB_SINGLE,
         )
-        self.preset_list.SetName("Miejsca presetów")
-        self.preset_list.SetToolTip(
+        self.preset_list.SetName(i18n.tr(
+            "presets.assign.slotsFor", title=target.title
+        ))
+        self.preset_list.SetToolTip(i18n.ui_text(
             "Cyfra, minus lub znak równości wybiera miejsce. "
             "Enter zapisuje lub zastępuje. Delete przygotowuje usunięcie."
-        )
+        ))
         self.preset_list.SetSelection(max(0, min(len(choices) - 1, initial_slot - 1)))
         layout.Add(self.preset_list, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 12)
 
@@ -4010,18 +4033,19 @@ class PresetAssignmentDialog(wx.Dialog):
                 12,
             )
 
-        self.status = wx.StaticText(panel, label="Gotowe")
-        self.status.SetName("Gotowe")
+        ready = i18n.ui_text("Gotowe")
+        self.status = wx.StaticText(panel, label=ready)
+        self.status.SetName(ready)
         self._announcer = Announcer(self.status)
         layout.Add(self.status, 0, wx.ALL | wx.EXPAND, 12)
         panel.SetSizer(layout)
 
         buttons = wx.StdDialogButtonSizer()
-        self.save_button = wx.Button(self, wx.ID_OK, label="&Zapisz")
-        self.save_button.SetName("Zapisz preset")
+        self.save_button = wx.Button(self, wx.ID_OK, label=i18n.ui_text("&Zapisz"))
+        self.save_button.SetName(i18n.ui_text("Zapisz preset"))
         self.save_button.SetDefault()
-        cancel = wx.Button(self, wx.ID_CANCEL, label="&Anuluj")
-        cancel.SetName("Anuluj przypisanie presetu")
+        cancel = wx.Button(self, wx.ID_CANCEL, label=i18n.ui_text("&Anuluj"))
+        cancel.SetName(i18n.tr("presets.dialog.cancel"))
         buttons.AddButton(self.save_button)
         buttons.AddButton(cancel)
         buttons.Realize()
@@ -11832,6 +11856,8 @@ class LiteFrame(wx.Frame):
             if entry.needs_favorite_item and selected_kind not in favorite_kinds.get(
                 self.navigator.active, set()
             ):
+                enabled = False
+            if entry.needs_preset_target and self._current_preset_target() is None:
                 enabled = False
             if entry.needs_radioarchiwista_preset_folder and not (
                 self.navigator.active is SessionId.RADIOARCHIWISTA
@@ -21048,10 +21074,32 @@ class LiteFrame(wx.Frame):
             return
         target = self._current_preset_target()
         if target is None:
-            self.announcer.say(
-                f"Wybierz element sesji {session_options.session_display_name(session)}, "
-                "który chcesz przypisać do presetu"
-            )
+            choice_keys = {
+                SessionId.TIDAL: "presets.assign.types.tidal",
+                SessionId.SPOTIFY: "presets.assign.types.spotify",
+                SessionId.RADIO: "presets.assign.types.radio",
+                SessionId.RADIOARCHIWISTA: "presets.assign.types.archive",
+                SessionId.FILES: "presets.assign.types.files",
+            }
+            types = i18n.tr(choice_keys.get(
+                session, "presets.assign.types.other"
+            ))
+            selected = self.navigator.session.model.selected_row
+            if selected is not None and selected.title.strip():
+                if (session is SessionId.TIDAL
+                        and selected.kind in {"track", "album", "playlist", "artist"}
+                        and not selected.service_id):
+                    message = i18n.tr(
+                        "presets.assign.missingCatalog", title=selected.title
+                    )
+                else:
+                    message = i18n.tr(
+                        "presets.assign.unsupported",
+                        title=selected.title, types=types,
+                    )
+            else:
+                message = i18n.tr("presets.assign.missing", types=types)
+            self.announcer.say(message)
             return
         overrides, _stations = self._preset_inputs(session)
 
@@ -21065,7 +21113,7 @@ class LiteFrame(wx.Frame):
                 return
             free = profile_presets.first_free_slot(entries)
             existing_slot = profile_presets.existing_target_slot(entries, target)
-            initial = existing_slot or free or 1
+            initial = direct_slot or existing_slot or free or 1
             existing = next(
                 (entry for entry in entries if entry.slot == existing_slot),
                 None,
@@ -21082,7 +21130,24 @@ class LiteFrame(wx.Frame):
                     or target.sonos_household_id == fixed_row.parent_id
                 )
             )
+            occupied = next(
+                (entry for entry in entries if entry.slot == direct_slot), None
+            ) if direct_slot is not None else None
             if direct_slot is not None and session is SessionId.RADIOARCHIWISTA:
+                # Existing archive shortcut replaces immediately by design.
+                slot = direct_slot
+                action = "replace"
+                fixed_selected = False
+            elif direct_slot is not None and occupied is not None and (
+                profile_presets.existing_target_slot((occupied,), target) is not None
+            ):
+                self.announcer.say(i18n.tr(
+                    "presets.assign.same",
+                    slot=profile_presets.shortcut_label(direct_slot, spoken=True),
+                    target=target.title,
+                ))
+                return
+            elif direct_slot is not None and occupied is None:
                 slot = direct_slot
                 action = "replace"
                 fixed_selected = False
@@ -21094,6 +21159,7 @@ class LiteFrame(wx.Frame):
                     first_free_slot=free,
                     initial_slot=initial,
                     session_name=session_options.session_display_name(session),
+                    direct_slot=direct_slot,
                     fixed_target_title=(fixed_row.title if fixed_row else ""),
                     fixed_target_available=fixed_available,
                     fixed_target_initially_selected=bool(
@@ -21284,6 +21350,36 @@ class LiteFrame(wx.Frame):
                 return
 
             kind = entry.target_kind.casefold()
+            if session is SessionId.TIDAL and kind.startswith("tidal-"):
+                if not entry.location:
+                    self.announcer.say(i18n.tr("presets.activate.tidalMissing", slot=spoken))
+                    return
+                tidal_kind = kind.removeprefix("tidal-")
+                if tidal_kind == "track":
+                    row = Row(
+                        item_id=entry.target_id, title=entry.title,
+                        kind="track", service_id=entry.location,
+                        service_kind="track",
+                    )
+                    self._last_preset_slot_by_session[session] = slot
+                    self._run(self.navigator.open_tidal_search_result(row))
+                    return
+                if tidal_kind in {"album", "playlist"}:
+                    self._last_preset_slot_by_session[session] = slot
+                    self._run([PlayTidalContainer(
+                        item_id=entry.target_id, title=entry.title,
+                        service_id=entry.location, kind=tidal_kind,
+                    )])
+                    return
+                if tidal_kind == "artist":
+                    self._last_preset_slot_by_session[session] = slot
+                    row = Row(
+                        item_id=entry.target_id, title=entry.title,
+                        kind="artist", service_id=entry.location,
+                        service_kind="artist",
+                    )
+                    self._run(self.navigator.open_tidal_search_result(row))
+                    return
             if kind == "folder" and entry.location:
                 self._last_preset_slot_by_session[session] = slot
                 self._open_library(entry.location)

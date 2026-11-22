@@ -1610,6 +1610,11 @@ ASSIGN_PRESET_ACTIONS: dict[int, Action] = {
 ASSIGN_PRESET_SHORTCUTS: dict[str, int] = {
     f"Ctrl+Alt+Shift+{slot % 10}": slot for slot in range(1, 11)
 }
+_DIRECT_PRESET_ASSIGN_ACTIONS = frozenset(ASSIGN_PRESET_ACTIONS.values())
+TIDAL_SUPPORTED_ACTIONS |= _DIRECT_PRESET_ASSIGN_ACTIONS
+SPOTIFY_SUPPORTED_ACTIONS |= _DIRECT_PRESET_ASSIGN_ACTIONS
+SONOS_SUPPORTED_ACTIONS |= _DIRECT_PRESET_ASSIGN_ACTIONS
+RADIOARCHIWISTA_SUPPORTED_ACTIONS |= _DIRECT_PRESET_ASSIGN_ACTIONS
 
 
 def assign_preset_slot(action: Action) -> int | None:
@@ -1631,6 +1636,8 @@ def preset_slot(action: Action) -> int | None:
 
 for _chord, _slot in PRESET_SHORTCUTS.items():
     LIST_VIEW[_chord] = PRESET_ACTIONS[_slot]
+for _chord, _slot in ASSIGN_PRESET_SHORTCUTS.items():
+    LIST_VIEW[_chord] = ASSIGN_PRESET_ACTIONS[_slot]
 
 # Dodatkowo w sesji radiowej: zarzadzanie wlasna lista stacji.
 RADIO_LIST_VIEW: dict[str, Action] = {
@@ -1834,6 +1841,8 @@ PLAYER_VIEW: dict[str, Action] = {
 
 for _chord, _slot in PRESET_SHORTCUTS.items():
     PLAYER_VIEW[_chord] = PRESET_ACTIONS[_slot]
+for _chord, _slot in ASSIGN_PRESET_SHORTCUTS.items():
+    PLAYER_VIEW[_chord] = ASSIGN_PRESET_ACTIONS[_slot]
 
 # To samo globalne polecenie z widoku listy.
 LIST_VIEW["Ctrl+Alt+Shift+R"] = Action.RECORD_STOP_ALL
@@ -2995,7 +3004,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.IMPORT_BACKUP: "Importuj dane AMC",
     }
     labels.update({
-        action: f"Przypisz zaznaczoną stację lub Najnowsze nagrania do presetu {slot % 10}"
+        action: f"Przypisz zaznaczony element do presetu {slot % 10}"
         for slot, action in ASSIGN_PRESET_ACTIONS.items()
     })
     labels.update({
