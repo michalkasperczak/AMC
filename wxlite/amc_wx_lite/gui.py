@@ -22570,6 +22570,15 @@ class LiteFrame(wx.Frame):
             self.announcer.say(i18n.tr("rarch.session.unavailable"))
             return
 
+        visible_rows = list_filter.filter_rows(
+            list(state.model.rows),
+            self.filter_box.GetValue()
+            if getattr(self, "filter_box", None) is not None else "",
+        )
+        removal_preferred_id = LiteFrame._preferred_item_after_removal(
+            visible_rows, {row.item_id},
+        )
+
         def work() -> tuple[bool, list[Row]]:
             recording = source.recording_by_id(row.item_id)
             if recording is None:
@@ -22591,9 +22600,16 @@ class LiteFrame(wx.Frame):
                 and state.view is View.LIST
                 and state.library_view is LibraryView.RADIOARCHIWISTA_QUEUE
             ):
+                preferred_id = row.item_id if added else removal_preferred_id
+                current_id = state.model.selected_id
+                if current_id != row.item_id and any(
+                    candidate.item_id == current_id for candidate in rows
+                ):
+                    # The user moved the selection while the write was pending.
+                    preferred_id = current_id
                 self._run(self.navigator.apply_radioarchiwista_rows(
                     LibraryView.RADIOARCHIWISTA_QUEUE, rows,
-                    preferred_id=row.item_id,
+                    preferred_id=preferred_id,
                 ))
             self.announcer.say(
                 ("Dodano do kolejki: " if added else "Usunięto z kolejki: ")
