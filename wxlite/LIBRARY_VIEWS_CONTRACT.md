@@ -108,8 +108,9 @@ Cache kluczy jest **per tryb** -- jeden slownik mieszalby klucze roznych
 opcji. Jesli host odpowie etykieta innego trybu niz zadany (stary LiteHost
 zignoruje pole `mode`), klient ODMAWIA zamiast cicho uzyc zlych kluczy.
 
-Bez hosta NIE udajemy zgodnosci: `LibraryViewResult.order_matches_amc`
-schodzi na `False`, tak samo jak w `LibrarySnapshot`.
+Bez hosta, albo gdy host odmowi kluczy (`HostCollationUnavailable`), NIE
+udajemy zgodnosci: `LibraryViewResult.order_matches_amc` schodzi na `False`,
+tak samo jak w `LibrarySnapshot`, a wiersze zostaja w kolejnosci z bazy.
 
 ## 2. "Ulubione" -- `favorite_rows`
 

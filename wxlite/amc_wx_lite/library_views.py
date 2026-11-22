@@ -17,7 +17,11 @@ from pathlib import Path
 import re
 from typing import Sequence
 
-from .collation import COLLATION_ORDINAL_IGNORE_CASE, COLLATION_TITLE_IGNORE_CASE
+from .collation import (
+    COLLATION_ORDINAL_IGNORE_CASE,
+    COLLATION_TITLE_IGNORE_CASE,
+    HostCollationUnavailable,
+)
 from .library_db import AMC_PL, LibraryDatabase, LibraryItem, _ACTIVE, _format_detail
 from .list_model import Row
 
@@ -189,24 +193,24 @@ def all_files_rows(
     (``MainWindow.xaml.cs:7619``).
 
     Alfabetyke daje ``HostCollation`` (klucze AMC_PL z oryginalnego
-    ``CompareInfo``). Bez hosta kolejnosc jest zastepcza i mowimy o tym
-    wprost przez ``order_matches_amc=False`` -- zadnego cichego udawania.
+    ``CompareInfo``). Bez hosta, albo gdy host odmowi kluczy, kolejnosc jest
+    zastepcza i mowimy o tym wprost przez ``order_matches_amc=False`` --
+    zadnego cichego udawania.
     """
     items = active_items(db)
-    heading = "Biblioteka — Wszystkie pliki"
-    if collation is None:
-        return LibraryViewResult(
-            rows=[_track_row(i) for i in items],
-            heading=heading,
-            order_matches_amc=False,
-            sees_live_writes=db.sees_live_writes,
-        )
-
-    ordered = _order_by_title_then_source(items, collation)
+    ordered, matches = items, False
+    if collation is not None:
+        try:
+            ordered, matches = _order_by_title_then_source(items, collation), True
+        except HostCollationUnavailable:
+            # Tak samo jak ``LibrarySource._apply_amc_order``: awaria kolacji
+            # nie moze zabrac widoku ani wyszukiwania w Plikach lokalnych.
+            # Pliki zostaja, a kolejnosc jest jawnie oznaczona jako zastepcza.
+            pass
     return LibraryViewResult(
         rows=[_track_row(i) for i in ordered],
-        heading=heading,
-        order_matches_amc=True,
+        heading="Biblioteka — Wszystkie pliki",
+        order_matches_amc=matches,
         sees_live_writes=db.sees_live_writes,
     )
 

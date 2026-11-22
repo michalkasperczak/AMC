@@ -531,6 +531,51 @@ def test_podcast_search_combines_cached_and_public_results() -> None:
     assert dialog.catalog.entries == (local,)
 
 
+def test_failed_local_catalog_is_retried_on_next_search() -> None:
+    """A temporary read failure must not pin an empty catalog in the dialog."""
+    shown = []
+    calls = []
+    hit = SearchEntry(
+        SessionId.FILES,
+        Row("file-1", "Jedyny cel", "track", path="C:/Muzyka/cel.mp3"),
+        LibraryView.ALL_FILES,
+    )
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, _failed):
+            done(work())
+
+    def collect(_sessions):
+        calls.append(1)
+        if len(calls) == 1:
+            return SearchCollection((), ("Nie udało się odczytać zapisanych danych: Pliki lokalne",))
+        return SearchCollection((hit,), ())
+
+    frame = SimpleNamespace(
+        search_sources=SimpleNamespace(collect=collect),
+        runner=Runner(),
+        _search_dialog_alive=lambda _dialog: True,
+    )
+    dialog = SimpleNamespace(
+        catalog=None,
+        show_results=lambda entries, warnings: shown.append((entries, warnings)),
+        search_failed=lambda: shown.append("failed"),
+    )
+
+    for _ in range(2):
+        LiteFrame._run_search_query(
+            frame, "jedyny cel", dialog,
+            all_services=False,
+            session_before=SessionId.FILES,
+        )
+
+    assert len(calls) == 2
+    assert shown[0] == ([], ("Nie udało się odczytać zapisanych danych: Pliki lokalne",))
+    assert [entry.row.item_id for entry in shown[1][0]] == ["file-1"]
+    assert dialog.catalog.entries == (hit,)
+
+
 def test_public_search_failure_preserves_cached_results() -> None:
     shown = []
     local = SearchEntry(

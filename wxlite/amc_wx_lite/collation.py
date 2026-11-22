@@ -119,9 +119,6 @@ COLLATION_MODES = (
     COLLATION_ORDINAL_IGNORE_CASE,
 )
 
-#: Gorny prog jednego wsadu w SZTUKACH. Zabezpieczenie zdrowego rozsadku.
-MAX_BATCH = 50_000
-
 #: Gorny prog jednego ZADANIA w bajtach wiersza protokolu.
 #:
 #: Host celowo odrzuca wiersze dluzsze niz ``MaximumLineLength = 64 * 1024``
@@ -269,6 +266,19 @@ class HostCollation:
         wywolan rosnie z rozmiarem danych (2-3 na pelny poziom Biblioteki), a
         NIE z liczba porownywanych par.
 
+        Nie ma progu LICZBY napisow na cale ``load``. Dawny
+        ``MAX_BATCH = 50_000`` odrzucal wszystko naraz, choc transport i tak
+        dzieli zadanie po bajtach. Biblioteka z 78 121 roznymi tytulami
+        dostawala przez to odmowe: widok "Wszystkie pliki" sie nie wczytywal,
+        a wyszukiwanie w Plikach lokalnych mowilo "Brak wynikow". Host nadal
+        pilnuje 50 000 napisow na JEDNO zadanie (``LiteEngineHandlers.cs``,
+        ``maximumBatch``), ale podzial po bajtach daje zadania duzo mniejsze.
+
+        Kazdy blad wywolania hosta (limit czasu, padniety most, blad
+        operacji) zamieniamy na ``HostCollationUnavailable``. Wolajacy maja
+        wtedy jeden wyjatek do obsluzenia i moga uczciwie przejsc na
+        kolejnosc zastepcza, zamiast tracic caly widok.
+
         Tryb jedzie w zadaniu jako ``mode``. Host, ktory tego pola nie zna,
         policzy ``AMC_PL`` i oddalby ZLE klucze dla tytulu -- dlatego
         sprawdzamy ``collation`` w odpowiedzi i odmawiamy, zamiast cicho
@@ -279,14 +289,17 @@ class HostCollation:
         missing = [v for v in wanted if v not in cache]
         if not missing:
             return
-        if len(missing) > MAX_BATCH:
-            raise HostCollationUnavailable(
-                f"Wsad {len(missing)} napisow przekracza prog {MAX_BATCH}."
-            )
         for batch in _batch_values(missing):
-            response = self._call(
-                COLLATION_OP, {"titles": batch, "mode": mode}, timeout=60.0
-            )
+            try:
+                response = self._call(
+                    COLLATION_OP, {"titles": batch, "mode": mode}, timeout=60.0
+                )
+            except HostCollationUnavailable:
+                raise
+            except Exception as error:
+                raise HostCollationUnavailable(
+                    f"Host nie oddal kluczy sortowania: {error}"
+                ) from error
             if not isinstance(response, dict):
                 raise HostCollationUnavailable("Host nie oddal obiektu z kluczami.")
             # Stary host nie zna ``mode`` i ODPOWIE etykieta "AMC_PL" nawet na

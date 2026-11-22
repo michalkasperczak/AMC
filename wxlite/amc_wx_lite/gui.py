@@ -13419,7 +13419,10 @@ class LiteFrame(wx.Frame):
                     self._apple_music_search_rows = tuple(
                         record.row for record in result[3]
                     )
-                dialog.catalog = result[0]
+                # A source may recover while this dialog stays open.
+                # Do not pin an incomplete catalogue after a temporary
+                # read failure; the next Enter will collect again.
+                dialog.catalog = result[0] if not result[0].warnings else None
                 dialog.catalog_sessions = sessions
                 dialog.show_results(result[1], result[2])
 

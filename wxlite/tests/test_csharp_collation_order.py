@@ -436,18 +436,69 @@ class BatchesStayUnderTheProtocolLineLimit(unittest.TestCase):
             "podzial nie moze zgubic ani zdublowac tytulu",
         )
 
+    def test_library_larger_than_fifty_thousand_titles_is_not_refused(self):
+        """Biblioteka z 78 121 roznymi tytulami dostaje wszystkie klucze.
+
+        Dawny prog 50 000 sztuk odrzucal takie zadanie w calosci, choc
+        transport i tak dzieli je po bajtach. Liczy sie to, ze kazdy wiersz
+        miesci sie w limicie hosta, zadne zadanie nie przekracza progu
+        50 000 napisow, ktory host nadal sprawdza, i nic nie ginie.
+        """
+        titles = [f"Utwor {i:06d}" for i in range(60_000)]
+        sent: list[list[str]] = []
+
+        def fake_call(op, args=None, timeout=None):
+            batch = list((args or {}).get("titles") or [])
+            sent.append(batch)
+            line = json.dumps(
+                {"id": "1", "op": op, "args": {"titles": batch}}, ensure_ascii=False
+            )
+            self.assertLessEqual(
+                len(line.encode("utf-8")), collation_module.MAX_REQUEST_BYTES
+            )
+            return {"keys": [base64.b64encode(t.encode()).decode() for t in batch]}
+
+        collation = HostCollation(fake_call)
+        collation.load(titles)
+
+        self.assertEqual(sum(len(batch) for batch in sent), len(titles))
+        self.assertLessEqual(max(len(batch) for batch in sent), 50_000)
+        self.assertTrue(all(collation.key_for(t) is not None for t in titles))
+
+    def test_host_call_failure_becomes_collation_unavailable(self):
+        """Limit czasu albo blad hosta to dla wolajacego ta sama odmowa.
+
+        Wolajacy lapia ``HostCollationUnavailable`` i przechodza na kolejnosc
+        zastepcza. Inny wyjatek przelecialby obok i zabral caly widok.
+        """
+
+        def failing_call(op, args=None, timeout=None):
+            raise TimeoutError("host nie odpowiedzial")
+
+        collation = HostCollation(failing_call)
+        with self.assertRaises(HostCollationUnavailable) as caught:
+            collation.load(["a", "b"])
+        self.assertIsInstance(caught.exception.__cause__, TimeoutError)
+
     def test_limit_is_below_the_hosts_hard_cap(self):
         self.assertLessEqual(collation_module.MAX_REQUEST_BYTES, 64 * 1024)
 
     def test_single_title_longer_than_the_limit_is_refused_not_sent(self):
         """Lepiej jawny blad niz wiersz, na ktory host nigdy nie odpowie."""
         monster = "x" * (70 * 1024)
+        sent: list[list[str]] = []
 
+        # Atrapa nie rzuca: ``load`` zamienia bledy wywolania hosta na
+        # ``HostCollationUnavailable``, wiec wyjatek stad przeszedlby test
+        # nawet bez ochrony. Dowodem jest pusta lista wyslanych zadan.
         def fake_call(op, args=None, timeout=None):
-            raise AssertionError("takiego wiersza nie wolno wyslac")
+            batch = list((args or {}).get("titles") or [])
+            sent.append(batch)
+            return {"keys": [base64.b64encode(t.encode()).decode() for t in batch]}
 
         with self.assertRaises(HostCollationUnavailable):
             HostCollation(fake_call).load([monster])
+        self.assertEqual(sent, [], "za dlugi wiersz nie moze trafic do hosta")
 
 
 @requires_evidence

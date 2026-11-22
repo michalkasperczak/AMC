@@ -30,7 +30,10 @@ from amc_wx_lite.collation import (  # noqa: E402
     COLLATION_AMC_PL,
     COLLATION_ORDINAL_IGNORE_CASE,
     COLLATION_TITLE_IGNORE_CASE,
+    HostCollation,
+    HostCollationUnavailable,
 )
+from amc_wx_lite.host_client import HostUnavailable  # noqa: E402
 from amc_wx_lite.library_db import LibraryDatabase  # noqa: E402
 from amc_wx_lite.library_views import (  # noqa: E402
     LOCAL_SESSION,
@@ -330,6 +333,36 @@ class AllFilesView(_SyntheticCase):
         collation = FakeCollation()
         all_files_rows(self.open_db(), collation)
         self.assertEqual(collation.load_calls, 2)
+
+    def test_collation_failure_keeps_every_file_with_substitute_order(self):
+        """Odmowa kolacji nie moze zabrac widoku ani wyszukiwania.
+
+        ``SearchSources`` buduje katalog Plikow lokalnych z tego widoku. Gdy
+        wyjatek kolacji wychodzil stad na zewnatrz, wyszukiwanie mowilo
+        "Brak wynikow", choc pliki byly w Bibliotece.
+        """
+
+        class RefusingCollation(FakeCollation):
+            def load(self, values, *, mode: str = COLLATION_AMC_PL) -> None:
+                raise HostCollationUnavailable("host odmowil")
+
+        self.build.item("a", "Żuraw", "C:/m/1.mp3")
+        self.build.item("b", "Łąka", "C:/m/2.mp3")
+        result = all_files_rows(self.open_db(), RefusingCollation())
+        self.assertFalse(result.order_matches_amc)
+        self.assertEqual(sorted(r.item_id for r in result.rows), ["a", "b"])
+
+    def test_host_error_during_collation_keeps_every_file(self):
+        """Prawdziwa ``HostCollation``, ale host nie odpowiada."""
+
+        def failing_call(op, args=None, timeout=None):
+            raise HostUnavailable("host nie odpowiedzial")
+
+        self.build.item("a", "Żuraw", "C:/m/1.mp3")
+        self.build.item("b", "Łąka", "C:/m/2.mp3")
+        result = all_files_rows(self.open_db(), HostCollation(failing_call))
+        self.assertFalse(result.order_matches_amc)
+        self.assertEqual(sorted(r.item_id for r in result.rows), ["a", "b"])
 
 
 class CsharpSortEdgeCases(_SyntheticCase):
