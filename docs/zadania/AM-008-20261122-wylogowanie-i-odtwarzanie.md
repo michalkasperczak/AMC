@@ -74,5 +74,6 @@ Funkcja nie należy do profilu AMC Public.
 - MusicKit on the Web: https://developer.apple.com/musickit/
 - Autoryzacja MusicKit: https://developer.apple.com/documentation/applemusicapi/user-authentication-for-musickit
 - Baza kodu: `7751dee7c0d417ce58e941745a0a81ebdfc03ada`.
-- Commit poprawki: do uzupełnienia. Stan: źródła i celowane testy; bez buildu,
+- Commit poprawki: `cc4ebdf655aa671729d5049a23bfa65afc1fa8c1`.
+  Stan: źródła i celowane testy; bez buildu,
   instalacji, publikacji i żywego odbioru.
