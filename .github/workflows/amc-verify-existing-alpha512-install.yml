@@ -25,42 +25,10 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
-      - name: Pobierz przypięte artefakty tylko przez token kroku
+      - name: Włącz ochronę, pobierz artefakty i sprawdź instalację
         shell: pwsh
         env:
           AMC_ARTIFACT_TOKEN: ${{ github.token }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          Set-StrictMode -Version Latest
-          $sourceRevision = 'd360cd89f622b90ae351f1ed876904b38856b625'
-          $sourceRef = 'refs/heads/codex/amc-protected-public-test-20261119-playback-r1'
-          $sourceBranch = 'codex/amc-protected-public-test-20261119-playback-r1'
-          $runId = 45016390370
-          $artifactRoot = Join-Path $env:RUNNER_TEMP 'amc-alpha512-install-artifacts'
-          if (Test-Path -LiteralPath $artifactRoot) { throw 'Katalog pobranych artefaktów istnieje przed rozpoczęciem.' }
-          New-Item -ItemType Directory -Path $artifactRoot | Out-Null
-          $headers = @{ Authorization = "Bearer $env:AMC_ARTIFACT_TOKEN"; Accept = 'application/vnd.github+json' }
-          try {
-            $run = Invoke-RestMethod -Uri "https://api.github.com/repos/michalkasperczak/AMC/actions/runs/$runId" -Headers $headers -ErrorAction Stop
-            if ($run.id -ne $runId -or $run.status -cne 'completed' -or $run.conclusion -cne 'success' -or $run.run_attempt -ne 1 -or $run.head_sha -cne $sourceRevision -or $run.head_branch -cne $sourceBranch) { throw 'Metadane zamrożonego runu nie są dokładnie zgodne z kontraktem.' }
-            [ordered]@{ id = $run.id; status = $run.status; conclusion = $run.conclusion; runAttempt = $run.run_attempt; sourceRevision = $run.head_sha; sourceRef = $sourceRef } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $artifactRoot 'source-run.json') -Encoding utf8
-            foreach ($artifact in @(
-              [ordered]@{ id = 14752053921; name = 'amc-protected-public-test-installers-d360cd89f622b90ae351f1ed876904b38856b625'; bytes = 347655437; digest = 'sha256:f56a2b11c650f890bfe39571f99257ead3934fe25c0ebf29080dc1d8928a6f71'; destination = 'installers.zip' },
-              [ordered]@{ id = 14752572396; name = 'amc-protected-public-test-evidence-d360cd89f622b90ae351f1ed876904b38856b625'; bytes = 6000; digest = 'sha256:c438451b243408bdcad4e871545de24d158f3381449e5538ed52959c4aa34175'; destination = 'evidence.zip' }
-            )) {
-              $metadata = Invoke-RestMethod -Uri "https://api.github.com/repos/michalkasperczak/AMC/actions/artifacts/$($artifact.id)" -Headers $headers -ErrorAction Stop
-              if ($metadata.id -ne $artifact.id -or $metadata.name -cne $artifact.name -or $metadata.size_in_bytes -ne $artifact.bytes -or $metadata.digest -cne $artifact.digest -or $metadata.expired -or $metadata.workflow_run.id -ne $runId -or $metadata.workflow_run.head_sha -cne $sourceRevision -or $metadata.workflow_run.head_branch -cne $sourceBranch) { throw 'Metadane przypiętego artefaktu nie są dokładnie zgodne z kontraktem.' }
-              Invoke-WebRequest -Uri "https://api.github.com/repos/michalkasperczak/AMC/actions/artifacts/$($artifact.id)/zip" -Headers $headers -OutFile (Join-Path $artifactRoot $artifact.destination) -ErrorAction Stop
-            }
-          }
-          finally {
-            $headers.Clear()
-            $env:AMC_ARTIFACT_TOKEN = $null
-            Remove-Item Env:\AMC_ARTIFACT_TOKEN -ErrorAction SilentlyContinue
-          }
-
-      - name: Włącz ochronę i wykonaj smoke istniejących instalatorów
-        shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           Set-StrictMode -Version Latest
@@ -180,6 +148,32 @@ jobs:
             }
           }
 
+          function Receive-VerifiedArtifacts {
+            $runId = 45016390370
+            $sourceBranch = $sourceRef.Substring("refs/heads/".Length)
+            if (Test-Path -LiteralPath $artifactRoot) { throw 'Katalog pobranych artefaktów istnieje przed rozpoczęciem.' }
+            New-Item -ItemType Directory -Path $artifactRoot | Out-Null
+            $headers = @{ Authorization = "Bearer $env:AMC_ARTIFACT_TOKEN"; Accept = 'application/vnd.github+json' }
+            try {
+              $run = Invoke-RestMethod -Uri "https://api.github.com/repos/michalkasperczak/AMC/actions/runs/$runId" -Headers $headers -ErrorAction Stop
+              if ($run.id -ne $runId -or $run.status -cne 'completed' -or $run.conclusion -cne 'success' -or $run.run_attempt -ne 1 -or $run.head_sha -cne $sourceRevision -or $run.head_branch -cne $sourceBranch) { throw 'Metadane zamrożonego runu nie są dokładnie zgodne z kontraktem.' }
+              [ordered]@{ id = $run.id; status = $run.status; conclusion = $run.conclusion; runAttempt = $run.run_attempt; sourceRevision = $run.head_sha; sourceRef = $sourceRef } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $artifactRoot 'source-run.json') -Encoding utf8
+              foreach ($artifact in @(
+                [ordered]@{ id = 14752053921; name = 'amc-protected-public-test-installers-d360cd89f622b90ae351f1ed876904b38856b625'; bytes = 347655437; digest = 'sha256:f56a2b11c650f890bfe39571f99257ead3934fe25c0ebf29080dc1d8928a6f71'; destination = 'installers.zip' },
+                [ordered]@{ id = 14752572396; name = 'amc-protected-public-test-evidence-d360cd89f622b90ae351f1ed876904b38856b625'; bytes = 6000; digest = 'sha256:c438451b243408bdcad4e871545de24d158f3381449e5538ed52959c4aa34175'; destination = 'evidence.zip' }
+              )) {
+                $metadata = Invoke-RestMethod -Uri "https://api.github.com/repos/michalkasperczak/AMC/actions/artifacts/$($artifact.id)" -Headers $headers -ErrorAction Stop
+                if ($metadata.id -ne $artifact.id -or $metadata.name -cne $artifact.name -or $metadata.size_in_bytes -ne $artifact.bytes -or $metadata.digest -cne $artifact.digest -or $metadata.expired -or $metadata.workflow_run.id -ne $runId -or $metadata.workflow_run.head_sha -cne $sourceRevision -or $metadata.workflow_run.head_branch -cne $sourceBranch) { throw 'Metadane przypiętego artefaktu nie są dokładnie zgodne z kontraktem.' }
+                Invoke-WebRequest -Uri "https://api.github.com/repos/michalkasperczak/AMC/actions/artifacts/$($artifact.id)/zip" -Headers $headers -OutFile (Join-Path $artifactRoot $artifact.destination) -ErrorAction Stop
+              }
+            }
+            finally {
+              $headers.Clear()
+              $env:AMC_ARTIFACT_TOKEN = $null
+              Remove-Item Env:\AMC_ARTIFACT_TOKEN -ErrorAction SilentlyContinue
+            }
+          }
+
           function Clear-DownloadCredentials {
             foreach ($secret in @('AMC_ARTIFACT_TOKEN', 'GITHUB_TOKEN', 'GH_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'ACTIONS_RUNTIME_URL', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN')) {
               Remove-Item "Env:$secret" -ErrorAction SilentlyContinue
@@ -268,7 +262,8 @@ jobs:
             $report.protection = [ordered]@{ before = $before; after = $after; exitCode = 0 }
             $report.protection | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $evidence 'protection-setup.json') -Encoding utf8
 
-            Invoke-DefenderGate -Target $env:GITHUB_WORKSPACE -Stage 'workflow-source-before-artifact-use'
+            Invoke-DefenderGate -Target $env:GITHUB_WORKSPACE -Stage 'workflow-source-before-download'
+            Receive-VerifiedArtifacts
             if (Test-Path -LiteralPath $smokeRoot) { throw 'Katalog smoke istnieje przed rozpoczęciem.' }
             if (-not (Test-Path -LiteralPath (Join-Path $artifactRoot 'source-run.json') -PathType Leaf)) { throw 'Brak zweryfikowanych metadanych zamrożonego runu.' }
             $binaryZip = Join-Path $artifactRoot 'installers.zip'

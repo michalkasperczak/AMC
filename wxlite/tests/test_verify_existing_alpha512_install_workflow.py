@@ -150,6 +150,10 @@ def test_artifact_inputs_are_pinned_and_verified_before_safe_extraction() -> Non
 def test_runtime_provenance_credentials_and_installed_contracts_are_fail_closed() -> None:
     workflow = _workflow()
     assert "\n    paths:" not in workflow
+    protection = workflow.index("Invoke-DefenderGate -Target $env:GITHUB_WORKSPACE")
+    download = workflow.index("\n            Receive-VerifiedArtifacts\n") if "\n            Receive-VerifiedArtifacts\n" in workflow else workflow.index("Invoke-WebRequest -Uri")
+    extract = workflow.index("python tools/verify_existing_alpha512_artifacts.py")
+    assert protection < download < extract, "aktywny Defender musi być potwierdzony przed pobraniem ZIP"
     for required in (
         "AMC_ARTIFACT_TOKEN: ${{ github.token }}",
         'Authorization = "Bearer $env:AMC_ARTIFACT_TOKEN"',
