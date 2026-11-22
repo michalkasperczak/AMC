@@ -74,8 +74,8 @@ class AppleMusicAccountTests(unittest.TestCase):
         calls: list[str] = []
 
         class FakeAuth:
-            def authenticate(self) -> None:
-                calls.append("authenticate")
+            def authenticate(self, *, force: bool = False) -> None:
+                calls.append("force" if force else "cached")
 
         def factory(*_args, **options):
             self.assertEqual(options["profile"], TEST_PROFILE)
@@ -89,7 +89,7 @@ class AppleMusicAccountTests(unittest.TestCase):
             auth_timeout=12.0,
         )
 
-        self.assertEqual(calls, ["authenticate"])
+        self.assertEqual(calls, ["force"])
         self.assertTrue(status.stored_session)
         self.assertIn("logowanie zakończone", status.message)
 

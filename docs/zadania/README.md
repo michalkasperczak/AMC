@@ -1,5 +1,7 @@
 # Rejestr zadań AMC
 
+**AM-008 22.11.2026:** poprawiono źródłowo wymuszenie widocznego logowania Apple Music po potwierdzeniu; RED/GREEN 5 testów konta, 8 testów magazynu. Żywe logowanie i dokładne odtwarzanie nadal do odbioru; bez wydania. [Zadanie](AM-008-20261122-wylogowanie-i-odtwarzanie.md).
+
 **Zapis i wycinanie nagrań — nowe zgłoszenie Michała, 19.11.2026:**
 potwierdzono na głównym PC brak obu pierwotnych plików Dwójki po cięciu,
 pozostawione wyniki pod technicznymi nazwami oraz log sukcesu zapisu/usunięcia
