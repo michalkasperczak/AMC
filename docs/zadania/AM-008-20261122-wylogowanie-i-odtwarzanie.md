@@ -42,6 +42,8 @@ niepotwierdzone. Nie odczytywano tokenów, cookies ani osobistej Biblioteki.
   logowania. RED przed poprawką: 1 niezaliczony z 5, `['cached']` zamiast
   `['force']`. GREEN po poprawce: 5/5 zaliczonych.
 - Sąsiednie testy bezpiecznego magazynu i zależności: 8/8 zaliczonych.
+- Po połączeniu w jedną gałąź ponownie zaliczono 5/5 testów konta i 8/8
+  testów magazynu; to nadal testy źródeł, nie próba logowania na żywo.
 - Odczyt zainstalowanego modułu `applemusic.auth` potwierdził obsługę
   `authenticate(force=True)` i pomijanie okna przy `force=False` z cache.
 - Sąsiednia próba pojedynczego testu GUI wyszukiwania wypisała kropkę
@@ -74,12 +76,13 @@ Funkcja nie należy do profilu AMC Public.
 
 ## Źródła i wersja
 
-- Gałąź do pobrania przez Hermesa: `codex/apple-account-20261122`
-  w repozytorium `michalkasperczak/AMC`.
+- Jedna aktywna gałąź dalszych prac: `codex/alpha512-update-candidate-20261122`
+  w repozytorium `michalkasperczak/AMC`. Dawna gałąź Apple była tylko
+  etapem izolowanej pracy.
 - Apple Music API: https://developer.apple.com/documentation/applemusicapi
 - MusicKit on the Web: https://developer.apple.com/musickit/
 - Autoryzacja MusicKit: https://developer.apple.com/documentation/applemusicapi/user-authentication-for-musickit
 - Baza kodu: `7751dee7c0d417ce58e941745a0a81ebdfc03ada`.
-- Commit poprawki: `cc4ebdf655aa671729d5049a23bfa65afc1fa8c1`.
+- Zintegrowany commit poprawki: `918c1cc8`.
   Stan: źródła i celowane testy; bez buildu,
   instalacji, publikacji i żywego odbioru.

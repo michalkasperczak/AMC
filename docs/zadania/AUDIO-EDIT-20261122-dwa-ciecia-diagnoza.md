@@ -81,10 +81,12 @@ tamtych nagrań. Wynik testu nie jest potwierdzeniem działania na iCloud.
 
 ## Wersja i commit
 
-Gałąź do pobrania przez Hermesa: `codex/audio-cut-diagnostics-20261122`
-w repozytorium `michalkasperczak/AMC`.
+Jedna aktywna gałąź dalszych prac: `codex/alpha512-update-candidate-20261122`
+w repozytorium `michalkasperczak/AMC`. Dawna gałąź diagnostyczna jest tylko
+zapisem pośrednim i nie jest drugim torem pracy.
 
 Baza testu: `7751dee7c0d417ce58e941745a0a81ebdfc03ada` (po publikacji
-alpha.513). Test i pierwsza diagnoza: `2f93607b0bc6c6aad921bd95e96b815480a2d0c9`.
+alpha.513). Zintegrowany test i pierwsza diagnoza: `efd6acd0`;
+test Escape: `cebfdb02`.
 Kod produkcyjny bez zmian. Pakiet, instalacja, publikacja i żywy test NVDA:
 niewykonane.
