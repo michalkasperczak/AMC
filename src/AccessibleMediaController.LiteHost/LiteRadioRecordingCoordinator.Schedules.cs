@@ -65,7 +65,9 @@ internal sealed partial class LiteRadioRecordingCoordinator
             cancelled = _active.Values
                 .Where(active => active.ScheduleId.Length > 0
                     && (!replacements.TryGetValue(active.ScheduleId, out var replacement)
-                        || replacement.Effective.NextStartUtcTicks != active.ExpectedStartUtcTicks))
+                        || replacement.Effective.NextStartUtcTicks != active.ExpectedStartUtcTicks
+                        || !string.Equals(replacement.Effective.StreamUrl, active.StreamUrl,
+                            StringComparison.Ordinal)))
                 .ToArray();
             _schedules.Clear();
             foreach (var pair in replacements) _schedules.Add(pair.Key, pair.Value);

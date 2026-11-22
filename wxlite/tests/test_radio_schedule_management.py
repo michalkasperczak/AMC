@@ -22,6 +22,8 @@ from amc_wx_lite.radio_schedule_settings import (
     validate_file_name_template,
 )
 from amc_wx_lite.state_store import LiteState, StateStore
+from amc_wx_lite.radio_source import RadioSnapshot
+from amc_wx_lite.state_store import Station, StationList
 
 
 TEMPORARY_ROOT = Path(__file__).resolve().parents[2] / ".tmp-tests"
@@ -95,6 +97,60 @@ def test_station_edit_persists_private_plan_address(tmp_path) -> None:
     assert saved[0]["streamUrl"] == "https://example.invalid/new-live"
     assert saved[0]["stationName"] == "Radio Nowe"
     assert saved[0]["enabled"] is False
+
+
+def test_profile_station_edit_syncs_running_schedule_without_private_override() -> None:
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from test_gui_logic import install_wx_stub
+
+    install_wx_stub()
+    from amc_wx_lite.gui import LiteFrame
+
+    old = sample_schedule(streamUrl="https://example.invalid/old")
+    new = sample_schedule(streamUrl="https://example.invalid/live")
+    station = Station("radio-1", "Radio Jeden", new["streamUrl"])
+    previous = RadioSnapshot(
+        list=StationList([station]),
+        from_amc_profile=True,
+        recording_schedules=(old,),
+    )
+    fresh = RadioSnapshot(
+        list=StationList([station]),
+        from_amc_profile=True,
+        recording_schedules=(new,),
+    )
+    calls: list[dict] = []
+
+    class Runner:
+        def submit(self, key, work, done, failed):
+            assert key == "radio-schedule-sync"
+            try:
+                done(work())
+            except Exception as error:
+                failed(error)
+
+    state = LiteState(radio_schedule_overrides=None)
+    frame = SimpleNamespace(
+        state=state,
+        store=SimpleNamespace(save=lambda _state: None),
+        radio=SimpleNamespace(load=lambda **_kwargs: fresh),
+        client=SimpleNamespace(sync_radio_schedules=calls.append),
+        runner=Runner(),
+        announcer=SimpleNamespace(say=lambda _message: None),
+        _radio_snapshot=previous,
+        stations=previous.list,
+        _radio_schedule_sync_payload=lambda snapshot, settings: (
+            LiteFrame._radio_schedule_sync_payload(snapshot, settings)
+        ),
+    )
+    assert LiteFrame._update_private_radio_schedules_for_station(
+        frame, "radio-1", "Radio Jeden", new["streamUrl"]
+    )
+    assert calls and calls[0]["schedules"][0]["streamUrl"] == new["streamUrl"]
+    assert frame._radio_snapshot is fresh
+    assert state.radio_schedule_overrides is None
 
 
 def test_profile_is_mirrored_until_first_private_change() -> None:

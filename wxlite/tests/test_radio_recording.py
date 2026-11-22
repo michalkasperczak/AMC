@@ -48,7 +48,30 @@ from amc_wx_lite.shortcuts import (
     WIIM_SUPPORTED_ACTIONS,
     resolve,
 )
-from amc_wx_lite.state_store import Station
+from amc_wx_lite.state_store import Station, StationList
+
+
+def test_selected_station_uses_current_favorite_row_after_url_edit() -> None:
+    old = Station("stacja-1", "Hermanice", "https://example.invalid/old")
+    row = Row(
+        item_id=old.id,
+        title=old.name,
+        kind="station",
+        url="https://example.invalid/live",
+    )
+    frame = SimpleNamespace(
+        stations=StationList([old]),
+        navigator=SimpleNamespace(sessions={
+            SessionId.RADIO: SimpleNamespace(
+                model=SimpleNamespace(selected_row=row)
+            ),
+        }),
+    )
+    selected = LiteFrame._selected_station(frame)
+    assert selected is not None
+    assert selected.id == old.id
+    assert selected.url == row.url
+    assert old.url == "https://example.invalid/old"
 
 
 def test_current_station_recording_label_never_confuses_background_station() -> None:
@@ -506,8 +529,8 @@ def test_gui_toggle_uses_station_label_and_profile_preferences() -> None:
     LiteFrame._toggle_radio_recording(frame)
     assert client.payload["stationName"] == "Radio Test"
     assert client.payload["bitrateKbps"] == 160
-    # Dokladnie jedno, natychmiastowe potwierdzenie -- bez nazwy pliku.
-    assert messages == ["Rozpoczynam nagrywanie w tle: Radio Test"]
+    # Odpowiedz hosta nie jest jeszcze potwierdzeniem istnienia pliku.
+    assert messages == ["Sprawdzam połączenie dla nagrania w tle: Radio Test"]
 
 
 def test_gui_toggle_announces_stopping_without_technical_values() -> None:
@@ -545,7 +568,7 @@ def test_gui_toggle_announces_stopping_without_technical_values() -> None:
     assert "techniczne-id" not in messages[0]
 
 
-def test_manual_started_event_refreshes_state_without_second_announcement() -> None:
+def test_manual_started_event_confirms_file_start_without_path() -> None:
     messages: list[str] = []
     refreshes: list[str] = []
     frame = SimpleNamespace(
@@ -563,11 +586,11 @@ def test_manual_started_event_refreshes_state_without_second_announcement() -> N
         "path": r"D:\Nagrania\radio-test.mp3",
         "scheduleName": "",
     })
-    assert messages == []
+    assert messages == ["Nagrywanie rozpoczęte: Radio Test"]
     assert refreshes == ["status"]
 
 
-def test_scheduled_due_event_is_announced_once_and_file_start_is_silent() -> None:
+def test_scheduled_due_event_distinguishes_connection_from_file_start() -> None:
     messages: list[str] = []
     refreshes: list[str] = []
     frame = SimpleNamespace(
@@ -591,7 +614,8 @@ def test_scheduled_due_event_is_announced_once_and_file_start_is_silent() -> Non
         "scheduleName": "Poranna audycja",
     })
     assert messages == [
-        "Rozpoczynam zaplanowane nagrywanie: Radio Test"
+        "Sprawdzam połączenie dla zaplanowanego nagrania: Radio Test",
+        "Rozpoczęto zaplanowane nagrywanie: Radio Test",
     ]
     assert refreshes == ["status", "status"]
     assert "techniczne-id" not in messages[0]

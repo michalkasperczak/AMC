@@ -15429,19 +15429,21 @@ class LiteFrame(wx.Frame):
                 # parametry audio, tytul) pobierze najblizszy status hosta.
                 self._refresh_status()
         elif name == "radio.recordingScheduled":
-            # To zdarzenie przychodzi DOKLADNIE wtedy, gdy termin staje sie
-            # wymagalny i host zaklada aktywne nagranie. Bez tej galezi plan
-            # wygladal na martwy az do otwarcia dekodera albo bledu.
+            # Termin jest wymagalny, ale strumien i plik nie sa jeszcze gotowe.
             station = str(data.get("stationName") or "stacja")
             self.announcer.say(
-                f"Rozpoczynam zaplanowane nagrywanie: {station}"
+                f"Sprawdzam połączenie dla zaplanowanego nagrania: {station}"
             )
         elif name == "radio.recordingStarted":
-            # Reczne Ctrl+R potwierdza odpowiedz ``recordingToggle``, a plan
-            # potwierdza ``recordingScheduled``. Zdarzenie otwarcia pliku ma
-            # tylko odswiezyc stan listy; drugie zdanie z nazwa pliku
-            # zagluszaloby nawigacje NVDA.
-            pass
+            # Dopiero otwarcie pliku po otrzymaniu dzwieku potwierdza start.
+            station = str(data.get("stationName") or "stacja")
+            scheduled = bool(str(data.get("scheduleName") or "").strip())
+            if scheduled:
+                self.announcer.say(
+                    f"Rozpoczęto zaplanowane nagrywanie: {station}"
+                )
+            else:
+                self.announcer.say(f"Nagrywanie rozpoczęte: {station}")
         elif name == "radio.recordingFinished":
             station = str(data.get("stationName") or "stacja")
             scheduled = bool(str(data.get("scheduleName") or "").strip())
@@ -37758,15 +37760,12 @@ class LiteFrame(wx.Frame):
         row = self.navigator.sessions[SessionId.RADIO].model.selected_row
         if row is None:
             return None
-        saved = self.stations.find(row.item_id)
-        if saved is not None:
-            return saved
-        # Historia i Ulubione moga pokazywac stacje spoza biezacego zakresu
-        # Biblioteki. Wiersz nadal niesie zamierzona nazwe i adres; nigdy nie
-        # podstawiamy technicznej reprezentacji obiektu pod etykiete NVDA.
+        # Wiersz jest najnowszym odczytem profilu. Po zmianie w Ulubionych
+        # stara lista self.stations moze nadal miec poprzedni adres, chociaz
+        # Enter odtwarza juz nowy URL z wiersza. Ctrl+R ma uzyc tego samego.
         if row.kind == "station" and row.url:
             return Station(id=row.item_id, name=row.title, url=row.url)
-        return None
+        return self.stations.find(row.item_id)
 
     def _recording_station(self) -> Station | None:
         if self.navigator.active is not SessionId.RADIO:
@@ -38358,15 +38357,12 @@ class LiteFrame(wx.Frame):
         payload = snapshot.recording.payload_for(station)
 
         def done(result: dict) -> None:
-            # Parzystosc ze starym AMC: gest Ctrl+R od razu daje jedno
-            # krotkie potwierdzenie. Zdarzenie recordingStarted uaktualnia
-            # liste, ale dla nagrania recznego nie powtarza komunikatu ani
-            # nazwy pliku. Blad uruchomienia nadal przyjdzie osobnym
-            # recordingFailed, wiec nie udajemy, ze plik juz istnieje.
+            # Odpowiedz hosta potwierdza tylko zlecenie. Faktyczny start
+            # potwierdzi osobne recordingStarted po otwarciu pliku.
             action = str((result or {}).get("action") or "")
             if action == "starting":
                 self.announcer.say(
-                    f"Rozpoczynam nagrywanie w tle: {station.name}"
+                    f"Sprawdzam połączenie dla nagrania w tle: {station.name}"
                 )
             elif action == "stopping":
                 self.announcer.say(f"Zatrzymuję nagrywanie: {station.name}")
@@ -39102,34 +39098,55 @@ class LiteFrame(wx.Frame):
     def _update_private_radio_schedules_for_station(
         self, station_id: str, name: str, url: str
     ) -> bool:
+        """Keep saved plans and the running host schedule on the new address."""
         previous = self.state.radio_schedule_overrides
         updated = radio_schedule_settings.replace_station_details(
             previous, station_id, name, url
         )
-        if updated == previous:
-            return True
-        self.state.radio_schedule_overrides = updated
-        try:
-            self.store.save(self.state)
-        except (OSError, TypeError, ValueError):
-            self.state.radio_schedule_overrides = previous
-            return False
+        if updated != previous:
+            self.state.radio_schedule_overrides = updated
+            try:
+                self.store.save(self.state)
+            except (OSError, TypeError, ValueError):
+                self.state.radio_schedule_overrides = previous
+                return False
         snapshot = getattr(self, "_radio_snapshot", None)
         client = getattr(self, "client", None)
-        if snapshot is not None and client is not None and any(
+        if snapshot is None or client is None:
+            return True
+        schedules = updated if updated is not None else snapshot.recording_schedules
+        if not any(
             item.get("stationId") == station_id and item.get("enabled")
-            for item in updated or []
+            for item in schedules
         ):
-            payload = self._radio_schedule_sync_payload(snapshot, self.state)
-            self.runner.submit(
-                "radio-schedule-sync",
-                lambda: client.sync_radio_schedules(payload),
-                lambda _result: None,
-                lambda _error: self.announcer.say(
-                    "Adres zapisano w planie; uruchom ponownie AMC, "
-                    "aby odświeżyć aktywny harmonogram"
-                ),
+            return True
+
+        def work():
+            # Edycja profilu zmienia plany na dysku. Trzeba ponownie je
+            # wczytac, bo host nadal ma w pamieci poprzedni harmonogram.
+            fresh = (
+                self.radio.load(previous=snapshot, scope=snapshot.scope)
+                if snapshot.from_amc_profile else snapshot
             )
+            if fresh.load_error:
+                raise OSError(fresh.load_error)
+            client.sync_radio_schedules(
+                self._radio_schedule_sync_payload(fresh, self.state)
+            )
+            return fresh
+
+        def done(fresh) -> None:
+            if fresh is not snapshot:
+                self._radio_snapshot = fresh
+                self.stations = fresh.list
+
+        self.runner.submit(
+            "radio-schedule-sync", work, done,
+            lambda _error: self.announcer.say(
+                "Adres zapisano w planie; uruchom ponownie AMC, "
+                "aby odświeżyć aktywny harmonogram"
+            ),
+        )
         return True
 
     def _station_edit(self) -> None:
