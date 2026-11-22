@@ -11,7 +11,7 @@ GUARD_PATH = ROOT / "wxlite" / "tools" / "Enable-AMCDiagnosticProtection.ps1"
 PROPS_PATH = ROOT / "Directory.Build.props"
 AUTHORIZED_BRANCH = "codex/amc-protected-public-test-20261119-playback-r1"
 AUTHORIZED_VERSION = "0.1.0-alpha.512"
-CURRENT_VERSION = "0.1.0-alpha.513"
+CURRENT_VERSION = "0.1.0-alpha.514"
 
 
 def _workflow() -> str:
