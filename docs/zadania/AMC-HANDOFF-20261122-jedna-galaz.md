@@ -39,6 +39,9 @@ kod i instalatory zwykle po etapach, najpóźniej co 2–3 dni.
    a nowy incydent Tok dostarczył rzeczywisty błąd po cięciu i odzyskany
    plik. Kopia na D jest zweryfikowana; źródła odmawiają bezpośredniego
    nadpisania plików zarządzanych przez synchronizację (commit `ee3be3eb`).
+   Ctrl+Shift+T tylko czyta zapamiętany czas i nie otwiera pliku; podczas
+   edycji podaje teraz stan zamiast starej długości. Końcowy brak pliku po
+   zapisie dostaje uczciwy komunikat (commit `f7b2f61a`).
    Test krótkiego dopisania MP3 nadal zawodzi; cała edycja synchronizowana
    pozostaje do bezpiecznego rozwiązania i odbioru. Szczegóły:
    `docs/zadania/AUDIO-EDIT-20261122-Tok-odzysk-i-zabezpieczenie.md`.

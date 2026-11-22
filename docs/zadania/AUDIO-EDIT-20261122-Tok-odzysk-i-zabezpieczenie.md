@@ -31,6 +31,20 @@ synchronizacji. Mamy teraz konkretny dziennik, stan plików i ścieżkę błędu
   Próbki z początku, około 10 000. sekundy i końca dekodują się bez błędu.
   To nie jest pełny odsłuch ani dowód dokładnych granic cięcia.
 
+## Dopowiedzenie Michała z 22.11.2026 — Ctrl+Shift+T
+
+Michał zapytał, czy skrót czasu całkowitego ponownie otwiera plik albo
+spowodował końcowe sprawdzanie. W sesji Pliki/Podcasty `Action.TIME_TOTAL`
+przechodzi przez `_announce_time`, która czyta wyłącznie `_last_status`
+w interfejsie. `time_announcement` formatuje liczbę; skrót nie wywołuje hosta,
+nie otwiera pliku i nie podmienia nazwy. Mógł jednak mówić **stary czas**,
+gdy edycja trwała. Odczyt `FileInfo.Length` z błędu o 23:06:58 jest osobną,
+końcową próbą odczytania metadanych po powrocie z edytora, a nie efektem
+Ctrl+Shift+T. Ten odczyt nie otwiera strumienia audio ani nie usuwa pliku.
+Próba `pauseResume` o 23:06:46 pasuje do wyjścia z odtwarzacza przez Escape
+przy włączonej pauzie po powrocie na listę; host ją zablokował. Dziennik nie
+identyfikuje klawisza, więc to powiązanie pozostaje wnioskiem z kodu i czasu.
+
 ## Odzysk — nie zmieniano plików w iCloud
 
 Niezależne kopie zachowano w:
@@ -66,6 +80,14 @@ bezpośredniej edycji w folderze synchronizowanym. Mechanizm stabilnej edycji
 takiego pliku i automatycznego powrotu odzyskanego pliku na listę pozostają
 oddzielnymi zadaniami.
 
+Commit `f7b2f61aeaa15dbec69101d571f8538e60d870dd` koryguje komunikację:
+podczas cięcia Ctrl+Shift+T (także dwa pozostałe skróty czasu) mówi, że czas
+będzie dostępny po edycji, zamiast podawać starą wartość. Po zakończonym
+etapie zapisu host sprawdza długość pliku **przed** zmianą pamięci metadanych;
+jeśli pierwotna nazwa jest niedostępna, zgłasza, że wynik nie został
+potwierdzony, i prosi o zachowanie plików technicznych. Nie twierdzi wtedy,
+że oryginał na pewno pozostał bez zmian.
+
 ## Testy i stan wydania
 
 - Test `--cloud-overwrite-guard`: RED przed kodem (brak nowej funkcji), GREEN
@@ -78,6 +100,11 @@ oddzielnymi zadaniami.
   nazwy zachowane na lokalnym NTFS.
 - Build projektu `AccessibleMediaController.LiteHost`: exit 0, zero ostrzeżeń
   i błędów. Użyto lokalnego cache NuGet, bez audytu sieciowego.
+- Test ścieżki GUI Ctrl+Shift+T: RED przed komunikatem (stary czas), GREEN
+  po zmianie. Wszystkie 26 bezpośrednio uruchomionych kontroli w
+  `test_transport_parity_gui_wiring.py` przeszło; w tym brak wywołania hosta
+  przez skrót czasu. Ponowny build LiteHost po korekcie końcowego błędu:
+  exit 0, zero ostrzeżeń i błędów. Nie wykonywano żywego testu NVDA.
 - Sąsiedni zestaw `--audio-clip-append`: 15/16 przechodzi; przypadek MP3 dwa
   razy kończy się „Za mało zdekodowanych próbek do sprawdzenia kolejności”
   przy odczycie końcówki krótkiego pliku. Nie zaliczamy go; brak dowodu, że
