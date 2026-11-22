@@ -235,6 +235,8 @@ def _read_tidal_queue(raw: object) -> list[dict]:
             or not item["relatedAlbumExternalId"]
         ):
             continue
+        duration = raw_item.get("durationTicks")
+        item["durationTicks"] = max(0, duration) if type(duration) is int else 0
         seen.add(item["itemId"])
         result.append(item)
     return result

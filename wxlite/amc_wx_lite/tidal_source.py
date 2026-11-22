@@ -613,6 +613,7 @@ def queue_rows(payload: object) -> tuple[Row, ...]:
             continue
         seen.add(item_id)
         artist = _text(entry.get("artist"))
+        duration_ticks = _ticks(entry.get("durationTicks"))
         rows.append(Row(
             item_id=item_id,
             title=title,
@@ -628,13 +629,14 @@ def queue_rows(payload: object) -> tuple[Row, ...]:
                 _text(entry.get("relatedArtistExternalId")) or None
             ),
             related_artist_name=_text(entry.get("relatedArtistName")),
+            duration_ticks=duration_ticks,
         ))
     return tuple(rows)
 
 
-def queue_payload(rows: Sequence[Row]) -> list[dict[str, str]]:
+def queue_payload(rows: Sequence[Row]) -> list[dict[str, str | int]]:
     """Zapisz tylko pola niezbędne do ponownego przekazania utworu."""
-    result: list[dict[str, str]] = []
+    result: list[dict[str, str | int]] = []
     seen: set[str] = set()
     for row in rows:
         if (
@@ -654,6 +656,7 @@ def queue_payload(rows: Sequence[Row]) -> list[dict[str, str]]:
             "relatedAlbumTitle": row.related_album_title,
             "relatedArtistExternalId": row.related_artist_service_id or "",
             "relatedArtistName": row.related_artist_name,
+            "durationTicks": max(0, row.duration_ticks),
         })
     return result
 

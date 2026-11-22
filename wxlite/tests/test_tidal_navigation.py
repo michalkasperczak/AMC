@@ -608,3 +608,33 @@ def test_tidal_album_track_left_arrow_starts_with_bare_duration() -> None:
     LiteFrame._announce_quick_information(frame)
     assert spoken[0] == "45:21, Piosenka"
     assert "Czas:" not in spoken[0]
+def test_tidal_queue_left_reads_saved_duration_after_reopening() -> None:
+    from amc_wx_lite.tidal_source import queue_payload, queue_rows
+
+    track = Row(
+        "track-1", "Piosenka", "track",
+        service_id="tracks:1",
+        related_album_service_id="albums:1",
+        artist_name="Wykonawca",
+        duration_ticks=2721 * 10_000_000,
+    )
+    restored = queue_rows(queue_payload([track]))[0]
+    navigator = Navigator()
+    navigator.active = SessionId.TIDAL
+    assert navigator.apply_tidal_queue([restored]) == [
+        Announce("Kolejka TIDAL, 1 pozycja, łączny czas trwania 45 min 21 s")
+    ]
+    spoken = []
+    frame = SimpleNamespace(
+        state=LiteState(), options=Options(),
+        navigator=SimpleNamespace(
+            active=SessionId.TIDAL,
+            session=SimpleNamespace(
+                model=SimpleNamespace(selected_row=restored),
+                library_view=LibraryView.TIDAL_QUEUE,
+            ),
+        ),
+        announcer=SimpleNamespace(say=spoken.append),
+    )
+    LiteFrame._announce_quick_information(frame)
+    assert spoken == ["45:21, Piosenka"]

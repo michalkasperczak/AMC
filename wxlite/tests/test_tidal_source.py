@@ -326,6 +326,7 @@ def test_private_tidal_queue_round_trip_keeps_ids_out_of_labels() -> None:
         related_album_title="Album",
         related_artist_service_id="artists:7",
         related_artist_name="Wykonawca",
+        duration_ticks=2721 * 10_000_000,
     )
 
     restored = queue_rows(queue_payload([row]))
@@ -335,6 +336,7 @@ def test_private_tidal_queue_round_trip_keeps_ids_out_of_labels() -> None:
     assert restored[0].detail == "Wykonawca"
     assert restored[0].related_artist_service_id == "artists:7"
     assert restored[0].related_artist_name == "Wykonawca"
+    assert restored[0].duration_ticks == 2721 * 10_000_000
     assert "secret" not in restored[0].title
     assert "secret" not in restored[0].detail
 

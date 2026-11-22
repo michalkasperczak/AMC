@@ -869,3 +869,18 @@ def test_spotify_queue_round_trip_keeps_order_and_safe_fields() -> None:
 
     assert [item["title"] for item in loaded] == ["Pierwszy", "Drugi"]
     assert all("token" not in item for item in loaded)
+def test_tidal_queue_keeps_known_duration_without_inventing_missing_time() -> None:
+    from amc_wx_lite.state_store import _read_tidal_queue
+
+    base = {
+        "itemId": "tidal:track:1", "externalId": "tracks:1",
+        "title": "Piosenka", "kind": "track",
+        "relatedAlbumExternalId": "albums:1",
+    }
+    assert _read_tidal_queue([{**base, "durationTicks": 2721 * 10_000_000}])[0][
+        "durationTicks"
+    ] == 2721 * 10_000_000
+    for value in (None, -5, True, "27210000000"):
+        assert _read_tidal_queue([{**base, "durationTicks": value}])[0][
+            "durationTicks"
+        ] == 0
