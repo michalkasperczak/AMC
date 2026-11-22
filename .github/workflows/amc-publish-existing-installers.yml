@@ -188,21 +188,19 @@ jobs:
           publish_one public "$AMC_PUBLIC_TAG" false true
           publish_one test "$AMC_TEST_TAG" true false
 
-      - name: Verify the updater's actual release-list endpoint
+      - name: Verify the updater's actual release-list consumer
         shell: bash
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/amc-existing-release"
           gh api "repos/$AMC_REPOSITORY/releases?per_page=30" > updater-releases.json
-          python3 - <<'PY'
-          import json, re
-          releases = json.load(open('updater-releases.json', encoding='utf-8'))
-          for profile, tag, prerelease in (('public', 'public-2026.11.22.1129', False), ('test', 'test-2026.11.22.1137', True)):
-              prefix = 'public-' if profile == 'public' else 'test-'
-              selected = next((entry for entry in releases if not entry.get('draft') and entry.get('prerelease') is prerelease and re.fullmatch(prefix + r'\d{4}\.\d{2}\.\d{2}\.\d{4}', entry.get('tag_name', ''))), None)
-              if selected is None or selected.get('tag_name') != tag:
-                  raise SystemExit(f'fail-closed: updater endpoint does not select {tag}')
-              names = {asset.get('name') for asset in selected.get('assets', [])}
-              if f'amc-update-{profile}.json' not in names:
-                  raise SystemExit(f'fail-closed: updater manifest absent for {profile}')
-          PY
+          python3 "$GITHUB_WORKSPACE/tools/publish_existing_installers.py" verify-updater-release \
+            --releases-json updater-releases.json \
+            --profile public \
+            --manifest prepared/public/amc-update-public.json \
+            --expected-tag "$AMC_PUBLIC_TAG"
+          python3 "$GITHUB_WORKSPACE/tools/publish_existing_installers.py" verify-updater-release \
+            --releases-json updater-releases.json \
+            --profile test \
+            --manifest prepared/test/amc-update-test.json \
+            --expected-tag "$AMC_TEST_TAG"

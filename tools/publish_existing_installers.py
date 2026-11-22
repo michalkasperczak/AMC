@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import hashlib
+import importlib
 import json
 import shutil
 import sys
@@ -293,10 +294,10 @@ def _notes(profile: ProfileContract, installer_sha256: str, installer_bytes: int
         "",
         "- Radio Archiwista: wyszukiwanie materiałów.",
         "- Podcasty: pełny opis jest kopiowany do schowka.",
-        "- Skrzynka: pamiętana jest pozycja odtwarzania.",
+        "- Skrzynka: po powrocie do listy pozostaje zaznaczony uprzednio wybrany odcinek, rozpoznany po stabilnej tożsamości; nie jest to pamięć pozycji odtwarzania. Ctrl+L otwiera Bibliotekę, a Ctrl+I wraca do Skrzynki.",
         "- NVDA + End: parametry są odczytywane przed nazwą materiału.",
-        "- Oznaczenie zidentyfikowanego materiału działa wyłącznie dla dokładnego URI WiiM oraz własnych streamów Sonos; nie obejmuje Ulubionych, playlist, Frontier ani Apple.",
-        "- Odebrane odświeżanie oraz rozdziały YouTube są objęte tym wydaniem.",
+        "- Nowe oznaczenie zidentyfikowanego materiału korzysta tylko z wiarygodnej tożsamości: dokładnego URI WiiM albo tożsamości własnego strumienia Sonos wyliczonej z jego ID i URL. Nie usuwa ani nie zmienia wcześniej zapisanych oznaczeń w innych sesjach; nie rozszerza rozpoznania na Ulubione, playlisty, Frontier ani Apple.",
+        "- W tym wydaniu objęto tylko odebrane odświeżanie oraz rozdziały YouTube; notatka nie potwierdza szerszego zakresu odświeżania ani rozdziałów.",
         "- Poprawka Delete kolejki i odzyskiwanie audio nie są włączone w tym wydaniu.",
     ]
     if profile.profile == "test":
@@ -409,6 +410,87 @@ def _load_json(path: Path) -> dict[str, Any]:
     return value
 
 
+def _updater_consumer() -> Any:
+    """Load the updater parser without copying its channel-selection rules."""
+
+    wxlite_root = Path(__file__).resolve().parents[1] / "wxlite"
+    if str(wxlite_root) not in sys.path:
+        sys.path.insert(0, str(wxlite_root))
+    try:
+        application_update = importlib.import_module("amc_wx_lite.application_update")
+        release_profile = importlib.import_module("amc_wx_lite.release_profile")
+    except ImportError as error:
+        raise VerificationError(
+            f"Nie można załadować rzeczywistego konsumenta aktualizacji: {error}"
+        ) from error
+    return application_update, release_profile.profile_from_id
+
+
+def verify_updater_release(
+    releases: object,
+    manifest_path: Path,
+    profile_id: str,
+    expected_tag: str,
+) -> Any:
+    """Apply the real updater selection and validation to release JSON.
+
+    The local manifest was generated only after ``verify_archives``.  Require
+    GitHub's asset metadata to have the same bytes, length, and SHA-256 digest
+    before feeding that local manifest to the production consumer.
+    """
+
+    updater, profile_from_id = _updater_consumer()
+    if not isinstance(releases, list):
+        _fail("Lista wydań GitHub nie jest tablicą JSON")
+    try:
+        profile = profile_from_id(profile_id)
+    except ValueError as error:
+        raise VerificationError("Nieznany profil aktualizacji") from error
+    selected = updater._latest_channel_release(releases, profile)
+    if selected is None:
+        _fail("Konsument aktualizacji nie wybrał wydania kanału")
+    tag, assets = selected
+    if tag != expected_tag:
+        _fail("Konsument aktualizacji wybrał inny tag")
+    manifest_name = f"amc-update-{profile.profile_id}.json"
+    manifest_asset = assets.get(manifest_name.casefold())
+    if manifest_asset is None:
+        _fail("Konsument aktualizacji nie widzi manifestu")
+    try:
+        manifest_bytes = manifest_path.read_bytes()
+    except OSError as error:
+        raise VerificationError("Nie można odczytać lokalnego manifestu aktualizacji") from error
+    if len(manifest_bytes) != manifest_asset.size:
+        _fail("GitHub wskazuje inny rozmiar manifestu")
+    digest = hashlib.sha256(manifest_bytes).hexdigest()
+    matching_assets: list[dict[str, object]] = []
+    for candidate in releases:
+        if not isinstance(candidate, dict) or candidate.get("tag_name") != tag:
+            continue
+        raw_assets = candidate.get("assets")
+        if not isinstance(raw_assets, list):
+            continue
+        for asset in raw_assets:
+            if (
+                isinstance(asset, dict)
+                and asset.get("name") == manifest_asset.name
+                and asset.get("browser_download_url") == manifest_asset.download_url
+            ):
+                matching_assets.append(asset)
+    if len(matching_assets) != 1 or matching_assets[0].get("digest") != f"sha256:{digest}":
+        _fail("GitHub wskazuje inny SHA-256 manifestu")
+    try:
+        manifest = updater._json_object(manifest_bytes, description="manifestu aktualizacji")
+        return updater._validated_release(
+            manifest,
+            tag=tag,
+            assets=assets,
+            profile=profile,
+        )
+    except updater.ApplicationUpdateError as error:
+        raise VerificationError(f"Konsument aktualizacji odrzucił manifest: {error}") from error
+
+
 def verify_release_readback(
     release: Mapping[str, Any],
     item: VerifiedProfile,
@@ -471,12 +553,17 @@ def main(argv: list[str] | None = None) -> int:
     readback.add_argument("--downloaded-installer", type=Path, required=True)
     readback.add_argument("--draft", choices=("true", "false"), required=True)
     readback.add_argument("--release-id", type=int, required=True)
+    updater_check = subparsers.add_parser("verify-updater-release")
+    updater_check.add_argument("--releases-json", type=Path, required=True)
+    updater_check.add_argument("--profile", choices=("public", "test"), required=True)
+    updater_check.add_argument("--manifest", type=Path, required=True)
+    updater_check.add_argument("--expected-tag", required=True)
     args = parser.parse_args(argv)
     try:
         if args.command == "prepare":
             verified = write_release_inputs(args.binary_zip, args.evidence_zip, args.output)
             _emit({profile: {"tag": value.contract.tag, "bytes": value.installer_bytes, "sha256": value.installer_sha256} for profile, value in verified.items()})
-        else:
+        elif args.command == "verify-release-readback":
             profile = CONTRACT.profiles[args.profile]
             prepared = args.downloaded_installer.parent / "verified-release-input.json"
             manifest = _load_json(prepared)
@@ -488,6 +575,12 @@ def main(argv: list[str] | None = None) -> int:
                 draft=args.draft == "true",
                 expected_release_id=args.release_id,
             )
+        else:
+            try:
+                releases = json.loads(args.releases_json.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError) as error:
+                raise VerificationError("Nie można odczytać listy wydań GitHub") from error
+            verify_updater_release(releases, args.manifest, args.profile, args.expected_tag)
     except VerificationError as error:
         print(f"FAIL-CLOSED: {error}", file=sys.stderr)
         return 1

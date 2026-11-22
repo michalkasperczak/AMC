@@ -18,6 +18,7 @@ from tools.publish_existing_installers import (  # noqa: E402
     VerificationError,
     verify_archives,
     verify_release_readback,
+    verify_updater_release,
     write_release_inputs,
 )
 
@@ -168,6 +169,92 @@ def _make_archives(tmp_path: Path) -> tuple[Path, Path]:
 
 
 class PublishExistingInstallerTests(unittest.TestCase):
+    def test_updater_consumer_accepts_the_github_shape_for_both_channels(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            binary_zip, evidence_zip = _make_archives(root)
+            verified = write_release_inputs(
+                binary_zip, evidence_zip, root / "prepared", _contract_for_fixture(binary_zip, evidence_zip)
+            )
+            releases: list[dict[str, object]] = []
+            for profile in ("public", "test"):
+                item = verified[profile]
+                manifest_path = root / "prepared" / profile / f"amc-update-{profile}.json"
+                manifest_bytes = manifest_path.read_bytes()
+                installer_path = root / "prepared" / profile / item.contract.installer_name
+                releases.append({
+                    "tag_name": item.contract.tag,
+                    "draft": False,
+                    "prerelease": item.contract.prerelease,
+                    "assets": [
+                        {
+                            "name": installer_path.name,
+                            "size": installer_path.stat().st_size,
+                            "browser_download_url": (
+                                "https://github.com/michalkasperczak/AMC/releases/download/"
+                                f"{item.contract.tag}/{installer_path.name}"
+                            ),
+                        },
+                        {
+                            "name": manifest_path.name,
+                            "size": len(manifest_bytes),
+                            "digest": "sha256:" + hashlib.sha256(manifest_bytes).hexdigest(),
+                            "browser_download_url": (
+                                f"https://github.com/michalkasperczak/AMC/releases/download/"
+                                f"{item.contract.tag}/{manifest_path.name}"
+                            ),
+                        },
+                    ],
+                })
+
+            for profile in ("public", "test"):
+                release = verify_updater_release(
+                    releases,
+                    root / "prepared" / profile / f"amc-update-{profile}.json",
+                    profile,
+                    CONTRACT.profiles[profile].tag,
+                )
+                self.assertEqual(release.tag, CONTRACT.profiles[profile].tag)
+                self.assertEqual(release.profile_id, profile)
+
+    def test_updater_consumer_rejects_manifest_asset_with_swapped_size(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            binary_zip, evidence_zip = _make_archives(root)
+            verified = write_release_inputs(
+                binary_zip, evidence_zip, root / "prepared", _contract_for_fixture(binary_zip, evidence_zip)
+            )
+            item = verified["public"]
+            manifest_path = root / "prepared/public/amc-update-public.json"
+            installer_path = root / "prepared/public" / item.contract.installer_name
+            manifest_bytes = manifest_path.read_bytes()
+            releases = [{
+                "tag_name": item.contract.tag,
+                "draft": False,
+                "prerelease": False,
+                "assets": [
+                    {
+                        "name": installer_path.name,
+                        "size": installer_path.stat().st_size,
+                        "browser_download_url": (
+                            f"https://github.com/michalkasperczak/AMC/releases/download/"
+                            f"{item.contract.tag}/{installer_path.name}"
+                        ),
+                    },
+                    {
+                        "name": manifest_path.name,
+                        "size": len(manifest_bytes) + 1,
+                        "digest": "sha256:" + hashlib.sha256(manifest_bytes).hexdigest(),
+                        "browser_download_url": (
+                            f"https://github.com/michalkasperczak/AMC/releases/download/"
+                            f"{item.contract.tag}/{manifest_path.name}"
+                        ),
+                    },
+                ],
+            }]
+            with self.assertRaisesRegex(VerificationError, "rozmiar manifestu"):
+                verify_updater_release(releases, manifest_path, "public", item.contract.tag)
+
     def test_alpha512_contract_is_pinned_to_authorized_inputs_and_wrapper_names(self) -> None:
         self.assertEqual(CONTRACT.source_revision, "d360cd89f622b90ae351f1ed876904b38856b625")
         self.assertEqual(CONTRACT.version, "0.1.0-alpha.512")
@@ -190,12 +277,16 @@ class PublishExistingInstallerTests(unittest.TestCase):
         for expected in (
             "Radio Archiwista",
             "pełny opis jest kopiowany do schowka",
-            "Skrzynka: pamiętana jest pozycja",
-            "NVDA + End: parametry są odczytywane przed nazwą",
+            "Skrzynka: po powrocie do listy",
+            "stabilnej tożsamości",
+            "nie jest to pamięć pozycji odtwarzania",
+            "Ctrl+L otwiera Bibliotekę, a Ctrl+I wraca do Skrzynki",
             "dokładnego URI WiiM",
-            "własnych streamów Sonos",
-            "Ulubionych, playlist, Frontier ani Apple",
-            "Odebrane odświeżanie oraz rozdziały YouTube",
+            "tożsamości własnego strumienia Sonos wyliczonej z jego ID i URL",
+            "Nie usuwa ani nie zmienia wcześniej zapisanych oznaczeń w innych sesjach",
+            "Ulubione, playlisty, Frontier ani Apple",
+            "tylko odebrane odświeżanie oraz rozdziały YouTube",
+            "nie potwierdza szerszego zakresu",
             "Delete kolejki i odzyskiwanie audio nie są włączone",
             "Status odbioru instalacji: nieprzeprowadzony",
             "Status żywego odbioru NVDA: nieprzeprowadzony",
@@ -358,6 +449,10 @@ class PublishExistingInstallerTests(unittest.TestCase):
         self.assertIn("-F draft=false", workflow)
         self.assertIn('-f make_latest="$latest"', workflow)
         self.assertNotIn("--hostname uploads.github.com", workflow)
+        self.assertIn("verify-updater-release", workflow)
+        self.assertIn("--manifest prepared/public/amc-update-public.json", workflow)
+        self.assertIn("--manifest prepared/test/amc-update-test.json", workflow)
+        self.assertNotIn("import json, re", workflow)
 
     def test_protection_setup_rejects_disabled_after_state(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
