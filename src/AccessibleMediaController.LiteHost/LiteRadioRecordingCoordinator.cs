@@ -66,13 +66,18 @@ internal sealed partial class LiteRadioRecordingCoordinator : IDisposable
 
         if (matches.Length > 0)
         {
+            var alreadyStopping = matches.All(active => active.Control.StopRequested);
+            var scheduledCount = matches.Count(active =>
+                !string.IsNullOrWhiteSpace(active.ScheduleName));
             foreach (var active in matches) RequestStop(active);
             return new
             {
                 action = "stopping",
                 stationId = request.StationId,
                 stationName = request.StationName,
-                count = matches.Length
+                count = matches.Length,
+                scheduledCount,
+                alreadyStopping
             };
         }
 

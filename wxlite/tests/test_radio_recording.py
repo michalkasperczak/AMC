@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_gui_logic import install_wx_stub
 
@@ -566,6 +568,38 @@ def test_gui_toggle_announces_stopping_without_technical_values() -> None:
     LiteFrame._toggle_radio_recording(frame)
     assert messages == ["Zatrzymuję nagrywanie: Radio Test"]
     assert "techniczne-id" not in messages[0]
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [
+        (
+            {"action": "stopping", "scheduledCount": 1},
+            "Zatrzymuję zaplanowane nagrywanie: Radio Test. "
+            "Bieżący termin nie wznowi się automatycznie",
+        ),
+        (
+            {"action": "stopping", "scheduledCount": 1, "alreadyStopping": True},
+            "Nagranie stacji Radio Test jest już zatrzymywane. "
+            "Po zakończeniu ponów Ctrl+R, aby rozpocząć nowe",
+        ),
+    ],
+)
+def test_gui_toggle_explains_scheduled_stop_and_repeat(response, expected) -> None:
+    station = Station("stacja-1", "Radio Test", "https://example.invalid/live")
+    messages: list[str] = []
+    frame = SimpleNamespace(
+        client=SimpleNamespace(toggle_radio_recording=lambda _payload: response),
+        runner=SimpleNamespace(submit=lambda _key, work, done, _failed: done(work())),
+        radio=SimpleNamespace(load=lambda previous: SimpleNamespace(
+            recording=RadioRecordingPreferences()
+        )),
+        _radio_snapshot=object(),
+        _refresh_recording_status=lambda: None,
+        announcer=SimpleNamespace(say=messages.append),
+    )
+    LiteFrame._toggle_recording_for_station(frame, station)
+    assert messages == [expected]
 
 
 def test_manual_started_event_confirms_file_start_without_path() -> None:

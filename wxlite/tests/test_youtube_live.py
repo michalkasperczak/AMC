@@ -471,6 +471,45 @@ def test_radio_youtube_update_replaces_station_and_linked_plans() -> None:
     assert spoken[-1] == "Zapisano najbliższą zaplanowaną transmisję: Następna transmisja"
 
 
+def test_radio_youtube_refresh_keeps_durable_channel_address() -> None:
+    from amc_wx_lite.state_store import Station
+
+    station = Station(
+        id="hermanice", name="Hermanice",
+        url="https://www.youtube.com/watch?v=old",
+    )
+    channel_url = "https://www.youtube.com/channel/UCLQDRrFkBrwK6UbcUypMi5w/live"
+    calls = []
+    frame = SimpleNamespace(
+        _selected_station=lambda: station,
+        _youtube_account_available=True,
+        _youtube_channel_subscriptions=lambda: [],
+        radio=SimpleNamespace(may_edit=False),
+        client=SimpleNamespace(
+            youtube_radio_broadcasts=lambda url, subscription_id=None: {
+                "channelLiveUrl": channel_url,
+                "items": [{
+                    "title": "Transmisja na żywo",
+                    "pageUrl": "https://www.youtube.com/watch?v=current",
+                    "state": "live",
+                }],
+            },
+            edit_radio_station=lambda *args: calls.append(("edit", *args)),
+        ),
+        runner=SimpleNamespace(submit=lambda _name, work, done, failed: done(work())),
+        announcer=SimpleNamespace(say=lambda _message: None),
+        _update_private_radio_schedules_for_station=lambda *args: (
+            calls.append(("plans", *args)) or True
+        ),
+        _refresh_profile_view=lambda **kwargs: None,
+    )
+    LiteFrame._refresh_selected_youtube_radio_station(frame)
+    assert calls == [
+        ("edit", "hermanice", "Hermanice", channel_url),
+        ("plans", "hermanice", "Hermanice", channel_url),
+    ]
+
+
 def test_radio_youtube_command_language_parity() -> None:
     from amc_wx_lite import i18n
 

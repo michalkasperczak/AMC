@@ -10,8 +10,9 @@ internal static class YouTubePublicBroadcastCoordinatorTests
     {
         AvailableWithoutGoogleAccountAndReadsPublicChannel();
         EmptyPublicResponseIsPreserved();
+        RadioBroadcastReturnsDurableChannelAddress();
         PublicFailureIsRedacted();
-        Console.WriteLine("OK: publiczne transmisje YouTube bez konta (3 scenariusze)");
+        Console.WriteLine("OK: publiczne transmisje YouTube bez konta (4 scenariusze)");
     }
 
     private static void AvailableWithoutGoogleAccountAndReadsPublicChannel()
@@ -65,6 +66,22 @@ internal static class YouTubePublicBroadcastCoordinatorTests
         }
     }
 
+    private static void RadioBroadcastReturnsDurableChannelAddress()
+    {
+        using var backend = new FakePublicBackend
+        {
+            Broadcasts = [Live("Trwająca transmisja")],
+            ChannelLiveUrl = "https://www.youtube.com/channel/UCLQDRrFkBrwK6UbcUypMi5w/live"
+        };
+        using var coordinator = new LiteYouTubePublicBroadcastCoordinator(backend);
+        var result = Invoke(coordinator, LiteYouTubeAccountContract.RadioBroadcastsOperation,
+            """{"url":"https://www.youtube.com/watch?v=mD6gpBK7r6E"}""");
+        var json = LiteJson.Serialize(result);
+        Check(json.Contains("\"channelLiveUrl\":\"https://www.youtube.com/channel/UCLQDRrFkBrwK6UbcUypMi5w/live\"", StringComparison.Ordinal)
+              && json.Contains("Trwająca transmisja", StringComparison.Ordinal),
+            "Odświeżenie stacji nie zachowało stałego adresu kanału.");
+    }
+
     private static object Invoke(LiteYouTubePublicBroadcastCoordinator coordinator, string operation,
         string? args = null)
     {
@@ -87,6 +104,7 @@ internal static class YouTubePublicBroadcastCoordinatorTests
     {
         internal IReadOnlyList<YouTubeBroadcast> Broadcasts { get; init; } = [];
         internal IReadOnlySet<string> FailedIds { get; init; } = new HashSet<string>();
+        internal string? ChannelLiveUrl { get; init; }
         internal int ReadCalls { get; private set; }
         public bool IsAvailable => true;
         public string AvailabilityMessage => "Publiczne transmisje YouTube są dostępne bez konta Google.";
@@ -98,9 +116,10 @@ internal static class YouTubePublicBroadcastCoordinatorTests
                 throw new InvalidOperationException("awaria prywatna");
             return Task.FromResult(Broadcasts);
         }
-        public Task<IReadOnlyList<YouTubeBroadcast>> ReadRadioBroadcastsAsync(string sourceUrl,
+        public async Task<LiteYouTubeRadioBroadcastResult> ReadRadioBroadcastsAsync(string sourceUrl,
             string? subscriptionId, CancellationToken cancellationToken) =>
-            ReadBroadcastsAsync(subscriptionId ?? sourceUrl, true, cancellationToken);
+            new(await ReadBroadcastsAsync(subscriptionId ?? sourceUrl, true, cancellationToken),
+                ChannelLiveUrl);
         public void Dispose() { }
     }
 }

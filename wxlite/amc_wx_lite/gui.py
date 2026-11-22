@@ -38384,7 +38384,18 @@ class LiteFrame(wx.Frame):
                     f"Sprawdzam połączenie dla nagrania w tle: {station.name}"
                 )
             elif action == "stopping":
-                self.announcer.say(f"Zatrzymuję nagrywanie: {station.name}")
+                if (result or {}).get("alreadyStopping"):
+                    self.announcer.say(
+                        f"Nagranie stacji {station.name} jest już zatrzymywane. "
+                        "Po zakończeniu ponów Ctrl+R, aby rozpocząć nowe"
+                    )
+                elif int((result or {}).get("scheduledCount") or 0) > 0:
+                    self.announcer.say(
+                        f"Zatrzymuję zaplanowane nagrywanie: {station.name}. "
+                        "Bieżący termin nie wznowi się automatycznie"
+                    )
+                else:
+                    self.announcer.say(f"Zatrzymuję nagrywanie: {station.name}")
             self._refresh_recording_status()
 
         self.runner.submit(
@@ -39250,24 +39261,33 @@ class LiteFrame(wx.Frame):
             )
             broadcast = youtube_current_or_next_broadcast(payload)
             if broadcast is None or not broadcast.url:
-                return None
-            if profile_owned and broadcast.url != station.url:
-                client.edit_radio_station(station.id, station.name, broadcast.url)
-            return broadcast
+                return None, None
+            address = station_live_url or broadcast.url
+            if isinstance(payload, dict):
+                channel_address = payload.get("channelLiveUrl")
+                if isinstance(channel_address, str):
+                    try:
+                        address = youtube_dynamic_live_url(channel_address)
+                    except YouTubeLivePayloadError:
+                        pass
+            if profile_owned and address != station.url:
+                client.edit_radio_station(station.id, station.name, address)
+            return broadcast, address
 
-        def done(broadcast) -> None:
+        def done(result) -> None:
+            broadcast, address = result
             if broadcast is None:
                 self.announcer.say(i18n.tr("radio.youtube.none"))
                 return
-            if broadcast.url != station.url:
+            if address != station.url:
                 if not profile_owned:
                     try:
-                        self.stations.edit(station.id, station.name, broadcast.url)
+                        self.stations.edit(station.id, station.name, address)
                     except ValueError as error:
                         self.announcer.say(str(error))
                         return
                 if not self._update_private_radio_schedules_for_station(
-                    station.id, station.name, broadcast.url
+                    station.id, station.name, address
                 ):
                     self.announcer.say(
                         i18n.tr("radio.youtube.planSaveFailed")

@@ -146,7 +146,7 @@ internal static class LiteYouTubeAccountContract
     }
 
     internal static LiteYouTubeBroadcastList CreateBroadcasts(
-        IReadOnlyList<YouTubeBroadcast> rows)
+        IReadOnlyList<YouTubeBroadcast> rows, string? channelLiveUrl = null)
     {
         ArgumentNullException.ThrowIfNull(rows);
         return new LiteYouTubeBroadcastList(
@@ -159,7 +159,8 @@ internal static class LiteYouTubeAccountContract
                 row.ActualStartUtc)).ToArray(),
             rows.Count == 0
                 ? "Brak trwających i zaplanowanych transmisji."
-                : $"Transmisje: {rows.Count}.");
+                : $"Transmisje: {rows.Count}.",
+            channelLiveUrl);
     }
 
     private static string CleanLabel(string? value, string fallback = "Kanał YouTube")
@@ -237,7 +238,9 @@ internal sealed record LiteYouTubeBroadcastRequest(
 
 internal sealed record LiteYouTubeBroadcastList(
     [property: JsonPropertyName("items")] IReadOnlyList<LiteYouTubeBroadcast> Items,
-    [property: JsonPropertyName("message")] string Message);
+    [property: JsonPropertyName("message")] string Message,
+    [property: JsonPropertyName("channelLiveUrl")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ChannelLiveUrl);
 
 internal sealed record LiteYouTubeBroadcast(
     [property: JsonPropertyName("title")] string Title,

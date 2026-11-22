@@ -300,6 +300,7 @@ internal sealed class LiteYouTubeAccountCoordinator(
                 && subscription.ValueKind == JsonValueKind.String)
                 subscriptionId = subscription.GetString()?.Trim();
             IReadOnlyList<YouTubeBroadcast> rows;
+            string? channelLiveUrl = null;
             if (!string.IsNullOrEmpty(subscriptionId))
             {
                 rows = _backend.ReadBroadcastsAsync(
@@ -322,12 +323,13 @@ internal sealed class LiteYouTubeAccountCoordinator(
                 if (liveUrl is null)
                     throw new LiteRequestException(
                         "Nie udało się ustalić kanału YouTube tej stacji.");
+                channelLiveUrl = liveUrl;
                 var channelId = new Uri(liveUrl).AbsolutePath.Split(
                     '/', StringSplitOptions.RemoveEmptyEntries)[1];
                 rows = _backend.ReadChannelBroadcastsAsync(
                     channelId, CancellationToken.None).GetAwaiter().GetResult();
             }
-            return LiteYouTubeAccountContract.CreateBroadcasts(rows);
+            return LiteYouTubeAccountContract.CreateBroadcasts(rows, channelLiveUrl);
         }
         catch (LiteRequestException)
         {

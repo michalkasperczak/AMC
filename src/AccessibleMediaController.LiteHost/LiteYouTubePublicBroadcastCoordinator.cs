@@ -14,9 +14,12 @@ internal interface ILiteYouTubePublicBroadcastBackend : IDisposable
     string AvailabilityMessage { get; }
     Task<IReadOnlyList<YouTubeBroadcast>> ReadBroadcastsAsync(
         string subscriptionId, bool forceRefresh, CancellationToken cancellationToken);
-    Task<IReadOnlyList<YouTubeBroadcast>> ReadRadioBroadcastsAsync(
+    Task<LiteYouTubeRadioBroadcastResult> ReadRadioBroadcastsAsync(
         string sourceUrl, string? subscriptionId, CancellationToken cancellationToken);
 }
+
+internal sealed record LiteYouTubeRadioBroadcastResult(
+    IReadOnlyList<YouTubeBroadcast> Rows, string? ChannelLiveUrl);
 
 internal sealed class LiteYouTubePublicBroadcastCoordinator(
     ILiteYouTubePublicBroadcastBackend backend) : IDisposable
@@ -72,9 +75,10 @@ internal sealed class LiteYouTubePublicBroadcastCoordinator(
             subscriptionId = subscription.GetString()?.Trim();
         try
         {
-            var rows = _backend.ReadRadioBroadcastsAsync(
+            var result = _backend.ReadRadioBroadcastsAsync(
                 sourceUrl, subscriptionId, CancellationToken.None).GetAwaiter().GetResult();
-            return LiteYouTubeAccountContract.CreateBroadcasts(rows);
+            return LiteYouTubeAccountContract.CreateBroadcasts(
+                result.Rows, result.ChannelLiveUrl);
         }
         catch (LiteRequestException)
         {

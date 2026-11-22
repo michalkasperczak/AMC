@@ -6,7 +6,9 @@ Stan: 22.11.2026. Poprawka źródeł i testy gotowe; **niezintegrowana z wydanie
 
 22.11.2026 Michał opisał zaplanowane po 16:00 nagranie transmisji „Hermanice”/Dominikanie. Nieaktywny odnośnik wywołał komunikat sugerujący start nagrania. Po podmianie adresu w Ulubionych Enter odtwarzał transmisję, lecz ponowne Ctrl+R szybko zakończyło się błędem zapisu. Użytkownik wymaga, aby ręczne i zaplanowane nagranie korzystało z aktualnego adresu tego samego wpisu stacji, a Ulubione i Biblioteka były spójne.
 
-Komputer Hermes i jego dziennik tego zdarzenia nie są dostępne w tej sesji. Lokalny profil bieżącego komputera służył tylko do odczytowej kontroli modelu; nie jest dowodem tego, jaki adres i błąd wystąpiły na Hermesie. Nie otwierano ani nie zmieniano nagrań użytkownika. Dokładnej przyczyny komunikatu „nie można zapisać pliku” na Hermesie nie da się jeszcze przypisać bez tamtego logu lub próby odbiorczej.
+**Korekta Michała z 22.11.2026:** incydent nagrania wystąpił na głównym komputerze, na którym działa ta sesja, a nie na Hermesie. Zastępuje to wcześniejsze błędne przypisanie komputera. Odczytano lokalny dziennik `C:\Users\micha\AppData\Roaming\AMC-wx-Lite\logs\frontend.log` oraz historię z lokalnego profilu, bez zmiany profilu lub nagrań. O 16:15:12 operacja `youtube.radioBroadcasts` zwróciła „Nie udało się ustalić kanału YouTube tej stacji” (ten sam błąd wystąpił o 14:25). Historia zawiera cztery ręczne próby nagrania stacji Hermanice zakończone o 16:14:08, 16:14:20, 16:14:34 i 16:15:26: wszystkie mają wynik `failed`, zero zapisanych plików i przyczynę „Nie udało się odtworzyć tej transmisji YouTube. Sprawdź, czy transmisja trwa i jest publiczna”. Historia ta nie potwierdza ani nie wyjaśnia zgłoszonego pięciosekundowego pliku. Nie przeglądano Kosza i nie można przypisać dokładnego starego URL każdej z prób tylko na podstawie tego dziennika.
+
+W bieżącym zapisie profilu stacja z tym samym identyfikatorem ma adres `https://www.youtube.com/watch?v=mD6gpBK7r6E`; trzy prywatne plany dla tego identyfikatora również wskazują ten adres. To jest stan po zdarzeniu, a nie dowód adresu w chwili każdej próby. Bieżące flagi tej stacji wskazują, że nie należy obecnie do Biblioteki ani Ulubionych; nie potwierdza to jej członkostwa w czasie incydentu. Dziennik hosta z godzin 16:46–16:48 zawiera wpisy późniejszych testów Codexa, dlatego nie służy jako dowód incydentu.
 
 ## Ustalenia w kodzie
 
@@ -43,7 +45,7 @@ Ustalenie Michała z 22.11.2026: po **faktycznej aktualizacji** zawierającej po
 
 ## Znane ograniczenia i następny krok
 
-Poprawka aktywnego planu została sprawdzona kompilacją, ale nie próbą z prawdziwą transmisją na Hermesie. W odbiorze trzeba wykonać bezpieczną próbę na własnym, krótkim harmonogramie i sprawdzić: niedostępny URL, zmianę URL w trakcie oczekiwania, komunikat rozpoczęcia po rzeczywistym otwarciu pliku, Ctrl+R po edycji w Ulubionych i zgodność widoku Biblioteki. Nie podmieniaj działającej instalacji w trakcie żadnego nagrania.
+Poprawka aktywnego planu została sprawdzona kompilacją, ale nie próbą z prawdziwą transmisją na głównym komputerze ani na Hermesie. W odbiorze trzeba wykonać bezpieczną próbę na własnym, krótkim harmonogramie i sprawdzić: niedostępny URL, zmianę URL w trakcie oczekiwania, komunikat rozpoczęcia po rzeczywistym otwarciu pliku, Ctrl+R po edycji w Ulubionych i zgodność widoku Biblioteki. Nie podmieniaj działającej instalacji w trakcie żadnego nagrania.
 
 **Następny krok:** zintegrować tę gałąź z przygotowywaną aktualizacją AMC, sprawdzić stan nagrań przed instalacją, przeprowadzić próbę odbiorczą, a po faktycznym wydaniu wpisać wynik Hubertowi w odpowiednim zgłoszeniu GitHub.
 

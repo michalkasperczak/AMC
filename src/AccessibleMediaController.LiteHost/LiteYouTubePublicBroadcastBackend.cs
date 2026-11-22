@@ -48,25 +48,36 @@ internal sealed class LiteYouTubePublicBroadcastBackend : ILiteYouTubePublicBroa
         return rows;
     }
 
-    public async Task<IReadOnlyList<YouTubeBroadcast>> ReadRadioBroadcastsAsync(
+    public async Task<LiteYouTubeRadioBroadcastResult> ReadRadioBroadcastsAsync(
         string sourceUrl, string? subscriptionId, CancellationToken cancellationToken)
     {
         if (!string.IsNullOrWhiteSpace(subscriptionId))
-            return await ReadBroadcastsAsync(subscriptionId, true, cancellationToken).ConfigureAwait(false);
+            return new LiteYouTubeRadioBroadcastResult(
+                await ReadBroadcastsAsync(subscriptionId, true, cancellationToken).ConfigureAwait(false), null);
         if (!Uri.TryCreate(sourceUrl, UriKind.Absolute, out var source)
             || !YouTubeSourceResolver.IsYouTubeUrl(sourceUrl))
             throw new LiteRequestException("Ta stacja nie ma adresu YouTube.");
-        var executable = YouTubeSourceResolver.FindExecutable()
-            ?? throw new LiteRequestException(AvailabilityMessage);
-        var liveUrl = YouTubeSourceResolver.TryResolveChannelLiveUrlAsync(
-            executable, source.AbsoluteUri, cancellationToken).GetAwaiter().GetResult();
+        var segments = source.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var liveUrl = segments.Length >= 2
+                      && segments[0].Equals("channel", StringComparison.OrdinalIgnoreCase)
+            ? YouTubeSourceResolver.TryBuildChannelLiveUrl(
+                Uri.UnescapeDataString(segments[1]))
+            : null;
+        if (liveUrl is null)
+        {
+            var executable = YouTubeSourceResolver.FindExecutable()
+                ?? throw new LiteRequestException(AvailabilityMessage);
+            liveUrl = await YouTubeSourceResolver.TryResolveChannelLiveUrlAsync(
+                executable, source.AbsoluteUri, cancellationToken).ConfigureAwait(false);
+        }
         if (liveUrl is null || !Uri.TryCreate(liveUrl, UriKind.Absolute, out var liveAddress))
             throw new LiteRequestException("Nie udało się ustalić kanału YouTube tej stacji.");
         var path = liveAddress.AbsolutePath;
         if (!path.EndsWith("/live", StringComparison.OrdinalIgnoreCase))
             throw new LiteRequestException("Nie udało się ustalić kanału YouTube tej stacji.");
         var streams = new UriBuilder(liveAddress) { Path = path[..^"/live".Length] + "/streams" }.Uri;
-        return await _client.FetchAsync(streams, cancellationToken).ConfigureAwait(false);
+        var rows = await _client.FetchAsync(streams, cancellationToken).ConfigureAwait(false);
+        return new LiteYouTubeRadioBroadcastResult(rows, liveUrl);
     }
 
     public void Dispose() => _cache.Clear();
