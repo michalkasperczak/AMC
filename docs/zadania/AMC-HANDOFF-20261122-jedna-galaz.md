@@ -9,6 +9,10 @@ zastępuje wcześniejszy pomysł utrzymywania równoległych wykonawców.
 Osobne pliki zadań służą porządkowi diagnoz, a nie uruchamianiu drugiej pracy.
 Michał 22.11 doprecyzował: główna praca będzie tutaj, a GitHub ma dostawać
 kod i instalatory zwykle po etapach, najpóźniej co 2–3 dni.
+Późniejsza korekta Michała z 22.11: odbiór Huberta na dużej Bibliotece,
+YouTube i jego sprzęcie jest pracą następczą. Brak wyniku z tych prób nie
+wstrzymuje kolejnej aktualizacji z innymi sprawdzonymi poprawkami; jeśli
+Hubert znajdzie regresję, wrócimy do konkretnego zgłoszenia.
 
 ## Stan źródeł i wydania
 
