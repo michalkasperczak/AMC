@@ -89,7 +89,7 @@ zapisem pośrednim i nie jest drugim torem pracy.
 Baza testu: `7751dee7c0d417ce58e941745a0a81ebdfc03ada` (po publikacji
 alpha.513). Zintegrowany test i pierwsza diagnoza: `efd6acd0`;
 test Escape: `cebfdb02`.
-Korekta asercji MP3 po pomiarze osi FFmpeg i Windows: kod testu w kolejnej
-zmianie tej samej gałęzi, bez zmiany produktu.
+Korekta asercji MP3 po pomiarze osi FFmpeg i Windows: `47be5c0c`,
+bez zmiany kodu produktu.
 Kod produkcyjny bez zmian. Pakiet, instalacja, publikacja i żywy test NVDA:
 niewykonane.
