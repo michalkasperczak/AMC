@@ -1642,6 +1642,10 @@ internal sealed class LiteEngineHandlers : IDisposable
                 .GetAwaiter()
                 .GetResult();
             var result = LiteAudioClipOperations.Remove(args, events);
+            // The edit may have committed already. Check the final path before
+            // changing cached metadata; an unavailable path must never turn
+            // into a misleading claim that no edit was performed.
+            var editedLength = ReadEditedAudioLength(result.SourcePath);
 
             lock (_gate)
             {
@@ -1654,7 +1658,7 @@ internal sealed class LiteEngineHandlers : IDisposable
                     _filesItem.Duration = duration;
                     if (result.SampleRateHz > 0) _filesItem.SampleRateHz = result.SampleRateHz;
                     _filesItem.BitrateKbps = LocalAudioFileDiscovery.EstimateBitrateKbps(
-                        new FileInfo(result.SourcePath).Length,
+                        editedLength,
                         duration);
                     _filesItem.IsBitrateEstimated = _filesItem.BitrateKbps.HasValue;
                     _filesDurationId = currentId;
@@ -1677,6 +1681,21 @@ internal sealed class LiteEngineHandlers : IDisposable
         finally
         {
             lock (_audioClipEditGate) _audioClipRemovalInProgress = false;
+        }
+    }
+
+    private static long ReadEditedAudioLength(string sourcePath)
+    {
+        try
+        {
+            return new FileInfo(sourcePath).Length;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            throw new LiteRequestException(
+                "Edycja doszła do etapu zapisu, ale nie można potwierdzić pliku pod pierwotną nazwą. "
+                + "Nie usuwaj plików z kropką w folderze nagrania; mogą zawierać wynik. "
+                + "Sprawdź folder i zgłoś ten błąd.");
         }
     }
 

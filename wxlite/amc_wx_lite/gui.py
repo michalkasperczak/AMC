@@ -33034,7 +33034,7 @@ class LiteFrame(wx.Frame):
             self._audio_clip_edit_kind = None
             self._audio_clip_edit_percent = -1
             self._audio_clip_edit_operation_id = None
-            message = f"Nie udało się usunąć fragmentu: {error}"
+            message = f"Edycja fragmentu nie została potwierdzona: {error}"
             self.status_field.SetLabel(message)
             self.status_bar.show(message)
             self.announcer.say(message)
@@ -35990,6 +35990,14 @@ class LiteFrame(wx.Frame):
         release .383 pokazuje "3:51". Slowo pojawia sie tylko wtedy, gdy
         uzytkownik sam wpisal je do szablonu w ustawieniach AMC.
         """
+        if (
+            self.navigator.active in (SessionId.FILES, SessionId.PODCASTS)
+            and self._audio_clip_edit_in_progress
+        ):
+            self.announcer.say(
+                "Trwa edycja pliku. Czas będzie dostępny po jej zakończeniu."
+            )
+            return
         if self.navigator.active is SessionId.TIDAL:
             self._announce_tidal_time(action)
             return

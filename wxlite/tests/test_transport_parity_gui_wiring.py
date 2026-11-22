@@ -60,6 +60,7 @@ def make_frame(
         "positionSeconds": 231.0,
         "durationSeconds": 600.0,
     }
+    frame._audio_clip_edit_in_progress = False
     frame.runner = FakeRunner(payload)
     frame.navigator = SimpleNamespace(active=SessionId.FILES)
     # ``_session_default_rate`` reads per-session overrides from the persisted
@@ -254,6 +255,16 @@ def test_pozostalo_i_calosc_tez_sa_samym_czasem() -> None:
     frame._dispatch(Action.TIME_REMAINING)
     # 600 s = 10:00, pozostalo 600-231 = 369 s = 6:09.
     assert spoken == ["10:00", "6:09"]
+
+
+def test_ctrl_shift_t_nie_podaje_starego_czasu_w_trakcie_ciecia() -> None:
+    frame, spoken, _ = make_frame()
+    frame._audio_clip_edit_in_progress = True
+
+    frame._dispatch(Action.TIME_TOTAL)
+
+    assert spoken == ["Trwa edycja pliku. Czas będzie dostępny po jej zakończeniu."]
+    assert frame.runner.calls == [], "Odczyt czasu nie powinien otwierać pliku"
 
 
 def test_uzytkownik_moze_dopisac_slowo_w_szablonie() -> None:
