@@ -22,6 +22,18 @@ przeszły, lecz zniknięcia nazwy w katalogu synchronizowanym nie odtworzono.
   przy wyłączonej retencji kopii. Nie zastępuje próby w osobnym katalogu
   synchronizowanym ani testu żywego Alt+Shift+R/NVDA.
 
+## Dopowiedzenie Michała z 22.11.2026 — Escape po cięciu
+
+Michał przypuszcza, że mógł szybko nacisnąć Escape; odnalazł plik wyniku
+z kropką na początku. To nowa hipoteza czasowa, nie ustalona przyczyna.
+Odczyt kodu pokazuje, że Escape z odtwarzacza prowadzi do powrotu na listę
+i ewentualnej pauzy. Ta ścieżka nie woła `cancel_audio_clip`; jawne anulowanie
+jest osobną komendą, a zamknięcie całej aplikacji anuluje trwającą operację.
+Powrót na listę może jednak zbiec się ze spóźnionym zakończeniem wątku,
+odświeżeniem historii albo zewnętrzną zmianą nazwy. Potrzebna jest osobna
+próba z Escape przed i tuż po zakończeniu na sztucznym pliku, z rejestrem
+faktycznych ścieżek, bez nagrań użytkownika.
+
 ## Kod i testy
 
 - Zmieniono wyłącznie `tests/AccessibleMediaController.Windows.SmokeTests/Program.cs`:
@@ -60,5 +72,6 @@ tamtych nagrań. Wynik testu nie jest potwierdzeniem działania na iCloud.
 ## Wersja i commit
 
 Baza testu: `7751dee7c0d417ce58e941745a0a81ebdfc03ada` (po publikacji
-alpha.513). Kod produkcyjny bez zmian. Pakiet, instalacja, publikacja i żywy
-test NVDA: niewykonane. Commit zadania: do uzupełnienia po zapisie.
+alpha.513). Test i pierwsza diagnoza: `2f93607b0bc6c6aad921bd95e96b815480a2d0c9`.
+Kod produkcyjny bez zmian. Pakiet, instalacja, publikacja i żywy test NVDA:
+niewykonane.
