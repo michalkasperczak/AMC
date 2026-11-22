@@ -1,6 +1,6 @@
 # Kandydat aktualizacji AMC po alpha.512 — integracja
 
-Stan 22.11.2026: gałąź `codex/alpha512-update-candidate-20261122`, HEAD `12dd0c50`, w osobnym worktree. Kod nie jest zainstalowany na głównym komputerze ani Hermesie i nie jest opublikowany jako wydanie GitHub.
+Stan 22.11.2026: gałąź `codex/alpha512-update-candidate-20261122`, commit kodu `76b00d66`, w osobnym worktree. Kod nie jest zainstalowany na głównym komputerze ani Hermesie i nie jest opublikowany jako wydanie GitHub.
 
 ## Zintegrowane przyrosty
 
@@ -12,6 +12,7 @@ Stan 22.11.2026: gałąź `codex/alpha512-update-candidate-20261122`, HEAD `12dd
 6. Presety TIDAL oraz szybkie przypisanie `Ctrl+Alt+Shift+cyfra` w obsługiwanych sesjach; commity integracyjne `a01fbfe2` i `1d5e68b2` z istniejących `5f1297a7` i `a12aafb7`. Pełny kontrakt, etykiety i ograniczenia są w `PRESET-20261122-tidal-i-bezposrednie-przypisanie.md`. Kanoniczne źródła i niezależne zmiany robocze na D: pozostawiono bez zmian.
 7. Radio Archiwista `RARCH-004`: ulubione całych stacji obok nagrań i lokalne nazwy F2; commity integracyjne `563aa802` i `25fe2834` z `218e25a8` i `818520da`. Raport `RARCH-004-ulubione-stacji-i-nazwy-lokalne.md`.
 8. Hubert #22: Foldery Biblioteki bez zbędnego sortowania tytułów w SQL, przy zachowaniu `rowid` dla remisów; commit `12dd0c50`. Raport `HUBERT-22-20261122-foldery.md`.
+9. Kolejka Podcastów i zapisanych filmów YouTube: Delete wybiera widocznego sąsiada, pojedynczo potwierdza wynik i ignoruje spóźnioną odpowiedź po zmianie widoku; commit `76b00d66`. Raport `QUEUE-DELETE-20261122-podcast-youtube.md`.
 
 ## Weryfikacja
 
@@ -22,6 +23,7 @@ Stan 22.11.2026: gałąź `codex/alpha512-update-candidate-20261122`, HEAD `12dd
 - Po dołączeniu ulubionych stacji: połączony zestaw nagrywania, Radio Archiwisty, presetów, menu, palety i skrótów: **242 passed**. Nie wykonano jeszcze builda, pełnego zestawu ani widocznego GUI dla tego HEAD.
 - Po dołączeniu lokalnych nazw F2: połączony zestaw nagrywania, YouTube, Radio Archiwisty, presetów, menu, palety i skrótów: **267 passed, 2 subtests passed**. Nadal bez widocznego GUI, NVDA, instalacji, pełnego zestawu i builda po tym commicie.
 - Po poprawce Folderów #22: celowane testy #22/#21/Biblioteki **8 passed, 14 skipped**; szerszy zestaw dziewięciu plików **114 passed, 49 skipped, 2 subtests passed**. Na syntetycznej bazie 60 000 plików korzeń spadł z 4,986 s do 0,249 s, a folder z 8,766 s do 0,544 s; skróty wyniku przed i po były zgodne. Pełny zestaw, build i NVDA nadal niewykonane dla tego HEAD.
+- Po poprawce Delete Podcastów/YouTube: **6 nowych testów passed** oraz **26 testów nawigacji i członkostwa kolejki passed**. Szerszy zestaw z prawdziwym hostem nie zakończył się po 32 początkowych testach i został przerwany; nie zaliczono go. Pełny zestaw, build i NVDA nadal niewykonane dla obecnego HEAD.
 - Nie powtarzano pełnego zestawu po małej zmianie YouTube i Ctrl+R. Nie wykonano prób instalacji, NVDA ani prawdziwego nagrania nowym kodem. Pełny test w poprzedniej próbie dopisał wpisy testowe do lokalnego dziennika hosta między 16:46 a 16:48; nie traktować ich jako logu incydentu użytkownika. Kolejne testy wymagające hosta należy izolować od bieżącego profilu.
 
 ## Ograniczenia i kolejność
