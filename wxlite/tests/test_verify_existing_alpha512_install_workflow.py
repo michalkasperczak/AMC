@@ -1,7 +1,9 @@
 """Statyczny kontrakt jednorazowego smoke instalacji istniejących AMC alpha.512."""
 from __future__ import annotations
 
+import base64
 import re
+import subprocess
 from pathlib import Path
 
 
@@ -15,6 +17,60 @@ SOURCE_SHA = "d360cd89f622b90ae351f1ed876904b38856b625"
 def _workflow() -> str:
     assert WORKFLOW.is_file(), "brak jednorazowego workflow smoke instalacji"
     return WORKFLOW.read_text(encoding="utf-8")
+
+
+def _workflow_function(workflow: str, name: str) -> str:
+    lines = workflow.splitlines()
+    start = next(index for index, line in enumerate(lines) if line.strip() == f"function {name} {{")
+    depth = 0
+    result: list[str] = []
+    for line in lines[start:]:
+        result.append(line[10:] if line.startswith("          ") else line)
+        depth += line.count("{") - line.count("}")
+        if depth == 0:
+            return "\n".join(result)
+    raise AssertionError(f"funkcja {name} nie ma zamykającej klamry")
+
+
+def test_defender_gate_keeps_empty_events_as_array_under_strict_mode() -> None:
+    workflow = _workflow()
+    functions = "\n\n".join(
+        _workflow_function(workflow, name)
+        for name in ("Get-DefenderEvents", "Get-DefenderSnapshot", "Assert-DefenderSnapshot", "Invoke-DefenderGate")
+    )
+    script = f"""
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+$jobStarted = [DateTime]::UtcNow
+$script:report = [ordered]@{{ gates = @() }}
+function Get-WinEvent {{ param($FilterHashtable, $ErrorAction) }}
+function Get-MpComputerStatus {{
+  param($ErrorAction, $WarningAction, $WarningVariable)
+  [pscustomobject]@{{ AntivirusEnabled=$true; RealTimeProtectionEnabled=$true; BehaviorMonitorEnabled=$true; IoavProtectionEnabled=$true; OnAccessProtectionEnabled=$true; AMRunningMode='Normal'; AMEngineVersion='test'; AntivirusSignatureVersion='test'; AntivirusSignatureLastUpdated=$null }}
+}}
+function Get-MpPreference {{
+  param($ErrorAction, $WarningAction, $WarningVariable)
+  [pscustomobject]@{{ DisableRealtimeMonitoring=$false; DisableBehaviorMonitoring=$false; DisableIOAVProtection=$false; DisableArchiveScanning=$false; DisableScriptScanning=$false; ExclusionPath=@(); ExclusionProcess=@(); ExclusionExtension=@() }}
+}}
+function Get-MpThreat {{ param($ErrorAction, $WarningAction, $WarningVariable) }}
+function Get-MpThreatDetection {{ param($ErrorAction, $WarningAction, $WarningVariable) }}
+function Start-MpScan {{ param($ScanType, $ScanPath, $ErrorAction, $WarningAction, $WarningVariable) }}
+{functions}
+Invoke-DefenderGate -Target 'C:\\empty' -Stage 'mock-empty-events'
+$entry = $script:report.gates[0]
+if ($entry.events1116_1117 -isnot [array] -or $entry.events1116_1117.Count -ne 0) {{ throw 'events are not a real empty array' }}
+if ($entry.threats -isnot [array] -or $entry.detections -isnot [array]) {{ throw 'threat reports are not arrays' }}
+"""
+    powershell = Path("/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/powershell.exe")
+    assert powershell.is_file(), "brak PowerShell do funkcjonalnego testu atrapy cmdletów"
+    command = base64.b64encode(script.encode("utf-16le")).decode("ascii")
+    result = subprocess.run(
+        [str(powershell), "-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand", command],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr + result.stdout
 
 
 def test_one_shot_trigger_and_runtime_guard_share_exact_ref() -> None:
@@ -91,6 +147,45 @@ def test_artifact_inputs_are_pinned_and_verified_before_safe_extraction() -> Non
     assert "extractall" not in verifier
 
 
+def test_runtime_provenance_credentials_and_installed_contracts_are_fail_closed() -> None:
+    workflow = _workflow()
+    assert "\n    paths:" not in workflow
+    for required in (
+        "AMC_ARTIFACT_TOKEN: ${{ github.token }}",
+        'Authorization = "Bearer $env:AMC_ARTIFACT_TOKEN"',
+        "actions/runs/$runId",
+        "$run.status -cne 'completed'",
+        "$run.conclusion -cne 'success'",
+        "$run.run_attempt -ne 1",
+        "$run.head_sha -cne $sourceRevision",
+        "$run.head_branch -cne $sourceBranch",
+        "sourceRef = 'refs/heads/codex/amc-protected-public-test-20261119-playback-r1'",
+        "$metadata.size_in_bytes -ne $artifact.bytes",
+        "$metadata.digest -cne $artifact.digest",
+        "Clear-DownloadCredentials",
+        "nvda\\addons",
+        "final-defender-audit",
+        "$entry.events1116_1117 = @(Get-DefenderEvents)",
+        "$entry.threats = @(Get-MpThreat",
+        "$entry.detections = @(Get-MpThreatDetection",
+        "afterBothInstallations",
+        "runtime\\Lib\\site-packages\\playwright\\__init__.py",
+    ):
+        assert required in workflow
+    assert workflow.count("Start-MpScan -ScanType CustomScan") == 1
+    build = (ROOT / "wxlite" / "tools" / "Build-AMCInstaller.ps1").read_text(encoding="utf-8-sig")
+    assert "VersionInfo.ProductVersion" in build
+    assert "$launcherVersion = ($launcherVersion -split" in build
+    assert "if ($launcherVersion -ne $Version)" in build
+    assert "VersionInfo.ProductVersion" in workflow
+    bundle = (ROOT / "wxlite" / "tools" / "build_bundle.py").read_text(encoding="utf-8")
+    assert '"playwright": ("playwright", "playwright-1.65.0.dist-info")' in bundle
+    installer = (ROOT / "installer" / "AMC_Wx_Setup.iss").read_text(encoding="utf-8")
+    assert "if CurStep = ssPostInstall" in installer
+    assert "--sprawdz-pakiet-instalatora-pelny-cicho" in installer
+    assert "--sprawdz-start-instalatora-cicho" in installer
+
+
 def test_smoke_uses_separate_clean_dirs_waits_and_checks_real_contracts() -> None:
     workflow = _workflow()
     for required in (
@@ -135,9 +230,11 @@ if __name__ == "__main__":
     import unittest
 
     checks = (
+        test_defender_gate_keeps_empty_events_as_array_under_strict_mode,
         test_one_shot_trigger_and_runtime_guard_share_exact_ref,
         test_workflow_is_hosted_read_only_and_uploads_reports_only,
         test_artifact_inputs_are_pinned_and_verified_before_safe_extraction,
+        test_runtime_provenance_credentials_and_installed_contracts_are_fail_closed,
         test_smoke_uses_separate_clean_dirs_waits_and_checks_real_contracts,
         test_defender_enablement_scan_and_final_audit_fail_closed,
     )

@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - codex/amc-verify-install-alpha512
-    paths:
-      - .github/workflows/amc-verify-existing-alpha512-install.yml
-      - tools/verify_existing_alpha512_artifacts.py
-      - wxlite/tests/test_verify_existing_alpha512_install_workflow.py
 
 permissions:
   actions: read
@@ -29,26 +25,61 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
+      - name: Pobierz przypięte artefakty tylko przez token kroku
+        shell: pwsh
+        env:
+          AMC_ARTIFACT_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Set-StrictMode -Version Latest
+          $sourceRevision = 'd360cd89f622b90ae351f1ed876904b38856b625'
+          $sourceRef = 'refs/heads/codex/amc-protected-public-test-20261119-playback-r1'
+          $sourceBranch = 'codex/amc-protected-public-test-20261119-playback-r1'
+          $runId = 45016390370
+          $artifactRoot = Join-Path $env:RUNNER_TEMP 'amc-alpha512-install-artifacts'
+          if (Test-Path -LiteralPath $artifactRoot) { throw 'Katalog pobranych artefaktów istnieje przed rozpoczęciem.' }
+          New-Item -ItemType Directory -Path $artifactRoot | Out-Null
+          $headers = @{ Authorization = "Bearer $env:AMC_ARTIFACT_TOKEN"; Accept = 'application/vnd.github+json' }
+          try {
+            $run = Invoke-RestMethod -Uri "https://api.github.com/repos/michalkasperczak/AMC/actions/runs/$runId" -Headers $headers -ErrorAction Stop
+            if ($run.id -ne $runId -or $run.status -cne 'completed' -or $run.conclusion -cne 'success' -or $run.run_attempt -ne 1 -or $run.head_sha -cne $sourceRevision -or $run.head_branch -cne $sourceBranch) { throw 'Metadane zamrożonego runu nie są dokładnie zgodne z kontraktem.' }
+            [ordered]@{ id = $run.id; status = $run.status; conclusion = $run.conclusion; runAttempt = $run.run_attempt; sourceRevision = $run.head_sha; sourceRef = $sourceRef } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $artifactRoot 'source-run.json') -Encoding utf8
+            foreach ($artifact in @(
+              [ordered]@{ id = 14752053921; name = 'amc-protected-public-test-installers-d360cd89f622b90ae351f1ed876904b38856b625'; bytes = 347655437; digest = 'sha256:f56a2b11c650f890bfe39571f99257ead3934fe25c0ebf29080dc1d8928a6f71'; destination = 'installers.zip' },
+              [ordered]@{ id = 14752572396; name = 'amc-protected-public-test-evidence-d360cd89f622b90ae351f1ed876904b38856b625'; bytes = 6000; digest = 'sha256:c438451b243408bdcad4e871545de24d158f3381449e5538ed52959c4aa34175'; destination = 'evidence.zip' }
+            )) {
+              $metadata = Invoke-RestMethod -Uri "https://api.github.com/repos/michalkasperczak/AMC/actions/artifacts/$($artifact.id)" -Headers $headers -ErrorAction Stop
+              if ($metadata.id -ne $artifact.id -or $metadata.name -cne $artifact.name -or $metadata.size_in_bytes -ne $artifact.bytes -or $metadata.digest -cne $artifact.digest -or $metadata.expired -or $metadata.workflow_run.id -ne $runId -or $metadata.workflow_run.head_sha -cne $sourceRevision -or $metadata.workflow_run.head_branch -cne $sourceBranch) { throw 'Metadane przypiętego artefaktu nie są dokładnie zgodne z kontraktem.' }
+              Invoke-WebRequest -Uri "https://api.github.com/repos/michalkasperczak/AMC/actions/artifacts/$($artifact.id)/zip" -Headers $headers -OutFile (Join-Path $artifactRoot $artifact.destination) -ErrorAction Stop
+            }
+          }
+          finally {
+            $headers.Clear()
+            $env:AMC_ARTIFACT_TOKEN = $null
+            Remove-Item Env:\AMC_ARTIFACT_TOKEN -ErrorAction SilentlyContinue
+          }
+
       - name: Włącz ochronę i wykonaj smoke istniejących instalatorów
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           Set-StrictMode -Version Latest
           $sourceRevision = 'd360cd89f622b90ae351f1ed876904b38856b625'
+          $sourceRef = 'refs/heads/codex/amc-protected-public-test-20261119-playback-r1'
           $version = '0.1.0-alpha.512'
-          $runId = 45016390370
-          $binaryArtifactId = 14752053921
-          $evidenceArtifactId = 14752572396
+          $artifactRoot = Join-Path $env:RUNNER_TEMP 'amc-alpha512-install-artifacts'
           $evidence = Join-Path $env:RUNNER_TEMP 'amc-alpha512-install-evidence'
           $smokeRoot = Join-Path $env:RUNNER_TEMP 'amc-alpha512-install-smoke'
           $verified = Join-Path $smokeRoot 'verified'
           $jobStarted = [DateTime]::UtcNow
+          $script:finalAudit = $null
           New-Item -ItemType Directory -Path $evidence -Force | Out-Null
           $report = [ordered]@{
             schemaVersion = 1
             sourceRevision = $sourceRevision
+            sourceRef = $sourceRef
             version = $version
-            runId = $runId
+            sourceRun = $null
             startedUtc = $jobStarted.ToString('o')
             finishedUtc = $null
             protection = [ordered]@{ before = $null; after = $null; exitCode = 1; error = $null }
@@ -123,17 +154,19 @@ jobs:
 
           function Invoke-DefenderGate {
             param([Parameter(Mandatory)][string]$Target, [Parameter(Mandatory)][string]$Stage)
-            $entry = [ordered]@{ stage = $Stage; target = $Target; startedUtc = [DateTime]::UtcNow.ToString('o'); finishedUtc = $null; exitCode = 1; snapshot = $null; detections = @(); events1116_1117 = @(); error = $null }
+            $entry = [ordered]@{ stage = $Stage; target = $Target; startedUtc = [DateTime]::UtcNow.ToString('o'); finishedUtc = $null; exitCode = 1; snapshot = $null; threats = @(); detections = @(); events1116_1117 = @(); error = $null }
             try {
               $entry.snapshot = Get-DefenderSnapshot
               Assert-DefenderSnapshot -Snapshot $entry.snapshot
               $warnings = @()
-              $threats = @(Get-MpThreat -ErrorAction Stop -WarningAction Continue -WarningVariable +warnings)
-              $detections = @(Get-MpThreatDetection -ErrorAction Stop -WarningAction Continue -WarningVariable +warnings)
-              if ($warnings.Count -gt 0 -or $threats.Count -gt 0 -or $detections.Count -gt 0) { throw 'Defender zgłasza zagrożenie, wykrycie albo ostrzeżenie.' }
+              $entry.threats = @(Get-MpThreat -ErrorAction Stop -WarningAction Continue -WarningVariable +warnings)
+              $entry.detections = @(Get-MpThreatDetection -ErrorAction Stop -WarningAction Continue -WarningVariable +warnings)
+              if ($warnings.Count -gt 0 -or $entry.threats.Count -gt 0 -or $entry.detections.Count -gt 0) { throw 'Defender zgłasza bieżące zagrożenie, wykrycie albo ostrzeżenie.' }
               Start-MpScan -ScanType CustomScan -ScanPath $Target -ErrorAction Stop -WarningAction Continue -WarningVariable +warnings
-              $entry.events1116_1117 = Get-DefenderEvents
-              if ($warnings.Count -gt 0 -or $entry.events1116_1117.Count -gt 0) { throw 'Skan Defendera zwrócił ostrzeżenie albo zdarzenie 1116/1117.' }
+              $entry.threats = @(Get-MpThreat -ErrorAction Stop -WarningAction Continue -WarningVariable +warnings)
+              $entry.detections = @(Get-MpThreatDetection -ErrorAction Stop -WarningAction Continue -WarningVariable +warnings)
+              $entry.events1116_1117 = @(Get-DefenderEvents)
+              if ($warnings.Count -gt 0 -or $entry.threats.Count -gt 0 -or $entry.detections.Count -gt 0 -or $entry.events1116_1117.Count -gt 0) { throw 'Skan Defendera zwrócił ostrzeżenie, zagrożenie, wykrycie albo zdarzenie 1116/1117.' }
               $entry.exitCode = 0
             }
             catch {
@@ -143,6 +176,13 @@ jobs:
             finally {
               $entry.finishedUtc = [DateTime]::UtcNow.ToString('o')
               $script:report.gates += $entry
+              if ($Stage -ceq 'final-defender-audit') { $script:finalAudit = $entry }
+            }
+          }
+
+          function Clear-DownloadCredentials {
+            foreach ($secret in @('AMC_ARTIFACT_TOKEN', 'GITHUB_TOKEN', 'GH_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'ACTIONS_RUNTIME_URL', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN')) {
+              Remove-Item "Env:$secret" -ErrorAction SilentlyContinue
             }
           }
 
@@ -153,6 +193,7 @@ jobs:
               [Parameter(Mandatory)][string]$InstallDirectory,
               [Parameter(Mandatory)]$Contract
             )
+            Clear-DownloadCredentials
             if (Test-Path -LiteralPath $InstallDirectory) { throw "Katalog instalacji $Profile musi być czysty." }
             New-Item -ItemType Directory -Path (Split-Path -Parent $InstallDirectory) -Force | Out-Null
             Invoke-DefenderGate -Target $Installer -Stage "$Profile-installer-before-execution"
@@ -187,8 +228,11 @@ jobs:
             $launcherVersion = ([string](Get-Item -LiteralPath $launcher).VersionInfo.ProductVersion -split '\+', 2)[0]
             if ($launcherVersion -ne $version) { throw "Launcher $Profile ma wersję $launcherVersion zamiast $version." }
             $sessions = @($manifest.sessions)
+            $playwrightMarker = Join-Path $InstallDirectory 'runtime\Lib\site-packages\playwright\__init__.py'
             if ($Profile -eq 'public' -and $sessions -contains 'appleMusic') { throw 'AMC Public nie może zawierać Apple Music.' }
+            if ($Profile -eq 'public' -and (Test-Path -LiteralPath $playwrightMarker -PathType Leaf)) { throw 'AMC Public nie może fizycznie zawierać markera Playwright Apple Music.' }
             if ($Profile -eq 'test' -and $sessions -notcontains 'appleMusic') { throw 'AMC Test nie ma oczekiwanego Apple Music.' }
+            if ($Profile -eq 'test' -and -not (Test-Path -LiteralPath $playwrightMarker -PathType Leaf)) { throw 'AMC Test nie ma fizycznego markera Playwright Apple Music.' }
             $appPathLeaf = if ($Profile -eq 'public') { 'AMC.exe' } else { 'AMC-Test.exe' }
             $registryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\App Paths\$appPathLeaf"
             if (-not (Test-Path -LiteralPath $registryPath)) { throw "Brak wpisu App Paths dla $Profile." }
@@ -224,28 +268,32 @@ jobs:
             $report.protection = [ordered]@{ before = $before; after = $after; exitCode = 0 }
             $report.protection | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $evidence 'protection-setup.json') -Encoding utf8
 
-            Invoke-DefenderGate -Target $env:GITHUB_WORKSPACE -Stage 'workflow-source-before-download'
+            Invoke-DefenderGate -Target $env:GITHUB_WORKSPACE -Stage 'workflow-source-before-artifact-use'
             if (Test-Path -LiteralPath $smokeRoot) { throw 'Katalog smoke istnieje przed rozpoczęciem.' }
+            if (-not (Test-Path -LiteralPath (Join-Path $artifactRoot 'source-run.json') -PathType Leaf)) { throw 'Brak zweryfikowanych metadanych zamrożonego runu.' }
+            $binaryZip = Join-Path $artifactRoot 'installers.zip'
+            $evidenceZip = Join-Path $artifactRoot 'evidence.zip'
+            if (-not (Test-Path -LiteralPath $binaryZip -PathType Leaf) -or -not (Test-Path -LiteralPath $evidenceZip -PathType Leaf)) { throw 'Brak obu przypiętych archiwów artefaktów.' }
+            $report.sourceRun = Get-Content -LiteralPath (Join-Path $artifactRoot 'source-run.json') -Raw | ConvertFrom-Json
             New-Item -ItemType Directory -Path $smokeRoot | Out-Null
-            $binaryZip = Join-Path $smokeRoot 'installers.zip'
-            $evidenceZip = Join-Path $smokeRoot 'evidence.zip'
-            $artifactHeaders = @{ Authorization = 'Bearer ${{ github.token }}'; Accept = 'application/vnd.github+json' }
-            $metadata = Invoke-RestMethod -Uri "https://api.github.com/repos/michalkasperczak/AMC/actions/artifacts/$binaryArtifactId" -Headers $artifactHeaders -ErrorAction Stop
-            if ($metadata.id -ne $binaryArtifactId -or $metadata.workflow_run.id -ne $runId) { throw 'Nieprawidłowe metadane artefaktu binarnego.' }
-            Invoke-WebRequest -Uri "https://api.github.com/repos/michalkasperczak/AMC/actions/artifacts/$binaryArtifactId/zip" -Headers $artifactHeaders -OutFile $binaryZip -ErrorAction Stop
-            $metadata = Invoke-RestMethod -Uri "https://api.github.com/repos/michalkasperczak/AMC/actions/artifacts/$evidenceArtifactId" -Headers $artifactHeaders -ErrorAction Stop
-            if ($metadata.id -ne $evidenceArtifactId -or $metadata.workflow_run.id -ne $runId) { throw 'Nieprawidłowe metadane artefaktu dowodów.' }
-            Invoke-WebRequest -Uri "https://api.github.com/repos/michalkasperczak/AMC/actions/artifacts/$evidenceArtifactId/zip" -Headers $artifactHeaders -OutFile $evidenceZip -ErrorAction Stop
-            $artifactHeaders.Clear(); Remove-Variable artifactHeaders
             Invoke-DefenderGate -Target $binaryZip -Stage 'binary-artifact-before-safe-extraction'
             Invoke-DefenderGate -Target $evidenceZip -Stage 'evidence-artifact-before-safe-extraction'
+            Clear-DownloadCredentials
             python tools/verify_existing_alpha512_artifacts.py --binary-zip $binaryZip --evidence-zip $evidenceZip --output-directory $verified --report (Join-Path $evidence 'verified-inputs.json')
             if ($LASTEXITCODE -ne 0) { throw "Weryfikator artefaktów zakończył się kodem $LASTEXITCODE." }
             $report.verifiedInputs = Get-Content -LiteralPath (Join-Path $evidence 'verified-inputs.json') -Raw | ConvertFrom-Json
             Invoke-DefenderGate -Target $verified -Stage 'verified-inputs-before-install'
+            $nvdaAddons = Join-Path $env:APPDATA 'nvda\addons'
+            if (Test-Path -LiteralPath $nvdaAddons) { throw 'Fresh runner ma już nvda/addons; smoke odmawia próby instalacji.' }
             Invoke-InstallerSmoke -Profile 'public' -Installer (Join-Path $verified 'public\AMC-Public-2026-11-22-1129.exe') -InstallDirectory (Join-Path $smokeRoot 'install-public') -Contract $report.verifiedInputs.profiles.public
             Invoke-InstallerSmoke -Profile 'test' -Installer (Join-Path $verified 'test\AMC-Test-2026-11-22-1137.exe') -InstallDirectory (Join-Path $smokeRoot 'install-test') -Contract $report.verifiedInputs.profiles.test
-            Invoke-DefenderGate -Target $smokeRoot -Stage 'after-install'
+            foreach ($profile in @('public', 'test')) {
+              $appPath = $report.installations[$profile].appPaths
+              $registered = [string](Get-ItemProperty -LiteralPath $appPath.key).'(default)'
+              if ($registered -ne $appPath.value) { throw "Wpis App Paths $profile zmienił się po drugiej instalacji." }
+              $appPath['afterBothInstallations'] = $registered
+            }
+            Invoke-DefenderGate -Target $smokeRoot -Stage 'final-defender-audit'
           }
           catch {
             $report.error = $_.Exception.Message
@@ -254,20 +302,18 @@ jobs:
           }
           finally {
             $report.finishedUtc = [DateTime]::UtcNow.ToString('o')
-            $report.protection | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $evidence 'protection-setup.json') -Encoding utf8
-            $report | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath (Join-Path $evidence 'smoke.json') -Encoding utf8
-            $audit = [ordered]@{ stage = 'final-defender-audit'; capturedUtc = [DateTime]::UtcNow.ToString('o'); exitCode = 1; snapshot = $null; detections = @(); events1116_1117 = @(); error = $null }
-            try {
-              $audit.snapshot = Get-DefenderSnapshot
-              Assert-DefenderSnapshot -Snapshot $audit.snapshot
-              $audit.detections = @(Get-MpThreatDetection -ErrorAction Stop)
-              $audit.events1116_1117 = Get-DefenderEvents
-              Start-MpScan -ScanType CustomScan -ScanPath $smokeRoot -ErrorAction Stop
-              if ($audit.detections.Count -gt 0 -or $audit.events1116_1117.Count -gt 0) { throw 'Końcowy audyt Defendera zawiera wykrycie lub zdarzenie.' }
-              $audit.exitCode = 0
+            $audit = $script:finalAudit
+            if ($null -eq $audit) {
+              $audit = [ordered]@{ stage = 'final-defender-audit'; target = $smokeRoot; startedUtc = $null; finishedUtc = $null; exitCode = 1; snapshot = $null; threats = @(); detections = @(); events1116_1117 = @(); error = $report.error }
             }
-            catch { $audit.error = $_.Exception.Message; throw }
-            finally { $audit | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $evidence 'final-defender-audit.json') -Encoding utf8 }
+            try {
+              $report.protection | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $evidence 'protection-setup.json') -Encoding utf8
+              $report | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath (Join-Path $evidence 'smoke.json') -Encoding utf8
+              $audit | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $evidence 'final-defender-audit.json') -Encoding utf8
+            }
+            catch {
+              if ([string]::IsNullOrWhiteSpace($report.error)) { throw }
+            }
           }
 
       - name: Zachowaj wyłącznie małe raporty smoke
