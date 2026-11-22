@@ -39,16 +39,18 @@ Osobne pliki zadań służą porządkowi diagnoz, a nie uruchamianiu drugiej pra
    formatów przechodzi; dokładność granicy MP3 nadal wymaga oceny audio.
    Szczegóły: `docs/zadania/AUDIO-EDIT-20261122-dwa-ciecia-diagnoza.md`.
 4. Codex prowadzi oddzielny zakres Apple Music: wymuszenie widocznego logowania
-   po „Tak” jest poprawione w źródłach; działanie na żywym koncie i pełne
-   odtwarzanie dokładnie wskazanego utworu pozostają do odbioru.
+   po „Tak” i rozróżnienie błędów 401/braku połączenia podczas wyszukiwania są
+   poprawione w źródłach (commit `15951987`); działanie na żywym koncie, NVDA
+   i pełne odtwarzanie dokładnie wskazanego utworu pozostają do odbioru.
    Szczegóły: `docs/zadania/AM-008-20261122-wylogowanie-i-odtwarzanie.md`.
 
 ## Następny konkretny krok
 
 Kontynuować na jednej gałęzi `codex/alpha512-update-candidate-20261122`:
 najpierw zbadać granicę MP3 i bezpieczny wyścig zapisu/Escape na
-sztucznych plikach, a osobno rozróżnić w Apple Music wygasłą sesję od
-błędu sieci. Nie używać nagrań ani tokenów Michała. Rzeczywisty odbiór
+sztucznych plikach. Rozróżnienie Apple Music 401 i braku połączenia ma
+celowane testy, ale wymaga odbioru w widocznym interfejsie i NVDA.
+Nie używać nagrań ani tokenów Michała. Rzeczywisty odbiór
 MusicKit i katalogu synchronizowanego wymaga odrębnych, bezpiecznych prób.
 
 ## Materiał do dokumentacji użytkownika
@@ -56,5 +58,6 @@ MusicKit i katalogu synchronizowanego wymaga odrębnych, bezpiecznych prób.
 Brak nowej aktualizacji po alpha.513. Test Escape wskazuje, że powrót na listę
 nie jest poleceniem anulowania cięcia; nie wyjaśnia jeszcze incydentu Dwójki.
 Potwierdzenie „Konto Apple Music” po przyszłej aktualizacji ma uruchomić
-widoczne logowanie. Pełne odtwarzanie wskazanego utworu nie jest jeszcze
-potwierdzone.
+widoczne logowanie. Wyszukiwanie ma podpowiedzieć ponowne logowanie przy 401
+i ponowienie próby przy błędzie połączenia. Pełne odtwarzanie wskazanego
+utworu nie jest jeszcze potwierdzone.

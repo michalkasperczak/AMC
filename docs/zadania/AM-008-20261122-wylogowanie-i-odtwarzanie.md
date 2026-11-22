@@ -22,9 +22,14 @@ niepotwierdzone. Nie odczytywano tokenów, cookies ani osobistej Biblioteki.
   problem logowania wciąż mogą uniemożliwić start; ta zmiana nie dowodzi,
   że każdy przypadek zgłoszony przez Michała miał tę jedną przyczynę.
 - Status „zapisano zaszyfrowaną sesję” nie oznacza jej ważności. Katalog i
-  Biblioteka Apple Music to odrębne wyszukiwania; obecne błędy są opisywane
-  ogólnie, bez rozróżnienia wygasłej sesji i awarii sieci. Potrzebna osobna
-  poprawka dostępnych komunikatów, bez wycieku danych dostawcy.
+  Biblioteka Apple Music to odrębne wyszukiwania. Poprawka z 22.11.2026
+  zastępuje wcześniejszą decyzję o pozostawieniu ogólnego błędu: kod 401
+  daje komunikat „Apple Music odrzuciło logowanie. Otwórz Konto Apple Music
+  (Ctrl+F5).”, błąd połączenia oznaczony przez dostawcę kodem 0 daje
+  „Nie udało się połączyć z Apple Music. Spróbuj ponownie.”, a brak zapisanej
+  sesji prowadzi do „Apple Music nie jest zalogowane. Otwórz Konto Apple Music
+  (Ctrl+F5).”. Inne błędy nadal dają neutralny komunikat bez treści wyjątku,
+  tokenów i cookies. Awaria Biblioteki nie blokuje próby katalogu.
 - Oficjalna dokumentacja Apple opisuje Apple Music API jako dostęp do
   katalogu/Biblioteki, a MusicKit on the Web jako drogę odtwarzania w webie.
   Nie wynika z tego, że otwarcie linku w aplikacji Windows wybierze utwór.
@@ -44,6 +49,16 @@ niepotwierdzone. Nie odczytywano tokenów, cookies ani osobistej Biblioteki.
 - Sąsiednie testy bezpiecznego magazynu i zależności: 8/8 zaliczonych.
 - Po połączeniu w jedną gałąź ponownie zaliczono 5/5 testów konta i 8/8
   testów magazynu; to nadal testy źródeł, nie próba logowania na żywo.
+- `wxlite/amc_wx_lite/apple_music_library.py` mapuje 401 i 0 na bezpieczne
+  błędy wyszukiwania; `wxlite/amc_wx_lite/gui.py` przekazuje ich komunikaty do
+  ostrzeżeń wyników, osobno dla Biblioteki, katalogu i otwarcia sesji.
+  `wxlite/tests/test_apple_music_library.py` sprawdza oba wyszukiwania oraz
+  brak wycieku przykładowych sekretów. RED: 1 błąd importu nowego typu przed
+  kodem. GREEN na aktywnym źródle: 21/21 testów Biblioteki, 5/5 konta i 8/8
+  magazynu, kod zakończenia 0. Składnia dwóch zmienionych modułów przechodzi.
+  Wbudowany Python AMC ignoruje `PYTHONPATH`, więc testy uruchomiono z
+  `sys.path.insert(0, <aktywne źródła>/wxlite)`; bez tego ładował starą kopię
+  modułu z `D:\Projekty Codex\AMC Python\app` i pozornie nie przechodził.
 - Odczyt zainstalowanego modułu `applemusic.auth` potwierdził obsługę
   `authenticate(force=True)` i pomijanie okna przy `force=False` z cache.
 - Sąsiednia próba pojedynczego testu GUI wyszukiwania wypisała kropkę
@@ -58,8 +73,10 @@ niepotwierdzone. Nie odczytywano tokenów, cookies ani osobistej Biblioteki.
 1. W odizolowanym profilu AMC Test po potwierdzeniu „Konto Apple Music”
    sprawdzić widoczne okno, fokus NVDA, logowanie oraz powrót do AMC bez
    restartu. Nie przesyłać żadnych tokenów ani plików sesji do raportu.
-2. Oddzielić w interfejsie pusty wynik od braku autoryzacji i awarii sieci;
-   katalog ma nadal działać, jeśli nie działa prywatna Biblioteka.
+2. W widocznym interfejsie i NVDA potwierdzić rozdział pustego wyniku, 401,
+   braku połączenia oraz innych błędów. Sprawdzić, że katalog działa, kiedy
+   nie działa prywatna Biblioteka. Kod i testy jednostkowe są gotowe,
+   odbiór widocznego interfejsu nadal czeka.
 3. Dwa znane różne utwory z katalogowymi ID odtworzyć kolejno przez tor webowy;
    potwierdzić `nowPlayingItem.id`, słyszalne pełne nagranie, pauzę/wznowienie,
    czas i zatrzymanie dźwięku po błędzie lub zmianie toru. Nie uznawać
@@ -73,6 +90,8 @@ gdy AMC ma zapisaną sesję. Sama obecność zapisanej sesji nie potwierdza, że
 Apple ją nadal akceptuje. Odtwarzanie dokładnie wybranego utworu nadal wymaga
 sprawdzenia; polecenie otwarcia w oryginalnym Apple Music nie daje tej gwarancji.
 Funkcja nie należy do profilu AMC Public.
+Wyszukiwanie po przyszłej aktualizacji powinno podpowiedzieć ponowne otwarcie
+Konta przy odrzuceniu sesji oraz ponowienie próby przy błędzie połączenia.
 
 ## Źródła i wersja
 
@@ -84,5 +103,7 @@ Funkcja nie należy do profilu AMC Public.
 - Autoryzacja MusicKit: https://developer.apple.com/documentation/applemusicapi/user-authentication-for-musickit
 - Baza kodu: `7751dee7c0d417ce58e941745a0a81ebdfc03ada`.
 - Zintegrowany commit poprawki: `918c1cc8`.
+- Zintegrowany commit komunikatów wyszukiwania:
+  `159519872bc4dd21d97195300a97d1e35e279fce`.
   Stan: źródła i celowane testy; bez buildu,
   instalacji, publikacji i żywego odbioru.
