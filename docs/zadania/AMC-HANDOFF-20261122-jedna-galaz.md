@@ -7,6 +7,8 @@ Codex prowadzi bieżącą pracę; Hermes otrzymuje konkretne ścieżki do raport
 lub zadań tylko wtedy, gdy Michał zdecyduje przekazać mu etap. Ta decyzja
 zastępuje wcześniejszy pomysł utrzymywania równoległych wykonawców.
 Osobne pliki zadań służą porządkowi diagnoz, a nie uruchamianiu drugiej pracy.
+Michał 22.11 doprecyzował: główna praca będzie tutaj, a GitHub ma dostawać
+kod i instalatory zwykle po etapach, najpóźniej co 2–3 dni.
 
 ## Stan źródeł i wydania
 
@@ -34,10 +36,12 @@ Osobne pliki zadań służą porządkowi diagnoz, a nie uruchamianiu drugiej pra
    i pobieranie YouTube; jego wynik jest potrzebny do dalszych poprawek.
    Nowy link Hermanic może pojawić się dopiero przy kolejnej transmisji.
 3. Codex bada wycinanie: lokalne dwa cięcia WAV/MP3 i routing Escape przeszły,
-   ale zniknięcia plików w synchronizowanym folderze nie odtworzono.
-   Po porównaniu osi FFmpeg z szacunkiem Windows skorygowany test wszystkich
-   formatów przechodzi; dokładność granicy MP3 nadal wymaga oceny audio.
-   Szczegóły: `docs/zadania/AUDIO-EDIT-20261122-dwa-ciecia-diagnoza.md`.
+   a nowy incydent Tok dostarczył rzeczywisty błąd po cięciu i odzyskany
+   plik. Kopia na D jest zweryfikowana; źródła odmawiają bezpośredniego
+   nadpisania plików zarządzanych przez synchronizację (commit `ee3be3eb`).
+   Test krótkiego dopisania MP3 nadal zawodzi; cała edycja synchronizowana
+   pozostaje do bezpiecznego rozwiązania i odbioru. Szczegóły:
+   `docs/zadania/AUDIO-EDIT-20261122-Tok-odzysk-i-zabezpieczenie.md`.
 4. Codex prowadzi oddzielny zakres Apple Music: wymuszenie widocznego logowania
    po „Tak” i rozróżnienie błędów 401/braku połączenia podczas wyszukiwania są
    poprawione w źródłach (commit `15951987`). Web host zatrzymuje możliwy
@@ -49,16 +53,20 @@ Osobne pliki zadań służą porządkowi diagnoz, a nie uruchamianiu drugiej pra
 ## Następny konkretny krok
 
 Kontynuować na jednej gałęzi `codex/alpha512-update-candidate-20261122`:
-najpierw zbadać granicę MP3 i bezpieczny wyścig zapisu/Escape na
-sztucznych plikach. Rozróżnienie Apple Music 401 i braku połączenia ma
+najpierw przygotować bezpieczną drogę edycji lokalnej kopii i powrotu
+odzyskanego nagrania na listę, a osobno zbadać granicę MP3. Rozróżnienie Apple Music 401 i braku połączenia ma
 celowane testy, ale wymaga odbioru w widocznym interfejsie i NVDA.
-Nie używać nagrań ani tokenów Michała. Rzeczywisty odbiór
+Nie wykonywać cięcia na nagraniach Michała ani nie odczytywać jego tokenów.
+Rzeczywisty odbiór
 MusicKit i katalogu synchronizowanego wymaga odrębnych, bezpiecznych prób.
 
 ## Materiał do dokumentacji użytkownika
 
 Brak nowej aktualizacji po alpha.513. Test Escape wskazuje, że powrót na listę
-nie jest poleceniem anulowania cięcia; nie wyjaśnia jeszcze incydentu Dwójki.
+nie jest poleceniem anulowania cięcia. Nagranie Tok po utracie nazwy zostało
+skopiowane do `D:\Projekty Codex\AMC - odzysk nagrań\2026-11-22 Tok`.
+Źródła kolejnej aktualizacji odmówią nadpisania pliku zarządzanego przez
+synchronizację i poproszą o edycję lokalnej kopii.
 Potwierdzenie „Konto Apple Music” po przyszłej aktualizacji ma uruchomić
 widoczne logowanie. Wyszukiwanie ma podpowiedzieć ponowne logowanie przy 401
 i ponowienie próby przy błędzie połączenia. Po błędzie dopasowania utworu web

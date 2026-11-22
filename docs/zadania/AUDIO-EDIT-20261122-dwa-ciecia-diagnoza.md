@@ -7,6 +7,13 @@ Wydana alpha.513 nie jest tu uznana za poprawkę incydentu. Dwa lokalne cięcia
 przeszły, lecz zniknięcia nazwy w katalogu synchronizowanym nie odtworzono.
 Żadnego nagrania Michała, profilu iCloud ani działającej instalacji nie zmieniano.
 
+**Korekta z 22.11.2026 po zgłoszeniu Tok:** nowy incydent dostarczył dziennik
+`FileNotFoundException` po powrocie z cięcia oraz ocalały plik `.amc-cut-result`.
+Nagranie bezpiecznie skopiowano na D. Źródłowy bezpiecznik nadpisania plików
+zarządzanych przez synchronizację zastępuje poniższy stan „bez poprawki
+produktu”. Szczegóły i aktualne ograniczenia:
+`AUDIO-EDIT-20261122-Tok-odzysk-i-zabezpieczenie.md`.
+
 ## Uzasadnienie i decyzje
 
 - Incydent Dwójki obejmował dwa różne nagrania, po jednym cięciu każdego,
