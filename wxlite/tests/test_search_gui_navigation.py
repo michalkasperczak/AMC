@@ -234,6 +234,92 @@ def test_apple_music_ctrl_f_adds_server_hits_outside_loaded_page(
     assert frame._apple_music_records[record.row.item_id] is record
 
 
+def test_apple_music_ctrl_f_orders_artist_album_song_in_dialog_and_opened_list(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artist, album, song = records_from_resources([
+        {"id": "123", "type": "artists", "attributes": {"name": "Bryan Adams"}},
+        {"id": "456", "type": "albums", "attributes": {
+            "name": "Bryan Adams Live", "artistName": "Bryan Adams",
+        }},
+        {"id": "789", "type": "songs", "attributes": {
+            "name": "Bryan Adams Song", "artistName": "Bryan Adams",
+        }},
+    ])
+    monkeypatch.setattr(
+        gui_module, "open_apple_music_library",
+        lambda _layout: nullcontext(SimpleNamespace(
+            search_library=lambda _query: (song, album, artist),
+            search_catalog=lambda _query: (),
+        )),
+    )
+
+    class Runner:
+        @staticmethod
+        def submit(_name, work, done, _failed):
+            done(work())
+
+    shown = []
+    frame = SimpleNamespace(
+        navigator=Navigator(), layout=object(),
+        search_sources=SimpleNamespace(
+            collect=lambda _sessions: SearchCollection((), ())
+        ),
+        runner=Runner(), _search_dialog_alive=lambda _dialog: True,
+        _apple_music_records={}, _apple_music_search_rows=(),
+    )
+    dialog = SimpleNamespace(
+        catalog=None,
+        show_results=lambda entries, warnings: shown.append((entries, warnings)),
+    )
+
+    LiteFrame._run_search_query(
+        frame, "Bryan Adams", dialog,
+        all_services=False, session_before=SessionId.APPLE_MUSIC,
+    )
+
+    assert [entry.row.kind for entry in shown[0][0]] == [
+        "artist", "album", "track",
+    ]
+    assert [row.kind for row in frame._apple_music_search_rows] == [
+        "artist", "album", "track",
+    ]
+    assert shown[0][0][0].row is artist.row
+
+
+def test_search_result_copy_shortcuts_keep_name_and_public_link() -> None:
+    entry = SearchEntry(
+        SessionId.APPLE_MUSIC,
+        Row("private:artist:123", "Bryan Adams", "artist",
+            url="https://music.apple.com/pl/artist/bryan-adams/123"),
+    )
+    copied = []
+    messages = []
+    dialog = SimpleNamespace(
+        _selected_entries=lambda: [entry],
+        _podcast_clipboard_blocks=None,
+        _copy_text=lambda value: copied.append(value) or True,
+        _copy=lambda *, addresses: gui_module.SearchDialog._copy(
+            dialog, addresses=addresses,
+        ),
+        announcer=SimpleNamespace(say=messages.append),
+    )
+
+    def key(shift):
+        return SimpleNamespace(
+            GetKeyCode=lambda: ord("C"), ControlDown=lambda: True,
+            ShiftDown=lambda: shift, AltDown=lambda: False,
+        )
+
+    gui_module.SearchDialog._on_results_key(dialog, key(False))
+    gui_module.SearchDialog._on_results_key(dialog, key(True))
+
+    assert copied == [
+        "Bryan Adams", "https://music.apple.com/pl/artist/bryan-adams/123",
+    ]
+    assert messages[-1] == "Skopiowano adres"
+
+
 def test_apple_music_ctrl_f_keeps_catalog_hits_if_library_search_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

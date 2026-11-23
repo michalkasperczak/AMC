@@ -33,7 +33,10 @@ from .list_model import Row
 from .navigation import SessionId
 from . import session_order as session_order_model
 from .profile_layout import common_data_commands_available
-from .release_profile import PUBLIC_PROFILE_ID, VIDEO_PREVIEW_CAPABILITY, current_profile
+from .release_profile import (
+    PUBLIC_PROFILE_ID, VIDEO_PREVIEW_CAPABILITY,
+    RECORDING_MONITOR_CAPABILITY, current_profile,
+)
 from .shortcuts import (
     Action,
     APPLE_MUSIC_SUPPORTED_ACTIONS,
@@ -324,6 +327,10 @@ def menus_for_session(
                 Action.OPEN_VIDEO_IN_BROWSER,
             } and VIDEO_PREVIEW_CAPABILITY not in current_profile().capabilities:
                 continue
+            if entry.action in {
+                Action.OPEN_RECORDING_MONITOR, Action.RENAME_ACTIVE_RECORDING,
+            } and RECORDING_MONITOR_CAPABILITY not in current_profile().capabilities:
+                continue
             if (session_id is SessionId.TIDAL
                     and "tidal.native-playback" not in current_profile().capabilities
                     and entry.action in TIDAL_NATIVE_ONLY_ACTIONS):
@@ -375,7 +382,7 @@ def menus_for_session(
                 access_key = {
                     SessionId.FILES: "b",
                     SessionId.RADIO: "o",
-                    SessionId.PODCASTS: "w",
+                    SessionId.PODCASTS: "s",
                     SessionId.SPOTIFY: "f",
                     SessionId.TIDAL: "t",
                     SessionId.WIIM: "d",
@@ -750,7 +757,7 @@ def build_menus(
                 visible_sessions=PODCASTS_ONLY,
             ),
             MenuItem(
-                "Zapisz wideo internetowe j&ako…",
+                "Zapisz wideo internetowe ja&ko…",
                 Action.SAVE_YOUTUBE_VIDEO_AS,
                 shortcut="Ctrl+S",
                 accelerator=False,
@@ -1369,6 +1376,16 @@ def build_menus(
             MenuItem("Pokaż aktualnie n&agrywane pliki", Action.VIEW_ACTIVE_RECORDINGS,
                      shortcut="Alt+R"),
             MenuItem(
+                "Odsłu&chaj nagrywany materiał",
+                Action.OPEN_RECORDING_MONITOR,
+                shortcut="Return",
+                accelerator=False,
+                needs_radio_session=True,
+                needs_active_radio_recording_view=True,
+                needs_selection=True,
+                visible_sessions=RADIO_ONLY,
+            ),
+            MenuItem(
                 "Ustawienia p&liku nagrania",
                 Action.RECORDING_OUTPUT_INFORMATION,
                 shortcut="Right",
@@ -1376,6 +1393,17 @@ def build_menus(
                 needs_radio_session=True,
                 needs_active_radio_recording_view=True,
                 needs_selection=True,
+                visible_sessions=RADIO_ONLY,
+            ),
+            MenuItem(
+                "Zmień nazwę &trwającego nagrania…",
+                Action.RENAME_ACTIVE_RECORDING,
+                shortcut="F2",
+                accelerator=False,
+                needs_radio_session=True,
+                needs_active_radio_recording_view=True,
+                needs_selection=True,
+                visible_sessions=RADIO_ONLY,
             ),
             MenuItem("&Historia nagrywania", Action.VIEW_RECORDED_RADIO_FILES,
                      shortcut="Alt+Shift+R"),

@@ -213,6 +213,41 @@ internal sealed class RadioRecordingControl
         }
     }
 
+    /// <summary>Change only the unpublished destination name, never the open staging file.</summary>
+    public string RenameCurrentSegment(string requestedBaseName)
+    {
+        if (string.IsNullOrWhiteSpace(requestedBaseName))
+            throw new ArgumentException("Podaj nową nazwę nagrania.");
+        if (!_operationGate.Wait(0))
+            throw new InvalidOperationException("Nagranie jest właśnie dzielone lub kończone.");
+        try
+        {
+            lock (_gate)
+            {
+                if (_stopRequested || _backend is not RadioMediaRecordingBackend media
+                    || !media.IsRecording || string.IsNullOrWhiteSpace(_currentPath))
+                    throw new InvalidOperationException("Nagranie już się zakończyło.");
+                var oldPath = _currentPath;
+                var folder = Path.GetDirectoryName(oldPath)
+                    ?? throw new InvalidOperationException("Nie rozpoznano folderu nagrania.");
+                var safeName = RadioRecordingFileNameTemplate.SanitizeBaseName(requestedBaseName);
+                var target = Path.Combine(folder, safeName + Path.GetExtension(oldPath));
+                if (string.Equals(target, oldPath, StringComparison.Ordinal))
+                    return oldPath;
+                if (File.Exists(target) || File.Exists(target + ".amc-publishing"))
+                    throw new IOException("Nagranie o tej nazwie już istnieje.");
+                media.Output.RenameRecording(target);
+                UpdateMarkerPaths(oldPath, target);
+                _currentPath = target;
+                return target;
+            }
+        }
+        finally
+        {
+            _operationGate.Release();
+        }
+    }
+
     public bool TryGetRecentAudio(TimeSpan duration, out RadioAudioSnapshot? snapshot)
     {
         lock (_gate)

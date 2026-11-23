@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import LibraryView, SessionId
-from amc_wx_lite.search_catalog import SearchEntry, query_words, record_query, search
+from amc_wx_lite.search_catalog import (
+    SearchEntry, order_search_results, query_words, record_query, search,
+)
 from amc_wx_lite.search_sources import (
     SearchSources,
     apple_music_cached_entries,
@@ -80,6 +82,40 @@ def test_search_result_keeps_kind_and_reads_artist_once() -> None:
 def test_search_deduplicates_same_item_in_multiple_collection_views() -> None:
     duplicate = entry(SessionId.TIDAL, "same", "Piosenka")
     assert search([duplicate, duplicate], "piosenka") == [duplicate]
+
+
+def test_search_results_group_each_service_and_put_exact_artist_first() -> None:
+    entries = [
+        entry(SessionId.APPLE_MUSIC, "song", "Bryan Adams", kind="track"),
+        entry(SessionId.TIDAL, "tidal-song", "Bryan Adams", kind="track"),
+        entry(SessionId.APPLE_MUSIC, "album", "Bryan Adams Live", kind="album"),
+        entry(SessionId.APPLE_MUSIC, "other-artist", "Bryan Adams Band", kind="artist"),
+        entry(SessionId.APPLE_MUSIC, "artist", "Bryan Adams", kind="artist"),
+        entry(SessionId.TIDAL, "tidal-artist", "Bryan Adams", kind="artist"),
+    ]
+
+    ordered = order_search_results(
+        entries, "Bryan Adams", (SessionId.TIDAL, SessionId.APPLE_MUSIC),
+    )
+
+    assert [item.row.item_id for item in ordered] == [
+        "tidal-artist", "tidal-song", "artist", "other-artist", "album", "song",
+    ]
+    assert ordered[2] is entries[4]
+    assert ordered[-1] is entries[0]
+
+
+def test_every_session_inherits_the_same_result_kind_order() -> None:
+    for session in SessionId:
+        entries = [
+            entry(session, "song", "Szukany", kind="track"),
+            entry(session, "playlist", "Szukany", kind="playlist"),
+            entry(session, "album", "Szukany", kind="album"),
+            entry(session, "artist", "Szukany", kind="artist"),
+        ]
+        assert [item.row.kind for item in order_search_results(
+            entries, "Szukany", (session,),
+        )] == ["artist", "album", "track", "playlist"]
 
 
 def test_history_is_newest_first_case_insensitive_and_bounded() -> None:

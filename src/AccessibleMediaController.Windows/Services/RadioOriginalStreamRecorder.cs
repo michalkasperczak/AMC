@@ -22,6 +22,7 @@ internal sealed class RadioOriginalStreamRecorder : IRadioRecorder
     private readonly string _temporaryPath;
     private readonly object _errorGate = new();
     private readonly StringBuilder _error = new();
+    private readonly object _nameGate = new();
     private int _stopped;
 
     private RadioOriginalStreamRecorder(
@@ -171,9 +172,21 @@ internal sealed class RadioOriginalStreamRecorder : IRadioRecorder
     public void Resume() => throw new NotSupportedException(
         "Pauza nie jest dostępna przy zapisie oryginalnego strumienia bez konwersji.");
 
+    public void RenameFinalPath(string path)
+    {
+        lock (_nameGate)
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _stopped) != 0, this);
+            FinalPath = path;
+        }
+    }
+
     public string Stop()
     {
-        if (Interlocked.Exchange(ref _stopped, 1) != 0) return FinalPath;
+        lock (_nameGate)
+        {
+            if (Interlocked.Exchange(ref _stopped, 1) != 0) return FinalPath;
+        }
         try
         {
             if (!_process.HasExited)

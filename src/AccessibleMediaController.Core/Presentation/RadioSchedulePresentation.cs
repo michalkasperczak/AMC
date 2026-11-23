@@ -30,8 +30,8 @@ public static class RadioSchedulePresentation
             : !schedule.Enabled && active
                 ? ", nagrywanie zostanie zatrzymane po zapisaniu"
                 : schedule.Enabled
-                    && schedule.SuppressedOccurrenceStartUtcTicks == schedule.NextStartUtcTicks
-                        ? ", bieżące wystąpienie zatrzymane"
+                    && RadioScheduleCalculator.IsCurrentOccurrenceSuppressed(schedule)
+                        ? ", ten termin pominięty"
                         : string.Empty;
         var lastFailure = BuildLastFailureLabel(schedule, zone);
         var occurrence = local.ToString(

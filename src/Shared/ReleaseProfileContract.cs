@@ -71,6 +71,7 @@ internal static class ReleaseProfileContract
             "spotify.playlists",
             "youtube.account.readonly",
             "local-video-preview",
+            "recording.monitor",
             "apple-music.experimental",
             "session.apple-music",
         ]).ToArray(),
@@ -83,7 +84,7 @@ internal static class ReleaseProfileContract
 
     private static readonly string[] PublicCapabilities = Test.Capabilities
         .Where(capability => capability is not (
-            "apple-music.experimental" or "session.apple-music" or "local-video-preview"))
+            "apple-music.experimental" or "session.apple-music" or "local-video-preview" or "recording.monitor"))
         .ToArray();
 
     internal static readonly ReleaseProfileDescriptor Public = new(

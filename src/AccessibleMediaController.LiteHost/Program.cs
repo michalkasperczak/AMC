@@ -172,7 +172,10 @@ internal static class Program
             enableAppleMusicExternal: LiteAppleMusicExternalContract.IsEnabledForProfile(
                 ReadArgumentText(args, "--release-profile")),
             timeshiftBufferFolder: timeshiftBufferFolder,
-            queueStartupError: queueStartupError);
+            queueStartupError: queueStartupError,
+            enableRecordingMonitor: string.Equals(
+                ReadArgumentText(args, "--release-profile"), "test",
+                StringComparison.OrdinalIgnoreCase));
         using var nvdaRelay = new LiteNvdaRelay();
         using var nvdaBridge = new LiteNvdaBridge(
             nvdaRelay, ReadArgumentText(args, "--release-profile") ?? "test");
