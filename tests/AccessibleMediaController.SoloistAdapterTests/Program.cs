@@ -83,12 +83,13 @@ using (var output = new LiteSpotifySoloistOutput("unused.exe", "unused",
 }
 
 var finishPlayback = new ManualResetEventSlim();
+var nearEndSnapshot = snapshot.Replace("\"position_ms\":3000", "\"position_ms\":119000");
 using (var output = new LiteSpotifySoloistOutput("unused.exe", "unused",
     args => args[0] == "now"
         ? (0, finishPlayback.IsSet
-            ? snapshot.Replace("\"playing\"", "\"idle\"").Replace(
+            ? nearEndSnapshot.Replace("\"playing\"", "\"idle\"").Replace(
                 "spotify:track:abc123", "")
-            : snapshot)
+            : nearEndSnapshot)
         : (0, "")))
 {
     var started = new ManualResetEventSlim();
@@ -100,6 +101,29 @@ using (var output = new LiteSpotifySoloistOutput("unused.exe", "unused",
     finishPlayback.Set();
     Check(ended.Wait(TimeSpan.FromSeconds(4)),
         "koniec utworu nie został zgłoszony kolejce AMC");
+}
+
+var skipEarly = new ManualResetEventSlim();
+using (var output = new LiteSpotifySoloistOutput("unused.exe", "unused",
+    args => args[0] == "now"
+        ? (0, skipEarly.IsSet
+            ? snapshot.Replace("spotify:track:abc123", "spotify:track:other")
+            : snapshot)
+        : (0, "")))
+{
+    var started = new ManualResetEventSlim();
+    var failed = new ManualResetEventSlim();
+    var ended = new ManualResetEventSlim();
+    output.PlaybackStarted += (_, _) => started.Set();
+    output.PlaybackFailed += (_, _) => failed.Set();
+    output.PlaybackEnded += (_, _) => ended.Set();
+    output.Play(item, TimeSpan.Zero, 40, 1d);
+    Check(started.Wait(TimeSpan.FromSeconds(3)), "nie można rozpocząć testu pominięcia utworu");
+    skipEarly.Set();
+    Check(failed.Wait(TimeSpan.FromSeconds(4)),
+        "przedwczesne pominięcie utworu nie zostało zgłoszone jako błąd");
+    Check(!ended.IsSet,
+        "przedwczesne pominięcie utworu przesunęło kolejkę AMC");
 }
 
 Check(LiteSpotifySoloistOutput.TryCreateFromSettings(null, null) is null,
@@ -128,5 +152,5 @@ if (!string.IsNullOrWhiteSpace(installedSoloist))
     }
 }
 Console.WriteLine(string.IsNullOrWhiteSpace(installedSoloist)
-    ? "Soloist adapter: 6 checks passed"
-    : "Soloist adapter: 7 checks passed, including official binary fallback");
+    ? "Soloist adapter: 7 checks passed"
+    : "Soloist adapter: 8 checks passed, including official binary fallback");
