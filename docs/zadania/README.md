@@ -1,6 +1,6 @@
 # Rejestr zadań AMC
 
-**SPOTIFY-SOLOIST-QUEUE (23.11.2026): poprawka ochrony kolejki AMC przed przedwczesnym przeskokiem Soloist; kod i 7 testów celowanych gotowe, wydanie Test alpha.517 w przygotowaniu.** [Zadanie](SPOTIFY-SOLOIST-QUEUE-20261123.md).
+**SPOTIFY-SOLOIST-QUEUE (23.11.2026): poprawka ochrony kolejki AMC przed przedwczesnym przeskokiem Soloist; Test alpha.517 opublikowany, 7 testów celowanych; instalacja i odbiór NVDA otwarte.** [Zadanie](SPOTIFY-SOLOIST-QUEUE-20261123.md).
 
 **VIDEO-001 (23.11.2026): kod i 10 testów celowanych gotowe; widoczny odbiór, build i wydanie otwarte.** Obraz lokalnego filmu w obecnym odtwarzaczu AMC, wybór samego audio i otwieranie strony filmu internetowego w zwykłej przeglądarce. [Zadanie](VIDEO-20261123-odtwarzanie-w-odtwarzaczu-AMC.md).
 

@@ -1,6 +1,6 @@
 # Spotify Soloist — przedwczesne przejście utworu
 
-Data: 23.11.2026. Stan: kod i celowany test adaptera gotowe; wydanie Test alpha.517 w przygotowaniu.
+Data: 23.11.2026. Stan: Test alpha.517 opublikowany na GitHubie; instalacja i odbiór NVDA pozostają do wykonania przez użytkownika.
 
 ## Zgłoszenia i zakres
 
@@ -18,8 +18,8 @@ Adapter wcześniej uznawał dwie kolejne migawki Soloist bez żądanego URI za n
 
 ## Testy i wynik
 
-- `dotnet run --project tests/AccessibleMediaController.SoloistAdapterTests/AccessibleMediaController.SoloistAdapterTests.csproj --configuration Release --no-restore`: 7 sprawdzeń zaliczonych na Windows, w tym naturalny koniec przy końcu utworu i wczesna zmiana URI bez przesunięcia kolejki. Test na atrapie CLI, bez konta Spotify i dźwięku.
-- Kompilacja paczek, kontrola integralności, instalacja, próba NVDA i publikacja: do zapisania osobno po rzeczywistym wykonaniu.
+- `dotnet run --project tests/AccessibleMediaController.SoloistAdapterTests/AccessibleMediaController.SoloistAdapterTests.csproj --configuration Release -p:NuGetAudit=false`: 7 sprawdzeń zaliczonych na Windows, w tym naturalny koniec przy końcu utworu i wczesna zmiana URI bez przesunięcia kolejki. Test na atrapie CLI, bez konta Spotify i dźwięku.
+- Paczka Test: 3649 plików, kontrola integralności i ukryty start interfejsu/hosta przeszły. Instalator przeszedł kontrolę źródeł, SHA-256 i sekretów. Publikacja GitHub zweryfikowała obecność i rozmiar trzech plików. Nie instalowano programu ani nie wykonywano próby NVDA i żywego Spotify.
 
 ## Znane ograniczenia
 
@@ -27,4 +27,4 @@ Heurystyka trzech sekund opiera się na kolejnych migawkach `soloist ctl now --j
 
 ## Wersja i commit
 
-Poprawka w bieżącej gałęzi D: `cf6861eb`. W czystych źródłach najnowszego opublikowanego Test alpha.516 (`d998160c`): `acfb123a`. Kandydat Test: `0.1.0-alpha.517`; Public: `0.1.0-alpha.516`. Wersja Test alpha.516 z odsłuchem trwającego nagrania zostaje zachowana. Końcowy commit, manifest i tag do uzupełnienia po wydaniu.
+Poprawka w bieżącej gałęzi D: `cf6861eb`. Baza Test alpha.516: `d998160c`; przeniesienie poprawki: `acfb123a`; commit wydania: `9d5c2011252bf7a751141a168950c1ec2345a85c`. Wersja `0.1.0-alpha.517`, tag `test-2026.11.23.1317`, instalator `AMC-Test-2026-11-23-1317.exe` (214458742 B), SHA-256 `5e9968cfc182e38c2ff62bf6191ed9df66faa88bd4370a0c9ee963c1ef66ac63`. Manifest `amc-update-test.json`. Wydanie: https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.23.1317. Public alpha.516 wydano osobno; funkcja odsłuchu trwającego nagrania z Test alpha.516 została zachowana.
