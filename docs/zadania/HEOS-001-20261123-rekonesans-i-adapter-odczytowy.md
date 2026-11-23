@@ -1,6 +1,6 @@
 # HEOS-001 — rozpoznanie urządzenia HEOS 200 i adapter odczytowy
 
-**Status: W trakcie; próba odczytowa na urządzeniu wykonana 23.11.2026.**
+**Status: W trakcie; adapter LAN i model źródeł gotowe, sesja AMC Test jeszcze niepodłączona.**
 
 ## Cel i zakres
 
@@ -8,9 +8,10 @@ Wprowadzić HEOS do AMC Test według `D:\Projekty Codex\Hermes\Nowe\HEOS-2026112
 
 ## Stan i wykonane pliki
 
-- Aktywna gałąź: `codex/alpha512-update-candidate-20261122` w worktree `C:\Users\micha\.codex\worktrees\amc-live-radio-recording-20261122\AMC - integracja wxPython`, bazowy commit `d4ec91a4a880e7fbec46cd5cd07bd71419b8cbf6`. Główny checkout na D ma osobne niezatwierdzone dokumenty i nie został zmieniony.
-- `wxlite/amc_wx_lite/heos_client.py`: wstępny, wyłącznie odczytowy klient CLI. Wymaga lokalnego adresu IP, ogranicza polecenia do odczytu, rozpoznaje zdarzenia pomiędzy odpowiedziami, odpowiedź pośrednią, fragmentację linii, błąd i limit czasu. Po błędzie zamyka połączenie, by spóźniona odpowiedź nie mogła trafić do kolejnego żądania. Stronicuje katalog i kolejkę bez deduplikowania tytułów.
-- `wxlite/tests/test_heos_client.py`: izolowane testy protokołu z atrapą gniazda.
+- Izolowana gałąź HEOS: `codex/heos-next-test-20261123`, oparta na commicie `eabaa0e8` trwającej aktualizacji, w worktree `D:\Projekty Codex\AMC - integracja wxPython\work\HEOS-001-next-test`. Główny checkout na D i worktree bieżącego wydania mają odrębne niezapisane zmiany; nie zostały naruszone.
+- `wxlite/amc_wx_lite/heos_client.py`: klient CLI, wykrywanie SSDP i ręczny adres IP, bezpieczny odczyt, stronicowanie, jawne polecenia transportu/głośności/wyciszenia. Odpowiedź spóźniona po limicie czasu nie trafia do następnego żądania; mutacji nie ponawia automatycznie. Klasa odczytowa nadal odrzuca polecenia zapisu.
+- `wxlite/tests/test_heos_client.py`: izolowane testy protokołu, wykrywania, stronicowania i braku ponowienia mutacji.
+- `wxlite/amc_wx_lite/heos_source.py` i `wxlite/tests/test_heos_source.py`: osobne tożsamości i etykiety urządzeń, grup, źródeł, pozycji i stanu; testy duplikatów tytułów, zagnieżdżonego źródła i braku wycieku identyfikatorów do mowy.
 - Adapter nie jest jeszcze wpięty w sesję, interfejs, pakiet ani instalację.
 
 ## Próba sieciowa
@@ -20,13 +21,13 @@ Pierwsze próby SSDP 23.11.2026 nie przyniosły odpowiedzi, ponieważ środowisk
 ## Uzasadnienie i decyzje
 
 - Próba odczytowa przed sterowaniem wynika z notatki integracyjnej. Najpierw sprawdzić model, firmware, graczy, grupy, konto, źródła, znaną kolekcję i kolejkę. Bez danych użytkownika w udostępnianych raportach.
-- Wstępny klient nie przyjmuje komend zapisu i nie ma żadnego logowania do konta HEOS. Nie dodano zależności `pyheos`; zgodność biblioteki z runtime AMC i urządzeniem nie została sprawdzona.
+- Klient odczytowy nie przyjmuje komend zapisu; osobny klient sterowania ma jawne metody, lecz nie uruchomiono ich na urządzeniu. Nie ma logowania do konta HEOS w AMC ani zależności `pyheos`: własny adapter działa na Denon Home 200 bez dodatkowej biblioteki.
 - Brak wykrycia SSDP nie zamyka pracy: po uruchomieniu urządzenia można powtórzyć wykrycie albo użyć jego lokalnego adresu IP.
 
 ## Testy i wynik
 
-- `D:\Projekty Codex\AMC - zależności\python-test-envs\wxpython-4.3.1-cp314\Scripts\python.exe -m pytest wxlite\tests\test_heos_client.py -q` z `PYTHONPATH=wxlite`: **8 passed in 0.17s**.
-- To testy bezokienkowe na atrapach. Nie potwierdzają zgodności z Denon Home 200, dźwięku, interfejsu ani NVDA.
+- `D:\Projekty Codex\AMC - zależności\python-test-envs\wxpython-4.3.1-cp314\Scripts\python.exe -m pytest wxlite\tests\test_heos_client.py wxlite\tests\test_heos_source.py -q` z `PYTHONPATH=wxlite`: **26 passed in 0.58s**.
+- Testy automatyczne są bezokienkowe i używają atrap. Osobna próba odczytowa na Denon Home 200 potwierdziła wykrywanie, model celu, strukturę źródeł, stronicowanie i model stanu. Nie potwierdza sterowania, dźwięku, interfejsu ani NVDA.
 - Nie wykonano kompilacji, instalacji ani publikacji.
 
 ## Znane ograniczenia
@@ -37,7 +38,7 @@ Pierwsze próby SSDP 23.11.2026 nie przyniosły odpowiedzi, ponieważ środowisk
 
 ## Wersja i commit
 
-Baza `d4ec91a4`; kod i testy HEOS: commit `99e602ec6532`. Żadna wersja AMC z HEOS nie powstała.
+Baza aktualizacji `eabaa0e8`; wcześniejszy klient odczytowy `99e602ec6532`, nowy adapter i model `2c7cc6f086f8`. Żadna wersja AMC z HEOS nie powstała.
 
 ## Materiał do dokumentacji użytkownika
 
@@ -56,3 +57,9 @@ Odczyt potwierdził model **Denon Home 200**, firmware **3.139.175**, jednego od
 Lista źródeł w kolejnych odczytach miała 5, a następnie 8 pozycji. Po ustabilizowaniu pojawiły się trzy źródła `music_service`, jedno `heos_server` i cztery `heos_service`. `Local Music` zwróciło pustą listę. Dwa serwisy muzyczne zwróciły katalogi, a Historia dwie pozycje typu kontener, z których jedna była oznaczona jako odtwarzalna. Trzy źródła zwróciły `success` bez pola `payload` i bez liczników `returned`/`count`; obecny klient zgłasza dla nich `HeosProtocolError`, co jest uczciwsze od uznania ich za puste. Nie stwierdzono obecności DLNA ani USB. Nie uruchomiono żadnej pozycji.
 
 Próba była wyłącznie odczytowa. Kod klienta i 8 testów na atrapach pozostają w commitcie `99e602ec6532`. Nie wykonano testu sterowania, interfejsu, NVDA, kompilacji, instalacji ani publikacji. Następny krok: zaprojektować adapter źródeł z osobnym stanem źródła bez listy, odświeżaniem źródeł i rozróżnieniem stacji od kolejki; następnie wpiąć HEOS wyłącznie do AMC Test, z pełnym parytetem poleceń i dostępności. Fizyczną próbę zmieniającą odtwarzanie uzgodnić osobno po przygotowaniu interfejsu.
+
+## Decyzja Michała z 23.11.2026 — następna wersja testowa
+
+Michał zezwolił rozwijać HEOS równolegle do właśnie składanej aktualizacji AMC. HEOS ma trafić do testów dopiero w **następnej** wersji AMC Test, po zakończeniu bieżącego wydania. Ta decyzja zastępuje wcześniejsze prowadzenie HEOS na gałęzi kandydata do bieżącej aktualizacji. Prace Apple Music mogą zostać dołączone do następnego Test po osobnej weryfikacji; nie są częścią zadania HEOS. Kod HEOS jest izolowany na własnej gałęzi. Nie skompilowano ani nie opublikowano wersji z HEOS na GitHubie.
+
+Nowy adapter wykrył Denon Home 200 i odczytał jednego gracza. Model źródeł odczytał siedem dostępnych pozycji; źródło zagnieżdżone występujące na urządzeniu ma własny `sid` bez `cid` i otrzymało osobną tożsamość w modelu do przyszłej nawigacji. Źródła zwracające sukces bez listy pozostają stanem niedostępnej listy, a nie pustą kolekcją. W działającym radiu model stanu rozpoznał typ stacji oraz znaną głośność i stan wyciszenia. Nie wysłano mutacji do urządzenia.
