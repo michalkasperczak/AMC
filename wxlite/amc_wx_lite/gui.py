@@ -25112,7 +25112,9 @@ class LiteFrame(wx.Frame):
     def _heos_failure(self, error: Exception) -> None:
         if self.navigator.active is not SessionId.HEOS:
             return
-        if isinstance(error, (ValueError, HeosListUnavailable)):
+        if isinstance(error, HeosListUnavailable):
+            self.announcer.say("To źródło HEOS nie udostępnia teraz listy")
+        elif isinstance(error, ValueError):
             self.announcer.say(str(error))
         else:
             self.announcer.say("Urządzenie HEOS nie odpowiada lub odrzuciło polecenie")
@@ -25130,6 +25132,7 @@ class LiteFrame(wx.Frame):
             manual = dialog.GetSelection() == 1
         if not manual:
             self._load_heos_targets()
+            self._restore_focus_after_dialog()
             return
         with wx.TextEntryDialog(
             self, "Podaj lokalny adres IP urządzenia HEOS",
@@ -25141,6 +25144,7 @@ class LiteFrame(wx.Frame):
                 return
             address = dialog.GetValue().strip()
         self._load_heos_targets(address)
+        self._restore_focus_after_dialog()
 
     def _load_heos_targets(self, manual_host: str = "") -> None:
         self._heos_connection_version += 1

@@ -7,7 +7,9 @@ from test_gui_logic import install_wx_stub
 install_wx_stub()
 
 from amc_wx_lite.command_palette import entries_for_session
+from amc_wx_lite import gui
 from amc_wx_lite.gui import LiteFrame
+from amc_wx_lite.heos_client import HeosListUnavailable
 from amc_wx_lite.heos_navigation import HeosBrowseState, HeosLocation
 from amc_wx_lite.heos_source import HeosItem
 from amc_wx_lite.menu_model import menus_for_session
@@ -114,3 +116,55 @@ def test_heos_queue_action_uses_current_playable_item_and_reads_back():
     state.items = (HeosItem("item", "Radio", "stacja", "5", "", "8", False, True,
                             media_type="station"),)
     assert LiteFrame._heos_selected_queue_candidate(frame) is None
+
+
+def test_heos_target_dialog_restores_list_focus_after_both_choices(monkeypatch):
+    events = []
+
+    class Choice:
+        selection = 0
+
+        def __init__(self, *_args):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            pass
+
+        def SetName(self, _name):
+            pass
+
+        def ShowModal(self):
+            return gui.wx.ID_OK
+
+        def GetSelection(self):
+            return self.selection
+
+    class Address(Choice):
+        def GetValue(self):
+            return "192.0.2.1"
+
+    monkeypatch.setattr(gui.wx, "SingleChoiceDialog", Choice, raising=False)
+    monkeypatch.setattr(gui.wx, "TextEntryDialog", Address, raising=False)
+    frame = SimpleNamespace(
+        _load_heos_targets=lambda host="": events.append(("load", host)),
+        _restore_focus_after_dialog=lambda: events.append(("focus", None)),
+    )
+    LiteFrame._configure_heos_target(frame)
+    assert events == [("load", ""), ("focus", None)]
+    events.clear()
+    Choice.selection = 1
+    LiteFrame._configure_heos_target(frame)
+    assert events == [("load", "192.0.2.1"), ("focus", None)]
+
+
+def test_heos_unavailable_list_speaks_user_label_without_command_id():
+    spoken = []
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(active=SessionId.HEOS),
+        announcer=SimpleNamespace(say=spoken.append),
+    )
+    LiteFrame._heos_failure(frame, HeosListUnavailable("browse/browse"))
+    assert spoken == ["To źródło HEOS nie udostępnia teraz listy"]
