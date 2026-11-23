@@ -30,6 +30,7 @@ Pierwsze próby SSDP 23.11.2026 nie przyniosły odpowiedzi, ponieważ środowisk
 
 - `D:\Projekty Codex\AMC - zależności\python-test-envs\wxpython-4.3.1-cp314\Scripts\python.exe -m pytest wxlite\tests\test_heos_client.py wxlite\tests\test_heos_source.py wxlite\tests\test_heos_navigation.py wxlite\tests\test_heos_service.py -q` z `PYTHONPATH=wxlite`: **41 passed in 0.97s** (ostatnia próba 23.11.2026).
 - Testy automatyczne są bezokienkowe i używają atrap. Osobna próba odczytowa na Denon Home 200 potwierdziła wykrywanie, model celu, strukturę źródeł, stronicowanie i model stanu. Nie potwierdza sterowania, dźwięku, interfejsu ani NVDA.
+- Nowa warstwa operacji przeszła 23.11.2026 odczyt na Denon Home 200: jeden cel, siedem źródeł, znana głośność i tytuł statusu, pusta kolejka; pięć źródeł zwróciło stronę katalogu, dwa nie udostępniły listy. To stan tej próby, a nie stała liczba źródeł. Nie wysłano żadnej komendy sterowania.
 - Nie wykonano kompilacji, instalacji ani publikacji.
 
 ## Znane ograniczenia
