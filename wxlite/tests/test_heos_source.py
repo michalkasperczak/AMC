@@ -64,6 +64,16 @@ def test_catalog_identity_is_scoped_to_source_and_parent():
     assert len({a.item_id, b.item_id, c.item_id}) == 3
 
 
+def test_station_without_media_id_is_not_offered_as_playable():
+    rows = catalog_items("2", "radio", [
+        {"name": "Stacja", "type": "station", "cid": "folder",
+         "container": "yes", "playable": "yes"},
+    ])
+    assert len(rows) == 1
+    assert rows[0].can_open
+    assert not rows[0].can_play
+
+
 def test_catalog_skips_unusable_items_and_never_stringifies_objects():
     rows = catalog_items("1", None, [
         {"name": {"raw": "bad"}, "mid": "a", "playable": "yes"},

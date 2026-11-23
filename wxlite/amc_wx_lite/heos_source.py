@@ -229,7 +229,9 @@ def catalog_items(source_id: str, container_id: str | None, payload: object) -> 
             "music_service", "heos_service", "heos_server", "dlna_server"
         } else ""
         can_open = (_yes(raw.get("container")) and bool(cid)) or bool(child_sid)
-        can_play = _yes(raw.get("playable")) and bool(mid or cid)
+        can_play = _yes(raw.get("playable")) and bool(
+            mid if kind == "station" else mid or cid
+        )
         title = _text(raw.get("name")) or _text(raw.get("song")) or _text(raw.get("station"))
         if not title or not (can_open or can_play):
             continue
