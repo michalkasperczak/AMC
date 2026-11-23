@@ -86,3 +86,15 @@ termin się rozpoczął, AMC wyjaśnia, dlaczego nie pomija terminu.
   `codex/amc-search-schedule-only-alpha515-20261123`; końcowy commit wskazuje
   manifest kandydata.
 - Stan instalacji i publikacji po tej korekcie: w rejestrze wydania alpha.515.
+
+## Wynik wydania z 23.11.2026
+
+Wspólna poprawka SCHED-002 i wyszukiwania została wydana z commitu
+`abc11a9d80ca96ad1cbb29478b0dd7d5d888b97e` jako AMC Test
+`test-2026.11.23.0136` oraz AMC Public `public-2026.11.23.0137`, wersja
+`0.1.0-alpha.515`. Oba wydania GitHub zawierają instalator, manifest aktualizacji
+i plik integralności; zdalne sumy SHA-256 instalatorów zgadzają się z lokalnymi.
+Instalacji lokalnej nie wykonano. Ręczna próba NVDA pozostała otwarta, bo
+równoległe użycie pulpitu uniemożliwiło bezpieczną kontrolę fokusu i stanu
+nagrywania. Pełny wynik i znane ograniczenia zapisano w
+`D:\Projekty Codex\AMC - integracja wxPython\publish\AMC-alpha515-rejestr-wydania.md`.

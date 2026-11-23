@@ -89,3 +89,16 @@ Ujednolicono kolejność wyników wyszukiwania w usługach: wykonawcy są przed
 albumami i utworami, a dokładne dopasowania są pierwsze w swoim rodzaju.
 Otwarta lista wyników Apple Music zachowuje tę samą kolejność. Podpowiedzi
 wyszukiwarki opisują kopiowanie nazwy i linku oraz nawigację strzałkami.
+
+## Wynik wydania z 23.11.2026
+
+Powyższy stan „bez buildu i publikacji” opisuje etap źródeł sprzed późniejszej
+decyzji Michała. Wspólna poprawka wyszukiwania i SCHED-002 została wydana z
+czystego commitu `abc11a9d80ca96ad1cbb29478b0dd7d5d888b97e` jako AMC Test
+`test-2026.11.23.0136` i AMC Public `public-2026.11.23.0137`, wersja techniczna
+`0.1.0-alpha.515`. Oba instalatory, manifesty aktualizacji i pliki integralności
+zostały przesłane oraz zweryfikowane na GitHubie, także zdalne sumy SHA-256.
+Public nie zawiera Apple Music. Instalacji lokalnej nie wykonano. Próba NVDA
+pozostała otwarta: równoległe korzystanie z pulpitu uniemożliwiło wiarygodną
+kontrolę fokusu i stanu nagrywania. Pełny zapis jest w
+`D:\Projekty Codex\AMC - integracja wxPython\publish\AMC-alpha515-rejestr-wydania.md`.

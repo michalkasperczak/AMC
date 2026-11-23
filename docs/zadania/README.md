@@ -1000,6 +1000,9 @@ zmian, wymagający korekty użytkownika:
 
 ## Krótkie polecenia użytkownika
 
+- `SEARCH-20261123` — **wydane w AMC Test i Public alpha.515; lokalna instalacja i odbiór NVDA otwarte** — wspólna kolejność wykonawca, album, utwór dla Ctrl+F we wszystkich sesjach oraz kopiowanie i nawigacja wyników. Public bez Apple Music. [SEARCH-20261123-wspolna-kolejnosc-wynikow.md](SEARCH-20261123-wspolna-kolejnosc-wynikow.md).
+- `SCHED-002` — **wydane w AMC Test i Public alpha.515; lokalna instalacja i odbiór NVDA otwarte** — `Shift+Spacja` pomija lub przywraca najbliższy termin harmonogramu Radia bez wyłączania planu. [SCHED-002-jednorazowe-pominiecie-terminu.md](SCHED-002-jednorazowe-pominiecie-terminu.md).
+
 - `RELEASE-20261114-PUBLIC-SONOS` — **Test i Public alpha.507 opublikowane, zainstalowane i sprawdzone; Test uruchomiony z D** — lokalny Sonos w Public oraz poprawki playlist, YouTube, kolejek i podcastów; Public bez Apple Music. [RELEASE-20261114-public-sonos-playlisty.md](RELEASE-20261114-public-sonos-playlisty.md).
 - `PLAYLIST-BULK-20261114` — **w wydanym i zainstalowanym Test/Public alpha.507; odbiór NVDA otwarty** — wielokrotne zaznaczenie dla playlist w pięciu sesjach, potwierdzona liczba dodatków TIDAL oraz brak łącznego czasu dla playlist radia. [PLAYLIST-BULK-20261114-potwierdzenie-i-radio.md](PLAYLIST-BULK-20261114-potwierdzenie-i-radio.md).
 
