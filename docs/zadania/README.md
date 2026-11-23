@@ -1,5 +1,9 @@
 # Rejestr zadań AMC
 
+**RELEASE-ALPHA518 (23.11.2026):** połączone wydania Test i Public z wideo,
+wyszukiwaniem, poprawką kolejki Spotify i informacjami TIDAL; Public bez
+Apple Music, oba profile bez HEOS. [Zapis wydania](RELEASE-ALPHA518-20261123.md).
+
 **VIDEO-001 (23.11.2026): kod i 10 testów celowanych gotowe; widoczny odbiór, build i wydanie otwarte.** Obraz lokalnego filmu w obecnym odtwarzaczu AMC, wybór samego audio i otwieranie strony filmu internetowego w zwykłej przeglądarce. [Zadanie](VIDEO-20261123-odtwarzanie-w-odtwarzaczu-AMC.md).
 
 **HEOS-001 (23.11.2026): W trakcie na osobnej gałęzi następnego AMC Test.** Wykrywanie i adapter LAN, model źródeł oraz 26 testów bez okien gotowe; odczyt Denon Home 200 potwierdzony. Sesja, sterowanie, NVDA, build, instalacja i wydanie pozostają otwarte. [Zadanie](HEOS-001-20261123-rekonesans-i-adapter-odczytowy.md).

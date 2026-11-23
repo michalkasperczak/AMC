@@ -554,6 +554,7 @@ if "session.tidal" in _RELEASE_PROFILE.capabilities:
         TidalContainerPayloadError,
         TidalProfileError,
         TidalSource,
+        complete_album_duration_ticks,
         native_track_id,
         paged_collection_rows,
         container_result_from_host,
@@ -30500,6 +30501,71 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("spotify-album-information", work, done, failed)
 
+    def _announce_tidal_information(self, row: Row, fields: tuple[str, ...]) -> None:
+        """Read cached facts; fetch album tracks only after an explicit Left Arrow."""
+        def speak(current: Row, duration_ticks: int) -> None:
+            parts: list[str] = []
+            has_duration = duration_ticks > 0 and "duration" in fields
+            for field in fields:
+                if field == "duration":
+                    if has_duration:
+                        parts.append(format_duration(duration_ticks / 10_000_000))
+                        if current.kind == "track":
+                            parts.append(current.title)
+                    elif current.kind in ("track", "album"):
+                        parts.append("Czas trwania nieznany")
+                elif field == "artist" and current.artist_name and not (
+                    current.kind == "track" and has_duration
+                ):
+                    parts.append(current.artist_name)
+            if parts:
+                self.announcer.say(", ".join(parts))
+
+        cached = getattr(self, "_tidal_album_duration_cache", {})
+        duration = row.duration_ticks or cached.get(row.service_id, 0)
+        if ("duration" not in fields or row.kind != "album" or duration > 0
+                or not row.service_id or self.client is None):
+            speak(row, duration)
+            return
+
+        requested_id = row.item_id
+        client = self.client
+        self.announcer.say("Sprawdzam czas albumu")
+
+        def work():
+            return container_result_from_host(client.tidal_container_items(
+                item_id=row.item_id,
+                external_id=row.service_id or "",
+                title=row.title,
+                kind="album",
+                artist=row.artist_name,
+            ))
+
+        def current_row() -> Row | None:
+            if self.navigator.active is not SessionId.TIDAL:
+                return None
+            selected = self.navigator.sessions[SessionId.TIDAL].model.selected_row
+            return selected if selected is not None and selected.item_id == requested_id else None
+
+        def done(result) -> None:
+            selected = current_row()
+            if selected is None:
+                return
+            total = complete_album_duration_ticks(result.rows)
+            if total > 0:
+                self._tidal_album_duration_cache = {
+                    **getattr(self, "_tidal_album_duration_cache", {}),
+                    row.service_id: total,
+                }
+            speak(selected, total)
+
+        def failed(_error: Exception) -> None:
+            selected = current_row()
+            if selected is not None:
+                speak(selected, 0)
+
+        self.runner.submit("tidal-album-information", work, done, failed)
+
     def _announce_quick_information(self) -> None:
         """Parametry elementu pod fokusem albo faktycznie odtwarzanego.
 
@@ -30563,19 +30629,7 @@ class LiteFrame(wx.Frame):
                 )
                 self.announcer.say(", ".join(parts))
                 return
-            parts: list[str] = []
-            has_duration = row.duration_ticks > 0 and "duration" in left_fields
-            for field in left_fields:
-                if field == "duration" and has_duration:
-                    parts.append(format_duration(row.duration_ticks / 10_000_000))
-                    if row.kind == "track":
-                        parts.append(row.title)
-                elif field == "artist" and row.artist_name and not (
-                    row.kind == "track" and has_duration
-                ):
-                    parts.append(row.artist_name)
-            if parts:
-                self.announcer.say(", ".join(parts))
+            LiteFrame._announce_tidal_information(self, row, left_fields)
             return
         if self.navigator.active is SessionId.SPOTIFY:
             if row is None:

@@ -142,7 +142,6 @@ PUBLIC_PROFILE = ReleaseProfile(
             "apple-music.experimental",
             "session.apple-music",
             "session.heos",
-            VIDEO_PREVIEW_CAPABILITY,
         }
     ),
 )

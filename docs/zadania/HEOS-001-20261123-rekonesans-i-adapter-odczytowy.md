@@ -93,3 +93,9 @@ W Menedżerze sesji włącz HEOS i przełącz się do niego. Wybierz głośnik E
 ### Szkic changelogu — do korekty Michała
 
 AMC Test: dodano opcjonalną sesję HEOS z wykrywaniem urządzeń, ręcznym adresem IP, przeglądaniem dostępnych źródeł, podglądem i dodawaniem do kolejki oraz podstawowym sterowaniem odtwarzaniem i głośnością. AMC Public nie udostępnia sesji HEOS. Kompatybilność sterowania z Denon Home 200 i odbiór NVDA pozostają do potwierdzenia przed szerszym udostępnieniem.
+
+## Integracja z wydaną alpha.518 — 23.11.2026
+
+Po potwierdzeniu wydania alpha.518 scalono jej gałąź `codex/amc-unified-release-20261123` z izolowaną gałęzią HEOS. Zachowano wideo w AMC Public zgodnie z późniejszą decyzją Michała opisaną w `RELEASE-ALPHA518-20261123.md`; z profilu Public wykluczono tylko HEOS i Apple Music. Moduły HEOS pozostają w paczce Public jako wymagane przez wspólny import GUI, lecz sesja i możliwość `session.heos` są ukryte w profilu Public. Wcześniejszy zapis wydania alpha.518 o wykluczeniu `heos_client.py` nadal opisuje wyłącznie tamto wydanie, nie przyszłą paczkę.
+
+Po scaleniu: 195 celowanych testów HEOS i wspólnych poleceń zaliczonych; kolejne 110 testów profili, pakowania, instalatora i wideo oraz 49 podtestów zaliczonych na przypiętym wxPython 4.3.1. Test pakowania wykazał brak klienta HEOS w Public mimo bezwarunkowego importu GUI; poprawiono listę modułów i sprawdzono ponownie import paczki Public. Nie wykonano jeszcze budowy wersji następnej ani instalacji.

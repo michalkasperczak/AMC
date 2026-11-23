@@ -347,7 +347,7 @@ def test_bundle_manifest_profile_is_explicit_and_public_is_restricted():
     assert manifest["updateChannel"] == "stable"
     assert manifest["sessions"] == [
         session for session in bundle.profile_from_id("test").session_ids
-        if session != "appleMusic"
+        if session not in {"appleMusic", "heos"}
     ]
     assert "spotify" in " ".join(manifest["capabilities"]).casefold()
     assert manifest["credentialNamespace"] != (

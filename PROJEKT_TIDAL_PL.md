@@ -391,6 +391,13 @@ wykonawca relację wykonawcy dla swoich albumów; techniczne identyfikatory nie
 mogą pojawić się w mowie NVDA. Nie przypisujemy osobnego skrótu z literą `G`,
 ponieważ takie kombinacje kolidują z narzędziami systemowymi użytkownika.
 
+Uzupełnienie z 23.11.2026: niepełna świeża odpowiedź nie usuwa czasu ani
+relacji znanych już dla tego samego zasobu TIDAL. Aktualne członkostwo w
+Ulubionych i Bibliotece nadal pochodzi ze świeżej odpowiedzi. Gdy czas albumu
+nie jest znany nawet z wcześniejszego zapisu, lewa strzałka może pobrać jego
+utwory i podać sumę tylko wtedy, gdy każdy utwór ma czas. Nie wysyła żądań
+sieciowych przy zwykłym ruchu po liście.
+
 Kolejka pozostaje lokalnym widokiem sesji AMC. Jej nagłówek podaje liczbę
 elementów oraz sumę znanych czasów. Zwrot **jako następne** jest dodawany tylko
 wtedy, gdy przynajmniej jedna pozycja ma tę flagę; zwykłe elementy Kolejki nie

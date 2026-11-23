@@ -77,10 +77,20 @@ class YouTubeEmbeddedContracts(unittest.TestCase):
             Action.PLAY_LOCAL_VIDEO
         ).description)
 
-    def test_public_profile_does_not_expose_online_video(self):
-        frame = SimpleNamespace(_local_video_target_path=lambda: None)
+    def test_public_profile_exposes_online_video(self):
+        navigator = Navigator()
+        navigator.active = SessionId.PODCASTS
+        navigator.apply_podcast_aggregate(
+            LibraryView.PODCAST_HISTORY, "Historia podcastów",
+            [Row("film", "Film YouTube", "episode", url=URL,
+                 service_kind="youtubeVideo")],
+        )
+        frame = SimpleNamespace(
+            navigator=navigator,
+            _local_video_target_path=lambda: None,
+        )
         with patch("amc_wx_lite.gui.current_profile", return_value=PUBLIC_PROFILE):
-            self.assertFalse(LiteFrame._action_available_in_active_session(
+            self.assertTrue(LiteFrame._action_available_in_active_session(
                 frame, Action.PLAY_LOCAL_VIDEO
             ))
 
