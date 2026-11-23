@@ -1,6 +1,6 @@
 # CAST-002 — dostępność Google Cast i AirPlay w sesjach AMC
 
-Status: **Kod, celowane testy i odizolowana kompilacja gotowe; odbiór sprzętowy/NVDA oraz wydanie otwarte. Przyrost do następnej wersji.**
+Status: **Wydane w Test i Public alpha.519; instalacja użytkownika, odsłuch sprzętowy i nowy odbiór NVDA pozostają otwarte.**
 
 ## Zlecenie i nadrzędna korekta — 23.11.2026
 
@@ -55,8 +55,12 @@ Nie ma nowej paczki, instalacji, publikacji ani uruchomienia użytkowego AMC dla
 
 Osobny [szkic instrukcji i listy zmian](CAST-002-instrukcja-i-lista-zmian-szkic.md) jest przeznaczony do korekty użytkownika, bez automatycznej publikacji.
 
-## Wersja i następny krok
+## Stan przed zleceniem wydania — zapis historyczny
 
 Bez nowego numeru wersji i bez commitu tego zadania; repozytorium ma wspólne niezapisane zmiany wielu zadań. Zakres źródeł tego przyrostu: nowe `network_audio.py`, `cast_tidal.py`; routery `cast_session.py`, `mirror_core.py`, `mirror_local.py`, `mirror_airplay.py`; `host_client.py`, `gui.py`, `mirror_dialog.py`, `shortcuts.py`, `menu_model.py`, `i18n.py`, `locales/template.json`; host `LiteTidalNativePlayRequest.cs` i odpowiednie fragmenty `LiteEngineHandlers.cs`; powiązane testy oraz dokumentacja. Nie obejmować automatycznie całych zastanych plików ani cudzych zmian przyszłym commitem.
 
 Następny krok wydania: przegląd wspólnego zakresu, domknięcie bramki tłumaczeń, świadoma próba odsłuchu RARCH/TIDAL i rzeczywisty odbiór NVDA nowych wariantów listy (fokus początkowy, strzałki, Enter/Escape, powrót fokusu, ponowne otwarcie). Potem zgodny pakiet klienta i hosta w **następnym** wspólnym wydaniu. Nie dołączać samowolnie do już budującej się aktualizacji. Apple Music i HEOS pozostają osobnymi kartami.
+
+## Wydanie i następny krok
+
+Kod `dc000561d05ae7e0f2924c620e3d3f7599d943bd` opublikowano w obu profilach. Pełne wyniki, dokładne ścieżki instalatorów, SHA-256 i adresy wydań: [RELEASE-ALPHA519](RELEASE-ALPHA519-20261123-Cast-AirPlay.md). Aktualizatory obu instalacji widzą nową wersję. Nie wykonano lokalnej instalacji; odsłuch i NVDA pozostają do odbioru.

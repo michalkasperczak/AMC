@@ -1,10 +1,10 @@
 # Accessible Media Controller — Windows prototype
 
-## Google Cast and AirPlay prepared for the next version — November 23, 2026
+## Google Cast and AirPlay released in both alpha.519 profiles — November 23, 2026
 
 `Shift+C` selects Google Cast; `Shift+M` opens “AirPlay and additional audio output”. The prepared source increment adds Radio Archiwista and supported native TIDAL sources without TIDAL Connect. Cast supports unencrypted BTS FLAC/AAC/MP3, excluding DASH/MPD. AirPlay provides an additional output with possible delay. Sessions requiring another source adapter do not advertise a working Cast command. `Shift+A` still selects the local audio path.
 
-This is for the next shared release, with no change to the installed application. Hardware playback and NVDA acceptance of the new picker variants remain open. This record supersedes older general statements limiting support to three sessions or treating Shift+M only as an idea. [Draft guide and limitations in Polish](docs/zadania/CAST-002-instrukcja-i-lista-zmian-szkic.md); [tests and release status](docs/zadania/CAST-002-20261123-zakres-sesji-i-AirPlay.md).
+Released in Test and Public alpha.519. The user installs the update; the installed application was not replaced automatically. Hardware playback and NVDA acceptance of the new picker variants remain open. This record supersedes older general statements limiting support to three sessions or treating Shift+M only as an idea. [Draft guide and limitations in Polish](docs/zadania/CAST-002-instrukcja-i-lista-zmian-szkic.md); [tests and release status](docs/zadania/CAST-002-20261123-zakres-sesji-i-AirPlay.md).
 
 
 ## YouTube subscription import in preparation — November 17, 2026

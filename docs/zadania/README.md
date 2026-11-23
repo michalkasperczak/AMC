@@ -1,6 +1,6 @@
 # Rejestr zadań AMC
 
-**CAST-002 (23.11.2026): przyrost do następnej wersji; kod, 240 testów Python, 2 zestawy C# i odizolowana kompilacja gotowe.** Shift+C oraz „AirPlay i dodatkowe wyjście audio” pod Shift+M obejmują Radio Archiwistę i odpowiednie źródła natywnego TIDAL. Odbiór sprzętowy/NVDA, globalna bramka tłumaczeń oraz wydanie pozostają otwarte. Bez pakowania i instalacji przy trwającym wydaniu. [Zakres i wyniki](CAST-002-20261123-zakres-sesji-i-AirPlay.md); [szkic instrukcji](CAST-002-instrukcja-i-lista-zmian-szkic.md).
+**CAST-002 (23.11.2026): wydane w Test i Public alpha.519.** Shift+C i Shift+M obejmują Radio Archiwistę oraz obsługiwane źródła natywnego TIDAL. Zdalny commit, oba instalatory z SHA-256 i dostępność w aktualizatorach potwierdzone; użytkownik instaluje sam. Odsłuch nowych wariantów, NVDA oraz istniejące braki angielskich tłumaczeń pozostają otwarte. [Wynik wydania i ścieżki](RELEASE-ALPHA519-20261123-Cast-AirPlay.md); [zakres](CAST-002-20261123-zakres-sesji-i-AirPlay.md).
 
 **RELEASE-ALPHA518 (23.11.2026):** połączone wydania Test i Public z wideo,
 wyszukiwaniem, poprawką kolejki Spotify i informacjami TIDAL; Public bez

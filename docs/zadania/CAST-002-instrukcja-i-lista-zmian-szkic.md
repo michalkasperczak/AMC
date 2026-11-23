@@ -1,6 +1,6 @@
-# Google Cast i AirPlay — szkic do kolejnej wersji, 23.11.2026
+# Google Cast i AirPlay — szkic do korekty, wydanie alpha.519 z 23.11.2026
 
-Materiał do korekty użytkownika. Kod i celowane testy są gotowe, ale ten przyrost nie jest nowym instalatorem ani potwierdzeniem odsłuchu/NVDA.
+Materiał do korekty użytkownika. Kod dostarczono w aktualizacjach Test i Public alpha.519. Ten tekst pozostaje szkicem instrukcji, a odsłuch nowych wariantów i odbiór NVDA nadal są otwarte.
 
 ## Wybór wyjścia
 
@@ -25,4 +25,4 @@ AirPlay jest dodatkowym odsłuchem, z możliwym przeliczeniem audio i opóźnien
 - Nazwa polecenia Shift+M wskazuje AirPlay; lista wyjaśnia brak składników albo odbiorników.
 - Spóźnione wykrywanie nie otwiera listy w innej sesji. Wyłączenie dodatkowego wyjścia pozostaje dostępne po zakończeniu materiału; brak potwierdzenia zatrzymania jest zgłaszany.
 
-Wyniki i otwarte bramki: [karta CAST-002](CAST-002-20261123-zakres-sesji-i-AirPlay.md). Wersja i commit: jeszcze nienadane; następne wspólne wydanie.
+Wyniki i otwarte bramki: [karta CAST-002](CAST-002-20261123-zakres-sesji-i-AirPlay.md). Wersja techniczna: `0.1.0-alpha.519`; kod `dc000561d05ae7e0f2924c620e3d3f7599d943bd`. Instalację wykonuje użytkownik.
