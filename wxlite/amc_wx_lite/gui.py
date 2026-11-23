@@ -608,6 +608,23 @@ TEMPO_LABELS = {
     0: "Tryb zgodności",
 }
 
+# The audio host has no timeline while the official YouTube player owns it.
+# Keep command discovery and dispatch aligned until those operations have an
+# explicit external-player timeline implementation.
+YOUTUBE_AUDIO_HOST_ONLY_ACTIONS = frozenset({
+    Action.ADD_BOOKMARK, Action.ADD_NAMED_BOOKMARK,
+    Action.PREVIOUS_BOOKMARK, Action.NEXT_BOOKMARK,
+    Action.PREVIOUS_NAMED_BOOKMARK, Action.NEXT_NAMED_BOOKMARK,
+    Action.VIEW_CHAPTERS, Action.ADD_NAMED_CHAPTER,
+    Action.PREVIOUS_CHAPTER, Action.NEXT_CHAPTER,
+    Action.PLAYBACK_HISTORY_OLDER, Action.PLAYBACK_HISTORY_NEWER,
+    Action.CLIP_MARK_START, Action.CLIP_MARK_END,
+    Action.CLIP_JUMP_START, Action.CLIP_JUMP_END,
+    Action.CLIP_PREVIOUS_BOUNDARY, Action.CLIP_NEXT_BOUNDARY,
+    Action.CLIP_EXPORT, Action.CLIP_APPEND, Action.CLIP_REMOVE,
+    Action.CLIP_CLEAR,
+})
+
 
 @dataclass(frozen=True, slots=True)
 class _ContextMenuCommand:
@@ -11249,6 +11266,11 @@ class LiteFrame(wx.Frame):
         self._last_status: dict = {}
         self._video_mode_requested = False
         self._video_surface = None
+        self._youtube_surface = None
+        self._youtube_pending: tuple[str, str] | None = None
+        self._youtube_active_item_id: str | None = None
+        self._youtube_active_title = ""
+        self._youtube_status: dict = {}
         self._transport_status_by_session: dict[SessionId, dict] = {}
         self._radio_transport_status_poll_pending = False
         self._last_recording_status: dict = {}
@@ -12220,9 +12242,11 @@ class LiteFrame(wx.Frame):
                 enabled = False
             if entry.needs_local_path and not has_local_path:
                 enabled = False
-            if entry.action in {Action.PLAY_LOCAL_VIDEO, Action.PLAY_LOCAL_AUDIO} and not (
-                self._local_video_target_path()
+            if entry.action is Action.PLAY_LOCAL_VIDEO and not (
+                self._local_video_target_path() or LiteFrame._online_youtube_target(self)
             ):
+                enabled = False
+            if entry.action is Action.PLAY_LOCAL_AUDIO and not self._local_video_target_path():
                 enabled = False
             if entry.needs_podcast_item and (
                 not podcasts or selected_kind not in ("podcast", "episode")
@@ -12469,6 +12493,9 @@ class LiteFrame(wx.Frame):
                         self.navigator.session.library_view in (LibraryView.SAVED_QUEUE, LibraryView.LIVE_QUEUE)):
                     enabled = False
             if entry.action in (Action.CAST_SESSION, Action.MIRROR_SESSION) and not self._action_available_in_active_session(entry.action):
+                enabled = False
+            if (entry.action in YOUTUBE_AUDIO_HOST_ONLY_ACTIONS
+                    and getattr(self, "_youtube_playback_active", lambda: False)()):
                 enabled = False
             if item.IsEnabled() != enabled:
                 item.Enable(enabled)
@@ -15562,6 +15589,8 @@ class LiteFrame(wx.Frame):
                 else:
                     self._last_playback_history_error = None
         elif name == "playback.ended":
+            if self._youtube_active_item_id and data.get("engine") == "files":
+                return
             # Przy ZYWEJ kolejce koniec utworu nie jest koncem sluchania: host
             # zaraz przysle ``queue.advanced``. Mowienie "Koniec utworu" przed
             # nazwa nastepnego byloby tylko halasem, dlatego milczymy i czekamy.
@@ -15631,6 +15660,8 @@ class LiteFrame(wx.Frame):
                 str(data.get("id") or ""), str(data.get("title") or "")
             ))
         elif name == "playback.failed":
+            if self._youtube_active_item_id and data.get("engine") == "files":
+                return
             if data.get("engine") == "spotify":
                 pending = self._pending_spotify_playback
                 self._pending_spotify_playback = None
@@ -18302,6 +18333,14 @@ class LiteFrame(wx.Frame):
 
     def _dispatch(self, action: Action) -> None:
         if (
+            action in YOUTUBE_AUDIO_HOST_ONLY_ACTIONS
+            and getattr(self, "_youtube_playback_active", lambda: False)()
+        ):
+            self.announcer.say(i18n.ui_text(
+                "To polecenie nie jest dostępne podczas oglądania YouTube online"
+            ))
+            return
+        if (
             action is Action.REMOVE_SELECTED
             and not self._action_available_in_active_session(action)
         ):
@@ -20160,6 +20199,7 @@ class LiteFrame(wx.Frame):
         self.list_panel.Show(not want_player or keep_file_list)
         self.player_panel.Show(want_player)
         self._sync_embedded_video()
+        self._sync_youtube_visibility()
         active_list.Show(not want_player or keep_file_list)
         active_list.player_covers = want_player and keep_file_list
         for control in other_lists:
@@ -29379,9 +29419,36 @@ class LiteFrame(wx.Frame):
             local_video_file(path) and status.get("id") == state.now_playing_id
         ) else None
 
+    def _online_youtube_target(self) -> tuple[str, str] | None:
+        if self.navigator.active is not SessionId.PODCASTS:
+            return None
+        state = self.navigator.session
+        if state.view is View.PLAYER and getattr(self, "_youtube_active_item_id", None) == state.now_playing_id:
+            surface = getattr(self, "_youtube_surface", None)
+            if surface is not None and surface.active:
+                return self._youtube_active_item_id, surface.video_id
+        if state.view is not View.LIST:
+            return None
+        row = state.model.selected_row
+        if row is None or local_video_target(row):
+            return None
+        from .youtube_embedded import youtube_video_id
+        video_id = youtube_video_id(external_video_page_url(row))
+        return (row.item_id, video_id) if video_id else None
+
     def _play_local_video_mode(self, show_picture: bool) -> None:
         if VIDEO_PREVIEW_CAPABILITY not in current_profile().capabilities:
             return
+        if show_picture and not self._local_video_target_path():
+            target = self._online_youtube_target()
+            if target is not None:
+                item_id, video_id = target
+                if self.navigator.session.view is View.PLAYER:
+                    self._youtube_surface.play()
+                    return
+                self._youtube_pending = (item_id, video_id)
+                self._run(self.navigator.activate_selected_youtube_video())
+                return
         if not self._local_video_target_path():
             self.announcer.say(i18n.ui_text("Wybierz dostępny lokalny plik wideo"))
             return
@@ -29392,6 +29459,151 @@ class LiteFrame(wx.Frame):
                 self.announcer.say(i18n.ui_text("Odtwarzanie tylko dźwięku"))
             return
         self._run(self.navigator.activate_selected(open_player_on_activation=True))
+
+    def _youtube_playback_active(self) -> bool:
+        return bool(
+            self._youtube_active_item_id
+            and self.navigator.active is SessionId.PODCASTS
+            and self.navigator.session.now_playing_id == self._youtube_active_item_id
+            and self._youtube_surface is not None
+            and self._youtube_surface.active
+        )
+
+    def _stop_youtube_video(self) -> None:
+        surface = self._youtube_surface
+        if surface is not None:
+            surface.stop()
+            if hasattr(self, "player_panel"):
+                self.player_panel.Layout()
+        self._youtube_active_item_id = None
+        self._youtube_active_title = ""
+        self._youtube_status = {}
+
+    def _youtube_video_error(self, message: str) -> None:
+        on_player = (
+            self.navigator.active is SessionId.PODCASTS
+            and self.navigator.view is View.PLAYER
+            and (self._youtube_active_item_id is None or
+                 self.navigator.session.now_playing_id == self._youtube_active_item_id)
+        )
+        self._stop_youtube_video()
+        self._playing_sessions.discard(SessionId.PODCASTS)
+        self._pending_playback_session = None
+        self._transport_status_by_session.pop(SessionId.PODCASTS, None)
+        if self.navigator.active is SessionId.PODCASTS:
+            self._last_status = {}
+        if on_player:
+            self.navigator.session.now_playing_id = None
+            self.navigator.session.now_playing_title = ""
+            self.navigator.session.current_material_id = None
+            self._run(self.navigator.back_to_list())
+        self.announcer.say(
+            f"{i18n.ui_text(message)}. "
+            f"{i18n.ui_text('Wróć na listę i użyj polecenia Otwórz w przeglądarce')}"
+        )
+
+    def _youtube_video_ready(self) -> None:
+        if not self._youtube_playback_active():
+            return
+        self._youtube_surface.set_volume(self.options.volume)
+        self._youtube_surface.set_rate(self._session_default_rate(SessionId.PODCASTS))
+        self.announcer.say(i18n.ui_text("Odtwarzacz YouTube gotowy"))
+
+    def _youtube_video_status(self, status: dict) -> None:
+        if not self._youtube_playback_active():
+            return
+        previous_state = self._youtube_status.get("state")
+        self._youtube_status.update(status)
+        state = self._youtube_status.get("state", -1)
+        playing = state == 1
+        paused = state in (2, 5)
+        if playing:
+            self._playing_session = SessionId.PODCASTS
+            self._playing_sessions.add(SessionId.PODCASTS)
+        elif state == 0:
+            self._playing_sessions.discard(SessionId.PODCASTS)
+        snapshot = {
+            "sessionId": SessionId.PODCASTS.value,
+            "engine": "youtube",
+            "id": self._youtube_active_item_id,
+            "title": self._youtube_active_title,
+            "currentPlaybackText": f"{self._youtube_active_title}, YouTube online",
+            "positionSeconds": self._youtube_status.get("positionSeconds", 0),
+            "durationSeconds": self._youtube_status.get("durationSeconds", 0),
+            "volume": self._youtube_status.get("volume", self.options.volume),
+            "muted": self._youtube_status.get("muted", False),
+            "playing": playing,
+            "paused": paused,
+        }
+        self._transport_status_by_session[SessionId.PODCASTS] = snapshot
+        if self.navigator.active is SessionId.PODCASTS:
+            self._last_status = snapshot
+            self._update_native_playback_status(snapshot)
+            if self.navigator.view is View.PLAYER:
+                label = player_time_label(
+                    snapshot["positionSeconds"], snapshot["durationSeconds"]
+                )
+                if self.time_label.GetLabel() != label:
+                    self.time_label.SetLabel(label)
+                self._set_transport_label(playing=playing)
+        if state != previous_state and self.navigator.active is SessionId.PODCASTS:
+            self._refresh_native_playback_activity_view(SessionId.PODCASTS)
+        self._update_window_title()
+
+    def _start_youtube_video(self, item_id: str, video_id: str, title: str) -> None:
+        if (
+            self.navigator.active is not SessionId.PODCASTS
+            or self.navigator.view is not View.PLAYER
+            or self.navigator.sessions[SessionId.PODCASTS].now_playing_id != item_id
+        ):
+            return
+        self._pending_playback_session = None
+        self._stop_youtube_video()
+        self._video_mode_requested = False
+        if self._video_surface is not None:
+            self._video_surface.hide()
+        try:
+            if self._youtube_surface is None:
+                from .youtube_embedded import YouTubeEmbeddedPlayer
+                self._youtube_surface = YouTubeEmbeddedPlayer(
+                    self.player_panel,
+                    self._youtube_video_status,
+                    self._youtube_video_error,
+                    self._youtube_video_ready,
+                )
+                self.player_panel.GetSizer().Insert(
+                    2, self._youtube_surface.control, 1, wx.EXPAND | wx.ALL, 6
+                )
+        except (RuntimeError, OSError, wx.PyAssertionError):
+            self._youtube_video_error("Nie można uruchomić odtwarzacza YouTube")
+            return
+        self._youtube_active_item_id = item_id
+        self._youtube_active_title = title
+        self.navigator.sessions[SessionId.PODCASTS].current_material_id = item_id
+        self._playing_session = SessionId.PODCASTS
+        self._playing_sessions.difference_update({
+            SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA
+        })
+        self._playing_sessions.add(SessionId.PODCASTS)
+        self._youtube_status = {"state": -1}
+        self._youtube_surface.present(video_id, play=True)
+        self.player_panel.Layout()
+        self.play_button.SetFocus()
+
+    def _sync_youtube_visibility(self) -> None:
+        surface = self._youtube_surface
+        if surface is None or not surface.active:
+            return
+        visible = (
+            self._youtube_playback_active()
+            and self.navigator.view is View.PLAYER
+        )
+        if not visible:
+            surface.pause()
+            surface.control.Hide()
+        else:
+            surface.control.Show()
+        self.player_panel.Layout()
 
     def _video_unavailable(self) -> None:
         self._video_mode_requested = False
@@ -31007,6 +31219,39 @@ class LiteFrame(wx.Frame):
         if client is None:
             self.announcer.say("Silnik nie działa, nie mogę odtworzyć")
             return
+
+        if session_id is SessionId.PODCASTS:
+            pending = self._youtube_pending
+            self._youtube_pending = None
+            video_id = pending[1] if pending and pending[0] == intent.item_id else None
+            if video_id is None and self._youtube_active_item_id:
+                from .youtube_embedded import youtube_video_id
+                state = self.navigator.sessions[SessionId.PODCASTS]
+                row = next((
+                    item for item in (*state.playback_source_rows, *state.model.rows)
+                    if item.item_id == intent.item_id
+                ), None)
+                if row is not None and not local_video_target(row):
+                    video_id = youtube_video_id(external_video_page_url(row))
+                elif row is not None and local_video_target(row):
+                    self._video_mode_requested = True
+            if video_id is not None:
+                if self._youtube_surface is not None and self._youtube_surface.active:
+                    self._youtube_surface.pause()
+                self._pending_playback_session = session_id
+                self.runner.submit(
+                    "playback",
+                    lambda: client.stop(session_id.value),
+                    lambda _payload: self._start_youtube_video(
+                        intent.item_id, video_id, intent.title
+                    ),
+                    lambda _error: self._youtube_video_error(
+                        "Nie można zatrzymać poprzedniego odtwarzania"
+                    ),
+                )
+                return
+            if self._youtube_active_item_id:
+                self._stop_youtube_video()
 
         self._pending_playback_session = session_id
         if session_id is SessionId.RADIOARCHIWISTA:
@@ -34481,6 +34726,13 @@ class LiteFrame(wx.Frame):
         Dawniej każde naciśnięcie szło do ``queue.*`` i zwykły plik albo stacja
         kończyły komunikatem „początek/koniec kolejki”.
         """
+        if self._youtube_playback_active():
+            source_intents = self.navigator.step_playback_source(forward)
+            if source_intents is not None:
+                self._run(source_intents)
+            else:
+                self.announcer.say("Brak następnego elementu listy źródłowej" if forward else "Brak poprzedniego elementu listy źródłowej")
+            return
         if self.navigator.active is SessionId.APPLE_MUSIC:
             self._apple_music_external_command(
                 "next" if forward else "previous"
@@ -35638,6 +35890,18 @@ class LiteFrame(wx.Frame):
         if client is None:
             return
 
+        if self._youtube_playback_active():
+            if self._youtube_status.get("state") == 1:
+                self._youtube_surface.pause()
+                self.announcer.say(i18n.ui_text("YouTube: pauza"))
+            else:
+                if self.navigator.view is View.PLAYER:
+                    self._youtube_surface.play()
+                    self.announcer.say(i18n.ui_text("YouTube: wznowiono"))
+                else:
+                    self.announcer.say(i18n.ui_text("Otwórz odtwarzacz filmu, aby wznowić YouTube"))
+            return
+
         if self.navigator.active is SessionId.APPLE_MUSIC:
             self._apple_music_external_command("toggle")
             return
@@ -35786,6 +36050,10 @@ class LiteFrame(wx.Frame):
         )
 
     def _toggle_mute(self) -> None:
+        if self._youtube_playback_active():
+            self._youtube_surface.toggle_mute()
+            self.announcer.say("Włączono dźwięk" if self._youtube_status.get("muted") else "Wyciszono")
+            return
         client = self.client
         if client is None:
             self.announcer.say("Silnik nie działa")
@@ -35858,6 +36126,11 @@ class LiteFrame(wx.Frame):
         self.play_button.SetName(label.replace("&", ""))
 
     def _seek(self, delta: float) -> None:
+        if self._youtube_playback_active():
+            target = max(0.0, float(self._youtube_status.get("positionSeconds") or 0) + delta)
+            self._youtube_surface.seek_to(target)
+            self._announce_seek({"positionSeconds": target})
+            return
         client = self.client
         if client is None:
             return
@@ -35892,6 +36165,15 @@ class LiteFrame(wx.Frame):
         Uzywamy TEGO SAMEGO ``seek_to_position`` hosta, co skok procentowy --
         nie dokladamy nowej komendy protokolu.
         """
+        if self._youtube_playback_active():
+            duration = float(self._youtube_status.get("durationSeconds") or 0)
+            if to_end and duration <= 0:
+                self.announcer.say("Nie znam czasu trwania, nie mogę skoczyć na koniec")
+                return
+            target = max(0.0, duration - TRACK_END_MARGIN_SECONDS) if to_end else 0.0
+            self._youtube_surface.seek_to(target)
+            self._announce_track_edge(format_clock(target))
+            return
         client = self.client
         if client is None:
             return
@@ -36034,6 +36316,16 @@ class LiteFrame(wx.Frame):
             self._seek_to_input_time(value)
 
     def _seek_to_input_time(self, seconds: int) -> None:
+        if self._youtube_playback_active():
+            duration = float(self._youtube_status.get("durationSeconds") or 0)
+            if duration <= 0:
+                self.announcer.say("Czas trwania bieżącego materiału jest nieznany")
+            elif seconds > duration:
+                self.announcer.say("Podany czas przekracza długość materiału")
+            else:
+                self._youtube_surface.seek_to(seconds)
+                self.announcer.say(format_duration(seconds))
+            return
         client = self.client
         if client is None:
             self.announcer.say("Silnik nie działa, nie mogę skoczyć do czasu")
@@ -36088,6 +36380,21 @@ class LiteFrame(wx.Frame):
         (PercentageSeekMessages / PercentageSeekAnnouncement), wiec NIE
         dziedzicza one po polityce strzalek.
         """
+        if self._youtube_playback_active():
+            duration = float(self._youtube_status.get("durationSeconds") or 0)
+            if duration <= 0:
+                text = self.messages.percent_seek_text(
+                    percent, position_seconds=None, duration_seconds=None
+                )
+                if text is not None:
+                    self.announcer.say(text)
+                return
+            target = duration * percent / 100.0
+            self._youtube_surface.seek_to(target)
+            self._announce_seek_percent(
+                percent, {"positionSeconds": target}, duration
+            )
+            return
         client = self.client
         if client is None:
             return
@@ -36291,6 +36598,9 @@ class LiteFrame(wx.Frame):
         text = self.messages.volume_text(value)
         if text is not None and self.messages.speaks_routine:
             self.announcer.say(text)
+        if self._youtube_playback_active():
+            self._youtube_surface.set_volume(value)
+            return
         client = self.client
         if client is not None:
             self.runner.submit(
@@ -36317,6 +36627,9 @@ class LiteFrame(wx.Frame):
         # Format jak w oryginale: "1,25x" (MainWindow.xaml.cs:16122), a nie
         # "Tempo 125 procent".
         self.announcer.say(format_playback_rate(value))
+        if self._youtube_playback_active():
+            self._youtube_surface.set_rate(value)
+            return
         client = self.client
         if client is not None:
             self.runner.submit(
@@ -36661,6 +36974,7 @@ class LiteFrame(wx.Frame):
         client = self.client
         if (
             client is None
+            or self._youtube_active_item_id is not None
             or not self._podcast_checkpoint_active
             or self._podcast_checkpoint_pending
             or time.monotonic() < self._podcast_checkpoint_due
@@ -36740,6 +37054,10 @@ class LiteFrame(wx.Frame):
     def _refresh_status(self) -> None:
         if self.navigator.active is SessionId.APPLE_MUSIC:
             self._refresh_apple_music_external_state()
+        if self._youtube_playback_active():
+            self._youtube_surface.poll()
+            self._refresh_radio_transport_status()
+            return
         client = self.client
         if client is None or getattr(self, "_status_poll_pending", False):
             return
@@ -36768,6 +37086,8 @@ class LiteFrame(wx.Frame):
         self._status_poll_pending = True
         def done(payload: dict) -> None:
             self._status_poll_pending = False
+            if requested_session is SessionId.PODCASTS and self._youtube_active_item_id:
+                return
             if not payload:
                 return
             returned_session = str(payload.get("sessionId") or "").strip()
@@ -40334,12 +40654,17 @@ class LiteFrame(wx.Frame):
                     in_recordings and row and row.service_id
                     and (action is Action.OPEN_RECORDING_MONITOR or row.path)
                 )
+        if (action in YOUTUBE_AUDIO_HOST_ONLY_ACTIONS
+                and getattr(self, "_youtube_playback_active", lambda: False)()):
+            return False
         if action in {
             Action.PLAY_LOCAL_VIDEO, Action.PLAY_LOCAL_AUDIO,
             Action.OPEN_VIDEO_IN_BROWSER,
         } and VIDEO_PREVIEW_CAPABILITY not in current_profile().capabilities:
             return False
-        if action in {Action.PLAY_LOCAL_VIDEO, Action.PLAY_LOCAL_AUDIO}:
+        if action is Action.PLAY_LOCAL_VIDEO:
+            return bool(self._local_video_target_path() or LiteFrame._online_youtube_target(self))
+        if action is Action.PLAY_LOCAL_AUDIO:
             return bool(self._local_video_target_path())
         if action is Action.OPEN_VIDEO_IN_BROWSER:
             return bool(
@@ -40742,6 +41067,8 @@ class LiteFrame(wx.Frame):
                 )
                 _present_main_window(self)
                 return
+        if self._youtube_surface is not None:
+            self._stop_youtube_video()
         self.timer.Stop()
         history_dialog = self._radio_recognition_history_dialog
         self._radio_recognition_history_dialog = None

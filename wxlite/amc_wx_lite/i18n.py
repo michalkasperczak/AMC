@@ -884,7 +884,7 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
     "podcasts.youtube.video.download": "Download selected YouTube, Facebook or Instagram videos",
     "podcasts.youtube.video.saveAs": "Save one internet video as a file",
     "podcasts.youtube.video.selectVariant": "Choose download variant…",
-    "files.playVideo": "Play the selected local video with picture in the current AMC player",
+    "files.playVideo": "Play the selected local or online YouTube video with picture in the current AMC player",
     "files.playAudioOnly": "Play the selected local video as audio only",
     "podcasts.video.openBrowser": "Open the selected video's page in the default browser",
     "podcasts.goToRelated": "Go to the related podcast",
@@ -968,6 +968,20 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
 # Static labels and accessibility text which do not have a command/event ID.
 # Commands and messages deliberately use their stronger stable models above.
 _UI_TEXT_EN: dict[str, str] = {
+    "Odtwarzacz filmu YouTube": "YouTube video player",
+    "Odtwarzacz YouTube gotowy": "YouTube player ready",
+    "Film YouTube nie pozwala na odtwarzanie w AMC": "This YouTube video cannot play in AMC",
+    "Nie można połączyć się z odtwarzaczem YouTube": "Cannot connect to the YouTube player",
+    "Nie można uruchomić odtwarzacza YouTube": "Cannot start the YouTube player",
+    "Nie można zatrzymać poprzedniego odtwarzania": "Cannot stop the previous playback",
+    "Wróć na listę i użyj polecenia Otwórz w przeglądarce":
+        "Return to the list and use Open in browser",
+    "YouTube: pauza": "YouTube: paused",
+    "YouTube: wznowiono": "YouTube: resumed",
+    "Otwórz odtwarzacz filmu, aby wznowić YouTube":
+        "Open the video player to resume YouTube",
+    "To polecenie nie jest dostępne podczas oglądania YouTube online":
+        "This command is unavailable while watching YouTube online",
     "Obraz odtwarzanego wideo": "Playing video picture",
     "Wybierz film internetowy z poprawnym adresem": "Select an online video with a valid address",
     "Nie udało się otworzyć filmu w przeglądarce": "Could not open the video in your browser",

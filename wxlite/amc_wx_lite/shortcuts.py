@@ -484,7 +484,7 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
     Action.PLAY_LOCAL_VIDEO: CommandPresentation(
         Action.PLAY_LOCAL_VIDEO,
         "Odtwarzaj wideo",
-        "Odtwarzaj zaznaczony lokalny film z obrazem w obecnym odtwarzaczu AMC",
+        "Odtwarzaj zaznaczony film lokalny lub YouTube online z obrazem w obecnym odtwarzaczu AMC",
         "",
         "Odtwarzaj &wideo",
     ),
