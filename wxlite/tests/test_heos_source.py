@@ -52,6 +52,8 @@ def test_catalog_distinguishes_duplicate_titles_and_playable_containers():
     assert rows[2].can_open and rows[2].can_play
     assert rows[2].container_id == "c"
     assert rows[2].kind_label == "album"
+    assert rows[0].parent_container_id == "album-1"
+    assert rows[0].media_type == "song"
 
 
 def test_catalog_identity_is_scoped_to_source_and_parent():

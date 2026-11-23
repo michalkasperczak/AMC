@@ -8,7 +8,7 @@ import pytest
 from amc_wx_lite.heos_client import (
     HeosCommandError, HeosControlClient, HeosListUnavailable,
     HeosProtocolError, HeosReadClient, HeosTimeout, HeosUnavailable,
-    discover_heos, parse_ssdp_response,
+    discover_heos, parse_ssdp_response, queue_fingerprint, HeosError,
 )
 
 
@@ -186,6 +186,52 @@ def test_control_validates_values_before_network():
     with pytest.raises(ValueError):
         client.set_mute("1", "on")
     assert calls == []
+
+
+def test_queue_placement_keeps_now_next_end_and_replace_distinct():
+    fake = FakeSocket([packet("browse/add_to_queue") for _ in range(4)])
+    client, _ = client_for(fake, cls=HeosControlClient)
+    with pytest.raises(ValueError):
+        client.add_to_queue("1", "2", cid="album", placement="replace")
+    assert fake.sent == []
+    for placement in ("now", "next", "end", "replace"):
+        client.add_to_queue("1", "2", cid="album", placement=placement,
+                            replace_confirmed=placement == "replace")
+    assert [part.split(b"aid=")[1].split(b"\r")[0] for part in fake.sent] == [
+        b"1", b"2", b"3", b"4",
+    ]
+
+
+def test_play_station_uses_named_station_command():
+    fake = FakeSocket([packet("browse/play_stream")])
+    client, _ = client_for(fake, cls=HeosControlClient)
+    client.play_station("1", "2", "mid-1", "Radio Łódź", parent_cid="folder")
+    assert fake.sent == [
+        b"heos://browse/play_stream?pid=1&sid=2&cid=folder&mid=mid-1&name=Radio+%C5%81%C3%B3d%C5%BA\r\n"
+    ]
+
+
+def test_queue_fingerprint_rejects_stale_index_before_play():
+    current = [{"qid": "1", "mid": "new", "song": "Nowa"}]
+    old = [{"qid": "1", "mid": "old", "song": "Stara"}]
+    fake = FakeSocket([packet("player/get_queue", message="pid=1&count=1", payload=current)])
+    client, _ = client_for(fake, cls=HeosControlClient)
+    with pytest.raises(HeosError, match="zmieniła się"):
+        client.play_queue_if_current("1", "1", queue_fingerprint(old))
+    assert len(fake.sent) == 1
+    assert b"get_queue" in fake.sent[0]
+
+
+def test_queue_fingerprint_allows_current_item_once():
+    current = [{"qid": "1", "mid": "same", "song": "Utwór"}]
+    fake = FakeSocket([
+        packet("player/get_queue", message="pid=1&count=1", payload=current),
+        packet("player/play_queue"),
+    ])
+    client, _ = client_for(fake, cls=HeosControlClient)
+    client.play_queue_if_current("1", "1", queue_fingerprint(current))
+    assert len(fake.sent) == 2
+    assert fake.sent[1] == b"heos://player/play_queue?pid=1&qid=1\r\n"
 
 
 def test_ssdp_accepts_only_documented_local_heos_response():

@@ -1,12 +1,13 @@
-"""Read-only HEOS CLI transport for the first hardware compatibility probe.
+"""HEOS CLI transport with separate read and explicit control clients.
 
-No account credentials or playback commands are sent by this module.  A
-request owns the connection until its final response so late replies cannot
-be mistaken for a later request after a timeout.
+No account credentials are sent by this module. A request owns the connection
+until its final response so late replies cannot be mistaken for a later
+request after a timeout.
 """
 
 from __future__ import annotations
 
+import hashlib
 import ipaddress
 import json
 import re
@@ -28,7 +29,8 @@ _READ_COMMANDS = frozenset({
 })
 _CONTROL_COMMANDS = frozenset({
     "player/set_play_state", "player/play_next", "player/play_previous",
-    "player/set_volume", "player/set_mute",
+    "player/set_volume", "player/set_mute", "player/play_queue",
+    "browse/add_to_queue", "browse/play_stream",
 })
 _MAX_LINE = 4 * 1024 * 1024
 _SSDP_TARGET = "urn:schemas-denon-com:device:ACT-Denon:1"
@@ -158,7 +160,7 @@ class HeosReadClient:
 
     def request(self, command: str, **params: object) -> dict[str, Any]:
         if command not in self._allowed_commands or not _COMMAND.fullmatch(command):
-            raise ValueError("Ta próba HEOS dopuszcza tylko polecenia odczytowe.")
+            raise ValueError("Nieobsługiwane polecenie HEOS.")
         query = urlencode({key: str(value) for key, value in params.items()}, safe=",")
         line = f"heos://{command}" + (f"?{query}" if query else "") + "\r\n"
         deadline = time.monotonic() + self.timeout
@@ -325,6 +327,61 @@ class HeosControlClient(HeosReadClient):
         if not isinstance(muted, bool):
             raise ValueError("Nieprawidłowy stan wyciszenia HEOS.")
         self.request("player/set_mute", pid=pid, state="on" if muted else "off")
+
+    def add_to_queue(
+        self, pid: str, sid: str, *, cid: str = "", mid: str = "",
+        placement: str = "now", replace_confirmed: bool = False,
+    ) -> None:
+        """Use distinct HEOS placements; a replace requires explicit confirmation."""
+
+        criteria = {"now": 1, "next": 2, "end": 3, "replace": 4}
+        if placement not in criteria or (placement == "replace" and not replace_confirmed):
+            raise ValueError("Nie potwierdzono sposobu dodania do kolejki HEOS.")
+        if not pid or not sid or (not cid and not mid):
+            raise ValueError("Brakuje celu lub pozycji do kolejki HEOS.")
+        params = {"pid": pid, "sid": sid}
+        if cid:
+            params["cid"] = cid
+        if mid:
+            params["mid"] = mid
+        params["aid"] = criteria[placement]
+        self.request("browse/add_to_queue", **params)
+
+    def play_station(self, pid: str, sid: str, mid: str, name: str,
+                     *, parent_cid: str = "") -> None:
+        if not pid or not sid or not mid or not isinstance(name, str) or not name.strip():
+            raise ValueError("Brakuje danych stacji HEOS.")
+        params = {"pid": pid, "sid": sid}
+        if parent_cid:
+            params["cid"] = parent_cid
+        params.update(mid=mid, name=name)
+        self.request("browse/play_stream", **params)
+
+    def play_queue_if_current(
+        self, pid: str, qid: str, expected_fingerprint: str,
+    ) -> None:
+        """Check the current queue before using HEOS's shifting queue index."""
+
+        if not qid or not expected_fingerprint:
+            raise ValueError("Nie wybrano aktualnej pozycji kolejki HEOS.")
+        current = self.queue(pid)
+        if queue_fingerprint(current) != expected_fingerprint or not any(
+            str(item.get("qid", "")) == qid for item in current
+        ):
+            raise HeosError("Kolejka HEOS zmieniła się. Odśwież listę przed odtworzeniem.")
+        self.request("player/play_queue", pid=pid, qid=qid)
+
+
+def queue_fingerprint(items: list[dict[str, Any]]) -> str:
+    """A private comparison token, never a spoken queue label."""
+
+    fields = tuple(
+        (item.get("qid"), item.get("mid"), item.get("song"),
+         item.get("album"), item.get("artist"))
+        for item in items
+    )
+    encoded = json.dumps(fields, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def parse_ssdp_response(data: bytes, source_ip: str) -> str | None:

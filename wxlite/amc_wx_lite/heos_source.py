@@ -64,6 +64,8 @@ class HeosItem:
     can_play: bool
     detail: str = ""
     child_source_id: str = ""
+    parent_container_id: str = ""
+    media_type: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -237,5 +239,7 @@ def catalog_items(source_id: str, container_id: str | None, payload: object) -> 
             can_play=can_play,
             detail=detail,
             child_source_id=child_sid,
+            parent_container_id=parent,
+            media_type=kind,
         ))
     return tuple(result)
