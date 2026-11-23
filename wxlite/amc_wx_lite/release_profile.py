@@ -141,7 +141,6 @@ PUBLIC_PROFILE = ReleaseProfile(
         if capability not in {
             "apple-music.experimental",
             "session.apple-music",
-            VIDEO_PREVIEW_CAPABILITY,
             RECORDING_MONITOR_CAPABILITY,
         }
     ),

@@ -9,7 +9,7 @@ from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import LibraryView, Navigator, PlayMedia, SessionId, View
 from amc_wx_lite.release_profile import PUBLIC_PROFILE, TEST_PROFILE
 from amc_wx_lite.shortcuts import Action, command_presentation
-from amc_wx_lite.youtube_embedded import youtube_video_id, _player_html
+from amc_wx_lite.youtube_embedded import youtube_video_id, _player_html, virtual_host_for_profile
 
 
 URL = "https://www.youtube.com/watch?v=M7lc1UVf-VE"
@@ -77,10 +77,15 @@ class YouTubeEmbeddedContracts(unittest.TestCase):
             Action.PLAY_LOCAL_VIDEO
         ).description)
 
-    def test_public_profile_does_not_expose_online_video(self):
-        frame = SimpleNamespace(_local_video_target_path=lambda: None)
+    def test_public_profile_exposes_online_video_with_separate_origin(self):
+        self.assertNotEqual(virtual_host_for_profile("test"), virtual_host_for_profile("public"))
+        self.assertIn("1e437448", virtual_host_for_profile("public"))
+        frame = SimpleNamespace(
+            navigator=Navigator(),
+            _local_video_target_path=lambda: "example.mp4",
+        )
         with patch("amc_wx_lite.gui.current_profile", return_value=PUBLIC_PROFILE):
-            self.assertFalse(LiteFrame._action_available_in_active_session(
+            self.assertTrue(LiteFrame._action_available_in_active_session(
                 frame, Action.PLAY_LOCAL_VIDEO
             ))
 

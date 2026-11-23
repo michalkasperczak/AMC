@@ -12,12 +12,19 @@ import wx
 import wx.html2
 
 from . import i18n
+from .release_profile import current_profile
 
 
 _VIDEO_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
-# Stable Inno Setup AppId registered for the Test installation.
-_VIRTUAL_HOST = "amc-test.0b807571-bdc5-4287-bd7c-4f4a7c71438f"
-_VIRTUAL_ORIGIN = f"https://{_VIRTUAL_HOST}"
+# Stable Inno Setup AppIds keep the two release profiles on separate origins.
+_VIRTUAL_HOSTS = {
+    "test": "amc-test.0b807571-bdc5-4287-bd7c-4f4a7c71438f",
+    "public": "amc-public.1e437448-30b4-4e4a-bca1-cda114b096a9",
+}
+
+
+def virtual_host_for_profile(profile_id: str) -> str:
+    return _VIRTUAL_HOSTS[profile_id]
 
 
 def youtube_video_id(address: str | None) -> str | None:
@@ -111,9 +118,10 @@ class YouTubeEmbeddedPlayer:
         self._file_name: str | None = None
         self._ready = False
         self._play_when_ready = False
+        self._virtual_host = virtual_host_for_profile(current_profile().profile_id)
         wx.FileSystem.AddHandler(wx.MemoryFSHandler())
         handler = wx.html2.WebViewFSHandler("memory")
-        handler.SetVirtualHost(_VIRTUAL_HOST)
+        handler.SetVirtualHost(self._virtual_host)
         self.control.RegisterHandler(handler)
         self.control.AddScriptMessageHandler("amc_youtube")
         self.control.Bind(
@@ -146,7 +154,7 @@ class YouTubeEmbeddedPlayer:
         wx.MemoryFSHandler.AddFileWithMimeType(
             self._file_name, _player_html(video_id), "text/html"
         )
-        self.control.LoadURL(f"{_VIRTUAL_ORIGIN}/{self._file_name}")
+        self.control.LoadURL(f"https://{self._virtual_host}/{self._file_name}")
 
     def _message(self, event: wx.html2.WebViewEvent) -> None:
         try:
@@ -172,7 +180,7 @@ class YouTubeEmbeddedPlayer:
     def _navigation_error(self, _event: wx.html2.WebViewEvent) -> None:
         address = _event.GetURL()
         host = (urlparse(address).hostname or "").casefold()
-        if self.active and (host == _VIRTUAL_HOST or host.endswith(".youtube.com")):
+        if self.active and (host == self._virtual_host or host.endswith(".youtube.com")):
             self._on_error("Nie można połączyć się z odtwarzaczem YouTube")
 
     def _new_window(self, event: wx.html2.WebViewEvent) -> None:
