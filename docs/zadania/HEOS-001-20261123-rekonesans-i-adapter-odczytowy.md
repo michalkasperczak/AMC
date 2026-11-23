@@ -1,6 +1,6 @@
 # HEOS-001 — rozpoznanie urządzenia HEOS 200 i adapter odczytowy
 
-**Status: W trakcie; adapter LAN, model źródeł i nawigacji gotowe, sesja AMC Test jeszcze niepodłączona.**
+**Status 23.11.2026: sesja HEOS jest gotowa w źródłach AMC Test alpha.521; instalator z GitHub Actions zweryfikowany i odłożony do późniejszych testów. Nie zainstalowano go ani nie wykonano sterowania głośnikiem lub odbioru NVDA. Wcześniejsze sekcje pokazują kolejne etapy; stan końcowy znajduje się na końcu raportu.**
 
 ## Cel i zakres
 
@@ -115,3 +115,13 @@ Do izolowanej gałęzi HEOS scalono później poprawki nagrywania, wznawiania po
 Po obu scaleniach: 48 celowanych testów HEOS, 220 testów Cast/AirPlay, skrótów, profili i klienta hosta (1 pominięty), 144 testy pakowania, sesji i parytetu poleceń oraz kompilacja LiteHost Release (0 błędów, 0 ostrzeżeń) zakończyły się powodzeniem. Test lokalnego HTTP Cast wymagał dostępu do gniazda; odmowa Windows 10013 w piaskownicy nie była awarią kodu. Dodatkowe 174 testy HEOS i poprawek nagrywania/podcastów oraz 5 testów YouTube z 16 podtestami przeszły po pierwszym scaleniu. Fizyczne sterowanie Denon Home 200, dźwięk HEOS i nawigacja NVDA nie były sprawdzane.
 
 Bieżąca aktualizacja AMC przygotowuje alpha.520 bez niedokończonego Cast. Dopiero po jej zakończeniu należy ustalić kolejny numer wersji, zweryfikować przypięty runtime, zbudować aktualny stan HEOS na GitHubie i sprawdzić wynikowy instalator. Nie należy instalować technicznego artefaktu alpha.519 HEOS.
+
+## Wynik kompilacji następnego Test alpha.521 — 23.11.2026
+
+Ta sekcja zastępuje powyższy plan czekania na alpha.520. Oba profile alpha.520 zostały opublikowane z commitu `15f76ae4`; źródła tego wydania zostały scalone do gałęzi HEOS. Lokalna instalacja Test alpha.520 nie została dokończona w równoległym zadaniu, więc dalsze testy użytkowe HEOS nadal czekają na właściwy moment.
+
+Gałąź HEOS łączy poprawki wideo, nagrywania i podcastów, wydane Cast/AirPlay oraz istniejące Apple Music w Test. Wersja źródeł to `0.1.0-alpha.521`. Workflow użył zweryfikowanego instalatora Test alpha.519 Cast jako źródła runtime i zależności, sprawdził jego SHA-256, zbudował paczkę i instalator wyłącznie dla profilu Test oraz potwierdził zgodność etykiety czasu paczki ze strefą Polski. Pierwszy techniczny build alpha.521 (`552e9f81`) miał etykietę czasu UTC `22:00`; nie nadaje się do odbioru. Workflow poprawiono bez zmiany kodu aplikacji, a build z commitu `64026c64888bc0945f0cc96eec8d4a3bc5ac87aa` zakończył się powodzeniem: GitHub Actions run `45276304618`, artefakt `14866977568`.
+
+Pobrany instalator: `D:\Projekty Codex\AMC - integracja wxPython\publish\installers-alpha521-heos-github-64026c64\AMC-Test-2026-11-23-2307.exe`. Rozmiar **214627826 bajtów**, SHA-256 **`10eed5b01dbe7376ca5b1fa3f82b5f44d3683eaad071152e0d9bb98db4fc5827`**. Lokalny plik zgadza się z pobranym manifestem integralności: profil `test`, wersja `0.1.0-alpha.521`, etykieta `23.11.2026, 23:07`, ten sam commit źródeł i instalatora, `secretScan=passed`. To potwierdza kompilację i integralność pliku, nie instalację, działanie GUI, głośnika ani NVDA. Artefakt GitHub ma ograniczony czas przechowywania; pobrany instalator pozostaje w folderze projektu.
+
+Do kompilacji prowadziły celowane wyniki: 48 testów HEOS, 220 testów Cast/AirPlay, skrótów, profili i klienta (1 pominięty), 144 testy pakowania i parytetu sesji, 174 testy HEOS z poprawkami nagrywania/podcastów, 5 testów YouTube i 16 podtestów; LiteHost Release bez błędów i ostrzeżeń oraz test handlerów LiteHost zakończony wynikiem OK. Zestawy uruchamiano osobno, ponieważ atrapa `wx` z testów HEOS koliduje z importem `wx.html2` w jednym procesie pytest. Test lokalnego HTTP Cast wymagał dostępu do gniazda; odmowę piaskownicy potwierdzono poprawnym wynikiem po nadaniu dostępu. Nie wykonywano sterowania Denon Home 200, odsłuchu ani NVDA. Żadnego wydania HEOS nie opublikowano w kanale aktualizacji, a instalatora nie uruchomiono.
