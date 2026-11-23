@@ -1,0 +1,163 @@
+name: AMC Test alpha.519 — HEOS build
+
+on:
+  push:
+    branches:
+      - codex/heos-next-test-20261123
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: amc-heos-next-test-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-test-installer:
+    runs-on: windows-2025
+    timeout-minutes: 150
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Pobierz dokładne źródła
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Sprawdź gałąź i wersję źródeł
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:GITHUB_REF -cne 'refs/heads/codex/heos-next-test-20261123') {
+            throw 'Nieoczekiwana gałąź źródłowa.'
+          }
+          [xml]$props = Get-Content -LiteralPath 'Directory.Build.props' -Raw
+          if ([string]$props.Project.PropertyGroup.Version -cne '0.1.0-alpha.519') {
+            throw 'Nieoczekiwana wersja źródeł.'
+          }
+          if (@(git status --porcelain=v1 --untracked-files=no).Count -ne 0) {
+            throw 'Źródła nie są czyste.'
+          }
+          if ((git rev-parse HEAD).Trim() -cne $env:GITHUB_SHA) {
+            throw 'Commit źródeł nie odpowiada uruchomieniu.'
+          }
+
+      - name: Użyj przypiętego SDK .NET
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9
+        with:
+          dotnet-version: 8.0.423
+
+      - name: Pobierz zweryfikowany runtime alpha.518
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $prior = Join-Path $env:RUNNER_TEMP 'amc-alpha518-input'
+          New-Item -ItemType Directory -Path $prior -Force | Out-Null
+          gh release download test-2026.11.23.2136 --repo michalkasperczak/AMC `
+            --pattern AMC-Test-2026-11-23-2136.exe --dir $prior
+          if ($LASTEXITCODE -ne 0) { throw 'Nie pobrano instalatora alpha.518.' }
+          $installer = Join-Path $prior 'AMC-Test-2026-11-23-2136.exe'
+          if ((Get-Item -LiteralPath $installer).Length -ne 214456190 -or
+              (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant() -cne
+              '0b055bdeae984f287d38755579245380052c9abedf7c41407c201433c2c62c64') {
+            throw 'Instalator alpha.518 ma nieprawidłowy rozmiar lub SHA-256.'
+          }
+          $archive = Join-Path $prior 'innoextract670.zip'
+          Invoke-WebRequest -Uri `
+            'https://github.com/UserUnknownFactor/innoextract_win/releases/download/670/innoextract670.zip' `
+            -OutFile $archive -ErrorAction Stop
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -cne
+              '79b69b9b1fcd98f42ccd4b245efdf6a03bcfb674ba6af482f5a46891c9ed4d14') {
+            throw 'innoextract ma nieprawidłowy SHA-256.'
+          }
+          $toolDir = Join-Path $prior 'innoextract'
+          Expand-Archive -LiteralPath $archive -DestinationPath $toolDir
+          $tool = Join-Path $toolDir 'innoextract.exe'
+          $extracted = Join-Path $prior 'extracted'
+          & $tool --extract --silent --output-dir $extracted $installer
+          if ($LASTEXITCODE -ne 0) { throw 'Nie rozpakowano instalatora alpha.518.' }
+          $runtime = Join-Path $extracted 'app\runtime'
+          $site = Join-Path $runtime 'Lib\site-packages'
+          $addon = Join-Path $extracted 'tmp\quickAppSwitcher-0.1.6.nvda-addon'
+          if (-not (Test-Path -LiteralPath (Join-Path $runtime 'python.exe') -PathType Leaf) -or
+              -not (Test-Path -LiteralPath $site -PathType Container) -or
+              -not (Test-Path -LiteralPath $addon -PathType Leaf)) {
+            throw 'Brakuje runtime, zależności lub dodatku NVDA.'
+          }
+          if ((Get-FileHash -LiteralPath $addon -Algorithm SHA256).Hash.ToLowerInvariant() -cne
+              '16dc660e6b3fece58af8ccb84ccc43824bcb7744e1f18a37ffa629685349a61f') {
+            throw 'Dodatek NVDA ma nieprawidłowy SHA-256.'
+          }
+          "AMC_RUNTIME=$runtime" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "AMC_SITE_PACKAGES=$site" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "AMC_QAS_ADDON=$addon" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Zainstaluj przypięty Inno Setup
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Join-Path $env:RUNNER_TEMP 'innosetup-6.7.3.exe'
+          Invoke-WebRequest -Uri `
+            'https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe' `
+            -OutFile $installer -ErrorAction Stop
+          if ((Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant() -cne
+              '9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732') {
+            throw 'Inno Setup ma nieprawidłowy SHA-256.'
+          }
+          $signature = Get-AuthenticodeSignature -LiteralPath $installer
+          if ($signature.Status -ne 'Valid' -or
+              $signature.SignerCertificate.GetNameInfo(
+                [System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName,
+                $false) -cne 'Pyrsys B.V.') {
+            throw 'Nieprawidłowy podpis instalatora Inno Setup.'
+          }
+          $installed = Join-Path $env:RUNNER_TEMP 'InnoSetup-6.7.3'
+          $process = Start-Process -FilePath $installer -WindowStyle Hidden -Wait -PassThru `
+            -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=$installed")
+          if ($process.ExitCode -ne 0) { throw 'Instalacja Inno Setup nie powiodła się.' }
+          $iscc = Join-Path $installed 'ISCC.exe'
+          if (-not (Test-Path -LiteralPath $iscc -PathType Leaf)) {
+            throw 'Brakuje ISCC.exe.'
+          }
+          "AMC_ISCC=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Zbuduj i sprawdź paczkę AMC Test
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\wxlite\tools\Build-AMCBundle.ps1 -Profile test `
+            -PythonRuntime $env:AMC_RUNTIME `
+            -TidalSitePackages $env:AMC_SITE_PACKAGES `
+            -SonosSitePackages $env:AMC_SITE_PACKAGES `
+            -AppleMusicSitePackages $env:AMC_SITE_PACKAGES `
+            -OutputDirectory (Join-Path $env:RUNNER_TEMP 'amc-heos-bundle')
+          if ($LASTEXITCODE -ne 0) { throw 'Budowa paczki AMC Test nie powiodła się.' }
+
+      - name: Skompiluj i sprawdź instalator alpha.519
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\wxlite\tools\Build-AMCInstaller.ps1 -Profile test `
+            -BundleRoot (Join-Path $env:RUNNER_TEMP 'amc-heos-bundle') `
+            -Version '0.1.0-alpha.519' `
+            -OutputDirectory (Join-Path $env:RUNNER_TEMP 'amc-heos-installer') `
+            -NvdaAddonPath $env:AMC_QAS_ADDON -IsccPath $env:AMC_ISCC
+          if ($LASTEXITCODE -ne 0) { throw 'Budowa instalatora AMC Test nie powiodła się.' }
+          $output = Join-Path $env:RUNNER_TEMP 'amc-heos-installer'
+          $installers = @(Get-ChildItem -LiteralPath $output -Filter 'AMC-Test-*.exe' -File)
+          $integrity = @(Get-ChildItem -LiteralPath $output -Filter '*.integrity.json' -File)
+          if ($installers.Count -ne 1 -or $integrity.Count -ne 1) {
+            throw 'Brakuje jednego instalatora lub jednego potwierdzenia integralności.'
+          }
+          Write-Output "Installer: $($installers[0].Name)"
+          Write-Output "Bytes: $($installers[0].Length)"
+          Write-Output "SHA-256: $((Get-FileHash -LiteralPath $installers[0].FullName -Algorithm SHA256).Hash)"
+
+      - name: Zachowaj instalator do odbioru
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: amc-test-alpha519-heos-${{ github.sha }}
+          path: ${{ runner.temp }}/amc-heos-installer/
+          if-no-files-found: error
+          retention-days: 14
