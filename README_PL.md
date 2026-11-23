@@ -1,5 +1,9 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+## Aktualizacja Cast i zgodność profili — 24.11.2026
+
+Przygotowywana alpha.522 łączy rozszerzony Cast/AirPlay z pełnym zakresem alpha.520. Odsłuch nagrań i nazwa F2 stają się wspólne dla Test/Public; Apple Music pozostaje tylko w Test. Wydanie GitHub poprzedza automatyczną instalację Test zleconą przez użytkownika. [Dokładny stan i wyniki](docs/zadania/RELEASE-ALPHA522-20261124-Cast-instalacja.md).
+
 ## Google Cast i AirPlay — wydane w obu profilach alpha.519, 23.11.2026
 
 `Shift+C` wybiera Google Cast, a `Shift+M` otwiera „AirPlay i dodatkowe wyjście audio”. Przygotowany przyrost dodaje Radio Archiwistę i odpowiednie źródła natywnego TIDAL bez TIDAL Connect; Cast obsługuje nieszyfrowany BTS FLAC/AAC/MP3, bez DASH/MPD. AirPlay jest dodatkowym odsłuchem z możliwym opóźnieniem. Pozostałe sesje wymagające innego źródła dźwięku nie otrzymują pozornego działającego polecenia. `Shift+A` nadal wybiera lokalny tor audio.

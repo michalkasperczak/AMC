@@ -78,6 +78,7 @@ internal sealed class LiteEngineHandlers : IDisposable
     private readonly LiteCommonDataSnapshotCoordinator? _commonDataSnapshot;
     private readonly bool _enableTidalNativePlayback;
     private readonly bool _enableAppleMusicExternal;
+    private readonly bool _enableRecordingMonitor;
     private readonly LiteTidalDesktopCoordinator _tidalDesktop = new();
     private readonly LiteAppleMusicExternalCoordinator _appleMusicExternal = new();
     private readonly LiteWiiMCoordinator? _wiim;
@@ -176,13 +177,15 @@ internal sealed class LiteEngineHandlers : IDisposable
         bool enableTidalNativePlayback = false,
         bool enableAppleMusicExternal = false,
         string? timeshiftBufferFolder = null,
-        string? queueStartupError = null)
+        string? queueStartupError = null,
+        bool enableRecordingMonitor = true)
     {
         _radio = new RadioMediaOutput(
             timeshiftMinutes, timeshiftFolder: timeshiftBufferFolder);
         _queueStore = queueStore;
         _bookmarkStore = bookmarkStore;
-        _recordings = new LiteRadioRecordingCoordinator(bookmarkStore);
+        _recordings = new LiteRadioRecordingCoordinator(
+            bookmarkStore, timeshiftMinutes, timeshiftBufferFolder, enableRecordingMonitor);
         _podcastProgressStore = podcastProgressStore;
         _profileMutations = profileMutations;
         _tidalCatalog = tidalCatalog;
@@ -191,6 +194,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         _commonDataSnapshot = commonDataSnapshot;
         _enableTidalNativePlayback = enableTidalNativePlayback;
         _enableAppleMusicExternal = enableAppleMusicExternal;
+        _enableRecordingMonitor = enableRecordingMonitor;
         _wiim = wiim;
         _frontierSmart = frontierSmart;
         _sonos = sonos;
@@ -886,6 +890,11 @@ internal sealed class LiteEngineHandlers : IDisposable
                     () => PlayTidalNative(request.Args, events)));
             handlers.Add(LiteTidalNativePlayRequest.BitrateOperation,
                 (request, _) => UpdateTidalNativeBitrate(request.Args));
+        }
+        if (_enableRecordingMonitor)
+        {
+            handlers.Add("radio.recordingMonitor", (request, _) => _recordings.Monitor(request.Args));
+            handlers.Add("radio.recordingRename", (request, _) => _recordings.Rename(request.Args));
         }
         return handlers;
     }
@@ -2647,8 +2656,11 @@ internal sealed class LiteEngineHandlers : IDisposable
         TrySaveCurrentLocalResume();
         RememberFilesSession();
 
-        var position = TimeSpan.FromSeconds(LiteArgs.ReadDouble(
-            args, "positionSeconds", 0d, 0d, 604_800d));
+        var hasExplicitPosition = args.TryGetProperty("positionSeconds", out _);
+        var position = hasExplicitPosition
+            ? TimeSpan.FromSeconds(LiteArgs.ReadDouble(
+                args, "positionSeconds", 0d, 0d, 604_800d))
+            : TimeSpan.Zero;
         var volume = LiteArgs.ReadInt(args, "volume", _filesVolume, 0, 100);
         var requestedRate = LiteArgs.ReadDouble(args, "rate", _filesRate, 0.5d, 2.0d);
         var item = new MediaItem
@@ -2669,7 +2681,8 @@ internal sealed class LiteEngineHandlers : IDisposable
                     PodcastPlaybackOptionsTarget.Episode,
                     item.Id);
             }
-            catch (LiteRequestException)
+            catch (LiteRequestException exception) when (
+                exception.Message == "Tego odcinka nie ma już w Bibliotece.")
             {
                 // Publiczny material moze byc odtwarzany przed dodaniem do
                 // Biblioteki. Brak rekordu oznacza wtedy zwykle ustawienia
@@ -2678,6 +2691,10 @@ internal sealed class LiteEngineHandlers : IDisposable
         }
         var resolvedResumeMode = playbackOptions?.ResolvedResumePositionMode
             ?? ResumePositionMode.Inherit;
+        // The visible row may predate the last saved checkpoint.
+        // An explicit seek, including zero, still takes precedence.
+        if (sessionId == "podcasts" && !hasExplicitPosition)
+            position = playbackOptions?.ResumePosition ?? TimeSpan.Zero;
         var shouldRememberPosition = resolvedResumeMode switch
         {
             ResumePositionMode.Remember => true,

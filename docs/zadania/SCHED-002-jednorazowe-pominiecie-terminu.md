@@ -3,8 +3,11 @@
 ## Status
 
 Kod w bieżącej aplikacji wxPython i testy celowane ukończone 23.11.2026.
-Nie przygotowano instalatora ani wydania; obowiązuje decyzja użytkownika z
-23.11.2026 o wstrzymaniu wydania alpha.514. Pozostaje ręczny odbiór NVDA.
+Późniejsza decyzja Michała z tego dnia zezwala po 02:00 czasu polskiego na
+próbę NVDA oraz aktualizację AMC Test i Public z tą poprawką i usprawnionym
+wyszukiwaniem. Zastępuje wcześniejsze wstrzymanie nowego wydania. Kandydat
+`0.1.0-alpha.515` powstaje na bazie `d4ec91a4`, bez otwartej funkcji wideo.
+Budowa paczek, ręczny odbiór, instalacja i publikacja mają osobne wyniki.
 
 ## Cel i zakres
 
@@ -72,13 +75,14 @@ termin się rozpoczął, AMC wyjaśnia, dlaczego nie pomija terminu.
 
 - Brak ręcznego odsłuchu NVDA. Odbiór: pierwszy fokus, strzałki, `Shift+Spacja`
   dwukrotnie, menu i pomoc, zamknięcie i ponowne otwarcie, powrót fokusu.
-- Zmiana jest tylko w źródłach; nie jest częścią działającej instalacji ani
-  opublikowanego wydania. Przy następnym uzgodnionym wydaniu dołączyć ją do
-  obu profili po odpowiedniej bramce testów i integralności pakietów.
+- Po korekcie z 23.11.2026 zmiana należy do kandydata alpha.515 dla obu
+  profili; stan instalacji i publikacji podaje rejestr wydania.
 
 ## Wersja i commit
 
 - Baza źródeł na początku pracy: `0f58310d` na
   `codex/amc-test-public-20261109`.
-- Zmiany tego zadania są jeszcze niezatwierdzone w Git; bez nowego commitu.
-- Instalacja i publikacja: nie wykonano, zgodnie z wstrzymaniem alpha.514.
+- Zmiany zapisano na gałęzi
+  `codex/amc-search-schedule-only-alpha515-20261123`; końcowy commit wskazuje
+  manifest kandydata.
+- Stan instalacji i publikacji po tej korekcie: w rejestrze wydania alpha.515.

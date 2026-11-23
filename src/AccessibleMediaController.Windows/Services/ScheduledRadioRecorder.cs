@@ -25,7 +25,10 @@ internal static class ScheduledRadioRecorder
         RadioRecordingFormat recordingFormat,
         int recordingBitrateKbps,
         RadioRecordingControl control,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int monitorBufferMinutes = 1,
+        string? monitorBufferFolder = null,
+        bool monitorEnabled = false)
     {
         ArgumentNullException.ThrowIfNull(schedule);
         ArgumentNullException.ThrowIfNull(control);
@@ -48,7 +51,10 @@ internal static class ScheduledRadioRecorder
         while (!cancellationToken.IsCancellationRequested
                && deadlineUtc - DateTime.UtcNow > TimeSpan.FromSeconds(3))
         {
-            using var output = new RadioMediaOutput(timeshiftMinutes: 1, audible: false);
+            using var output = new RadioMediaOutput(
+                monitorEnabled ? monitorBufferMinutes : 1, audible: false,
+                timeshiftFolder: monitorEnabled ? monitorBufferFolder : null,
+                recordingMonitorBuffer: monitorEnabled);
             var started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var failed = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
             var recordingFailed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);

@@ -222,11 +222,21 @@ internal sealed class RadioMp3Recorder : IRadioRecorder
         }
     }
 
+    public void RenameFinalPath(string path)
+    {
+        lock (_writeGate)
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _stopped) != 0, this);
+            _finalPath = path;
+        }
+    }
+
     public string Stop()
     {
-        if (Interlocked.Exchange(ref _stopped, 1) != 0)
+        lock (_writeGate)
         {
-            return _finalPath;
+            if (Interlocked.Exchange(ref _stopped, 1) != 0)
+                return _finalPath;
         }
 
         _queue.Complete();

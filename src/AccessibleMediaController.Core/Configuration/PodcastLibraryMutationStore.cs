@@ -284,7 +284,8 @@ public sealed record PodcastPlaybackOptionsSnapshot(
     bool? ResolvedLoudnessNormalizationOverride,
     bool? ResolvedSmoothTrackTransitionsOverride,
     int? ResolvedInterTrackSilenceMillisecondsOverride,
-    PlaybackTempoAlgorithm? ResolvedTempoAlgorithmOverride);
+    PlaybackTempoAlgorithm? ResolvedTempoAlgorithmOverride,
+    TimeSpan ResumePosition);
 
 public sealed record PodcastSourceAddResult(
     string SubscriptionId,

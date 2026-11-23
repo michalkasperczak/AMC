@@ -253,7 +253,10 @@ internal sealed partial class LiteRadioRecordingCoordinator
             active.Format,
             active.BitrateKbps,
             control,
-            cancellation.Token));
+            cancellation.Token,
+            _monitorBufferMinutes,
+            _monitorBufferFolder,
+            _monitorEnabled));
         active.Task = task;
         _ = CompleteScheduledAsync(managed, active, task);
         managed.Events.Publish("radio.recordingScheduled", new

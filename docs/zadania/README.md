@@ -1,6 +1,10 @@
 # Rejestr zadań AMC
 
-**CAST-002 (23.11.2026): wydane w Test i Public alpha.519.** Shift+C i Shift+M obejmują Radio Archiwistę oraz obsługiwane źródła natywnego TIDAL. Zdalny commit, oba instalatory z SHA-256 i dostępność w aktualizatorach potwierdzone; użytkownik instaluje sam. Odsłuch nowych wariantów, NVDA oraz istniejące braki angielskich tłumaczeń pozostają otwarte. [Wynik wydania i ścieżki](RELEASE-ALPHA519-20261123-Cast-AirPlay.md); [zakres](CAST-002-20261123-zakres-sesji-i-AirPlay.md).
+**CAST-002 / alpha.522 (24.11.2026): połączenie z alpha.520 i automatyczna instalacja Test w toku.** Gotowe funkcje Cast/AirPlay i nagrań mają być wspólne w obu profilach; Apple Music tylko w Test. Najpierw zgodne źródła i instalatory na GitHubie, potem instalacja Test. [Plan i wyniki](RELEASE-ALPHA522-20261124-Cast-instalacja.md).
+
+**RELEASE-ALPHA520 (23.11.2026):** końcowy kandydat Test/Public po konflikcie równoległych wydań alpha.519; ten sam zweryfikowany zakres funkcji bez Google Cast i HEOS, z zachowanym odsłuchem nagrania tylko w Test. [Zapis wydania](RELEASE-ALPHA520-20261123.md).
+
+**RELEASE-ALPHA519 (23.11.2026):** kandydat naprawczy Test/Public zachowuje odsłuch nagrania z Test alpha.516, rozdziela adresy odtwarzacza YouTube dla profili i dodaje wznawianie podcastów z aktualnej pozycji. Kod i testy celowane gotowe; pakiety, publikacja i instalacja do osobnego potwierdzenia. [Zapis zadania](RELEASE-ALPHA519-20261123.md).
 
 **RELEASE-ALPHA518 (23.11.2026):** połączone wydania Test i Public z wideo,
 wyszukiwaniem, poprawką kolejki Spotify i informacjami TIDAL; Public bez

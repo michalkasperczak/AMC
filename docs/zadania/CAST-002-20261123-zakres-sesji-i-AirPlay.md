@@ -4,6 +4,8 @@ Status: **Wydane w Test i Public alpha.519; instalacja użytkownika, odsłuch sp
 
 ## Zlecenie i nadrzędna korekta — 23.11.2026
 
+**Nadrzędna decyzja 24.11.2026:** po późniejszym wydaniu alpha.520 bez rozszerzenia Cast użytkownik ponownie zlecił jego dołączenie do najnowszego Test, publikację spójnych źródeł i paczek na GitHubie przed instalacją, zgodność gotowych funkcji obu profili poza Apple Music oraz automatyczną instalację Test. [Plan i rzeczywiste wyniki alpha.522](RELEASE-ALPHA522-20261124-Cast-instalacja.md) zastępują wcześniejsze odłożenie instalacji użytkownikowi. Nie utożsamiać tego z odbiorem sprzętowym/NVDA.
+
 **Późniejsza decyzja 23.11.2026:** użytkownik zlecił teraz aktualizację obu profili Test i Public, jeśli rozszerzenie nie jest jeszcze wydane. Zastępuje to poniższe odłożenie pakowania. Integrację na wydanej bazie, wyniki oraz rzeczywistą publikację opisuje [RELEASE-ALPHA519](RELEASE-ALPHA519-20261123-Cast-AirPlay.md). Niezaliczone próby sprzętowe/NVDA nie stają się przez tę decyzję zaliczone.
 
 Użytkownik poprosił o sprawdzenie Shift+C, wyjaśnienie miejsca AirPlay, dodanie obu funkcji w Radio Archiwiście i rozszerzenie na pozostałe sesje, w tym TIDAL bez wymogu TIDAL Connect. Następnie potwierdził, że bieżąca aktualizacja już się buduje: kontynuować ten przyrost do **kolejnej wersji**, obok dokończonego Apple Music i następnego etapu HEOS. Nie zmieniać zakresu trwającego wydania, nie uruchamiać drugiego pakowania ani instalacji. Apple Music i HEOS są osobnymi pracami, nie zakresem tego zadania.

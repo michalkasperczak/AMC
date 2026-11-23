@@ -115,6 +115,11 @@ if (args.Contains("--radio-sample-anchors-only", StringComparer.Ordinal))
     RadioAudioSampleAnchorTests.Run();
     return 0;
 }
+if (args.Contains("--recording-monitor-only", StringComparer.Ordinal))
+{
+    RecordingMonitorTests.Run();
+    return 0;
+}
 if (args.Contains("--radio-audio-metadata-only", StringComparer.Ordinal))
 {
     TestRadioAudioMetadataValidation();
@@ -867,6 +872,7 @@ var tests = new (string Name, Action Test)[]
     ("Radio Recording Folder Fallback", TestRadioRecordingFolderFallback),
     ("Radio Recording Split Control", TestRadioRecordingSplitControl),
     ("Radio Recording Published File After Stream Failure", TestRadioRecordingControlKeepsPublishedFileAfterStreamFailure),
+    ("Recording monitor timeline and active rename", RecordingMonitorTests.Run),
     ("Radio Recording Split Pipeline", TestRadioRecordingSplitPipeline),
     ("Radio Recording Staging Publication", TestRadioRecordingStagingPublication),
     ("Scheduled Radio Segmentation", TestScheduledRadioSegmentation),

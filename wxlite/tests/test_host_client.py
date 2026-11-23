@@ -229,6 +229,25 @@ def test_play_media_sends_stable_identity_source_and_resume_in_one_request() -> 
             session_id="radioarchiwista",
         )
         assert archive["args"]["durationSeconds"] == 3600.0
+        assert "positionSeconds" not in archive["args"]
+    finally:
+        client.close()
+
+
+def test_play_media_distinguishes_saved_resume_from_explicit_start() -> None:
+    client = make_client()
+    try:
+        inherited = client.play_media(
+            "https://example.invalid/episode.mp3",
+            item_id="episode-id", title="Odcinek", volume=35, rate=1.0,
+        )
+        from_start = client.play_media(
+            "https://example.invalid/episode.mp3",
+            item_id="episode-id", title="Odcinek", volume=35, rate=1.0,
+            position_seconds=0.0,
+        )
+        assert "positionSeconds" not in inherited["args"]
+        assert from_start["args"]["positionSeconds"] == 0.0
     finally:
         client.close()
 

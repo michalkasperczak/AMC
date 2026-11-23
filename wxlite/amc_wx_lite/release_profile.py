@@ -20,6 +20,9 @@ PROFILE_SCHEMA_VERSION = 1
 TEST_PROFILE_ID = "test"
 PUBLIC_PROFILE_ID = "public"
 VIDEO_PREVIEW_CAPABILITY = "local-video-preview"
+# Monitoring is now common recording functionality. Keep the historical Test
+# marker in manifests so existing closed updater contracts remain compatible.
+RECORDING_MONITOR_CAPABILITY = "recording"
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +116,7 @@ TEST_PROFILE = ReleaseProfile(
         "spotify.playlists",
         "youtube.account.readonly",
         VIDEO_PREVIEW_CAPABILITY,
+        "recording.monitor",
         "apple-music.experimental",
         "session.apple-music",
     ),
@@ -139,6 +143,7 @@ PUBLIC_PROFILE = ReleaseProfile(
         if capability not in {
             "apple-music.experimental",
             "session.apple-music",
+            "recording.monitor",
         }
     ),
 )

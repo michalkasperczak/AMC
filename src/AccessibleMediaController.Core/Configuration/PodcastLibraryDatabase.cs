@@ -1086,7 +1086,8 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
                 ?? subscription.SmoothTrackTransitionsOverride,
             episode?.InterTrackSilenceMillisecondsOverride
                 ?? subscription.InterTrackSilenceMillisecondsOverride,
-            episode?.TempoAlgorithmOverride ?? subscription.TempoAlgorithmOverride);
+            episode?.TempoAlgorithmOverride ?? subscription.TempoAlgorithmOverride,
+            TimeSpan.FromTicks(Math.Max(0, episode?.ResumePositionTicks ?? 0)));
     }
 
     private static void ValidatePlaybackOptions(

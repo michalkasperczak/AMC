@@ -1,5 +1,9 @@
 # Accessible Media Controller — Windows prototype
 
+## Cast update and matching features — November 24, 2026
+
+The alpha.522 candidate combines extended Cast/AirPlay with the complete alpha.520 changes. Recording monitoring and F2 recording rename are shared by Test/Public; Apple Music remains Test-only. GitHub publication precedes the user-authorized automatic Test installation. [Exact status and results in Polish](docs/zadania/RELEASE-ALPHA522-20261124-Cast-instalacja.md).
+
 ## Google Cast and AirPlay released in both alpha.519 profiles — November 23, 2026
 
 `Shift+C` selects Google Cast; `Shift+M` opens “AirPlay and additional audio output”. The prepared source increment adds Radio Archiwista and supported native TIDAL sources without TIDAL Connect. Cast supports unencrypted BTS FLAC/AAC/MP3, excluding DASH/MPD. AirPlay provides an additional output with possible delay. Sessions requiring another source adapter do not advertise a working Cast command. `Shift+A` still selects the local audio path.

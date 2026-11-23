@@ -19,6 +19,7 @@ from amc_wx_lite.profile_layout import (
 from amc_wx_lite.release_profile import (
     PUBLIC_PROFILE,
     TEST_PROFILE,
+    RECORDING_MONITOR_CAPABILITY,
     current_profile,
     profile_directory,
     profile_from_id,
@@ -93,6 +94,7 @@ def test_public_manifest_exposes_only_approved_sessions_and_test_has_all() -> No
         if capability not in {
             "apple-music.experimental",
             "session.apple-music",
+            "recording.monitor",
         }
     }
 
@@ -108,6 +110,41 @@ def test_public_profile_keeps_presets_and_radio_timeshift_navigation() -> None:
     )
     assert resolve(Chord("End"), player_view=True, radio_session=True) is Action.RADIO_JUMP_LIVE
     assert resolve(Chord("5"), player_view=True, radio_session=True) is Action.SEEK_PERCENT_50
+
+
+def test_recording_monitor_and_live_rename_have_parity_in_both_profiles() -> None:
+    for profile in (TEST_PROFILE, PUBLIC_PROFILE):
+        assert RECORDING_MONITOR_CAPABILITY in profile.capabilities
+        with _with_release_profile(profile.profile_id):
+            assert resolve(
+                Chord("Return"), player_view=False, radio_session=True,
+                radio_recording_context=True,
+            ) is Action.OPEN_RECORDING_MONITOR
+            assert resolve(
+                Chord("F2"), player_view=False, radio_session=True,
+                radio_recording_context=True,
+            ) is Action.RENAME_ACTIVE_RECORDING
+            actions = {
+                item.action for menu in menu_model.menus_for_session(SessionId.RADIO)
+                for item in menu.items
+            }
+            assert Action.OPEN_RECORDING_MONITOR in actions
+            assert Action.RENAME_ACTIVE_RECORDING in actions
+            assert describe("Radio", {Action.OPEN_RECORDING_MONITOR})
+            assert any(
+                entry.action is Action.OPEN_RECORDING_MONITOR
+                for entry in entries_for_session(SessionId.RADIO)
+            )
+
+
+def test_recording_monitor_retains_existing_installer_profile_fields() -> None:
+    # The historical Test marker remains for old updater compatibility;
+    # actual availability now uses the recording capability common to both.
+    assert "recording.monitor" in TEST_PROFILE.capabilities
+    assert "recording.monitor" not in PUBLIC_PROFILE.capabilities
+    host = (Path(__file__).resolve().parents[2]
+            / "src/AccessibleMediaController.LiteHost/Program.cs").read_text(encoding="utf-8")
+    assert 'enableRecordingMonitor: string.Equals' not in host
 
 
 def test_python_capabilities_match_closed_launcher_contract() -> None:
@@ -130,7 +167,7 @@ def test_python_capabilities_match_closed_launcher_contract() -> None:
         "internal static readonly ReleaseProfileDescriptor Public", 1
     )[1].split("internal static ReleaseProfileDescriptor Validate", 1)[0]
     assert "PublicCapabilities," in public_contract
-    assert '"apple-music.experimental" or "session.apple-music"' in source
+    assert '"apple-music.experimental" or "session.apple-music" or "recording.monitor"' in source
     assert 'session is not "appleMusic"' in source
     assert re.search(r'Test\.Capabilities\s*\.Where', source)
     assert 'Test.Sessions.Where' in source
@@ -142,6 +179,7 @@ def test_python_capabilities_match_closed_launcher_contract() -> None:
         if capability not in {
             "apple-music.experimental",
             "session.apple-music",
+            "recording.monitor",
         }
     ) == PUBLIC_PROFILE.capabilities
     assert common + test_only == TEST_PROFILE.capabilities

@@ -442,6 +442,17 @@ przemilczeć nazwy jedynego wiersza. Strzałki na gotowej liście nadal czytają
 krótko od nazwy pliku, bez przedrostka „Nagrywane”. Powtórz próbę po Escape i
 ponownym `Alt+R`, aby sprawdzić przywrócenie zaznaczenia.
 
+W wersji z przyrostem RADIO-REC-MONITOR naciśnij Enter na trwającym nagraniu.
+Ma otworzyć „Odsłuch nagrania”, zacząć od najstarszego dostępnego fragmentu i
+nie uruchomić zwykłego odtwarzania stacji. Sprawdź Tabem pauzę samego odsłuchu,
+cofanie i przejście naprzód o 30 sekund, początek bufora, koniec na żywo,
+wpisanie czasu oraz zamknięcie. Po zamknięciu fokus wraca na ten sam wiersz;
+nagrywanie trwa. Powtórz otwarcie. Z NVDA sprawdź pełne nazwy kontrolek i brak
+technicznych identyfikatorów. Podczas tego samego nagrania naciśnij `F2`, nadaj
+inną nazwę bez rozszerzenia, spróbuj też istniejącej nazwy, a po zakończeniu
+sprawdź rzeczywistą nazwę i odsłuch gotowego pliku. Test wykonuj na nowym
+nagraniu próbnym, nie na jedynym egzemplarzu materiału użytkownika.
+
 W `Alt+Shift+R` zwykły ukończony plik nie powinien zaczynać się od słowa
 „Nagrane”, ponieważ taki jest już kontekst listy. Odczyt ma zaczynać się od
 nazwy stacji lub pliku. Osobno sprawdź wpisy przerwane, nieudane, zatrzymane i
@@ -469,6 +480,18 @@ planu jednorazowego i cyklicznego oraz podczas aktywnego nagrania, zgodnie z
 zasadami głównego AMC. Przycisk „Włącz lub wyłącz” i Spacja muszą wywoływać tę
 samą operację. Test wywołujący bezpośrednio metodę `_toggle` nie jest dowodem,
 że fizyczna Spacja dochodzi z natywnej listy wx przy działającym NVDA.
+
+Aby pominąć tylko najbliższy termin włączonego planu, naciśnij na jego
+wierszu `Shift+Spacja` lub wybierz „Pomiń najbliższy termin” z menu
+`Shift+F10`. NVDA ma powiedzieć „Pominięto termin” z datą, godziną i
+nazwą planu. Wiersz ma wskazać, że ten termin jest pominięty, a sam
+plan pozostaje włączony. Ponowne `Shift+Spacja` przed terminem cofa
+pominięcie i mówi „Przywrócono termin”. Sprawdź też `Ctrl+F1` i
+`Ctrl+Shift+K` wewnątrz okna harmonogramów oraz powrót fokusu na ten
+sam wiersz po zapisie. Po pominiętym poniedziałku następny poniedziałek
+ma pozostać zaplanowany. Po zamknięciu i ponownym uruchomieniu AMC
+pominięty termin nie może się nagrać ani wybudzić komputera. Jeśli
+nagrywanie już trwa albo termin minął, AMC podaje przyczynę odmowy.
 
 `Ctrl+R` na stacji od razu mówi jedno krótkie zdanie:
 „Rozpoczynam nagrywanie w tle: nazwa stacji”. Ponowne zdarzenie faktycznego

@@ -19,11 +19,22 @@ internal sealed partial class LiteRadioRecordingCoordinator : IDisposable
     private readonly Dictionary<string, ActiveRecording> _active = new(StringComparer.Ordinal);
     private readonly List<CompletedRecording> _history = [];
     private readonly LiteBookmarkStore? _bookmarkStore;
+    private readonly int _monitorBufferMinutes;
+    private readonly string? _monitorBufferFolder;
+    private readonly bool _monitorEnabled;
+    private string? _monitorId;
     private bool _disposed;
 
-    public LiteRadioRecordingCoordinator(LiteBookmarkStore? bookmarkStore = null)
+    public LiteRadioRecordingCoordinator(
+        LiteBookmarkStore? bookmarkStore = null,
+        int monitorBufferMinutes = 180,
+        string? monitorBufferFolder = null,
+        bool monitorEnabled = true)
     {
         _bookmarkStore = bookmarkStore;
+        _monitorBufferMinutes = monitorBufferMinutes;
+        _monitorBufferFolder = monitorBufferFolder;
+        _monitorEnabled = monitorEnabled;
     }
 
     internal IReadOnlyList<LiteRadioRecognitionInput> CaptureRecognitionInputs(
@@ -127,7 +138,10 @@ internal sealed partial class LiteRadioRecordingCoordinator : IDisposable
             request.BitrateKbps,
             control,
             path => RecordingStarted(recording, path, events),
-            cancellation.Token));
+            cancellation.Token,
+            _monitorBufferMinutes,
+            _monitorBufferFolder,
+            _monitorEnabled));
         recording.Task = task;
         _ = CompleteAsync(recording, task, events);
 
@@ -283,6 +297,130 @@ internal sealed partial class LiteRadioRecordingCoordinator : IDisposable
             count = recordings.Length,
             recordings = recordings.Select(Payload).ToArray()
         };
+    }
+
+    /// <summary>
+    /// Controls only the listener attached to a private recording pipeline.
+    /// Stop, pause and seek here never call the recording control operations.
+    /// </summary>
+    public object Monitor(JsonElement args)
+    {
+        var action = LiteArgs.RequireText(args, "action");
+        var id = LiteArgs.ReadText(args, "recordingId");
+        ActiveRecording? active;
+        lock (_gate)
+        {
+            ThrowIfDisposed();
+            if (action == "stop")
+            {
+                active = _monitorId == id
+                    && _active.TryGetValue(id ?? string.Empty, out var monitored)
+                        ? monitored : null;
+                if (_monitorId == id) _monitorId = null;
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(id) || !_active.TryGetValue(id, out active))
+                    throw new LiteRequestException("To nagranie już się zakończyło.");
+            }
+        }
+        if (action == "stop")
+        {
+            active?.Control.GetMediaOutput()?.StopRecordingMonitor();
+            return new { active = false };
+        }
+        var output = active!.Control.GetMediaOutput()
+            ?? throw new LiteRequestException("Nagranie jeszcze się nie rozpoczęło.");
+        switch (action)
+        {
+            case "start":
+                ActiveRecording? previous;
+                lock (_gate)
+                {
+                    _active.TryGetValue(_monitorId ?? string.Empty, out previous);
+                    _monitorId = active.Id;
+                }
+                if (previous is not null && previous.Id != active.Id)
+                    previous.Control.GetMediaOutput()?.StopRecordingMonitor();
+                var volume = LiteArgs.ReadInt(args, "volume", 35, 0, 100);
+                if (!output.StartRecordingMonitor(volume))
+                    throw new LiteRequestException("Nie udało się uruchomić odsłuchu nagrania.");
+                break;
+            case "pause":
+                RequireMonitor(active.Id);
+                output.PauseRecordingMonitor();
+                break;
+            case "resume":
+                RequireMonitor(active.Id);
+                output.ResumeRecordingMonitor();
+                break;
+            case "seek":
+                RequireMonitor(active.Id);
+                var seconds = LiteArgs.ReadInt(args, "seconds", 0, 0, int.MaxValue);
+                output.Seek(TimeSpan.FromSeconds(seconds));
+                break;
+            case "live":
+                RequireMonitor(active.Id);
+                output.JumpToLive();
+                break;
+            case "status":
+                RequireMonitor(active.Id);
+                break;
+            default:
+                throw new LiteRequestException("Nieznane polecenie odsłuchu nagrania.");
+        }
+        return new
+        {
+            active = true,
+            recording = active.Control.IsReady,
+            paused = output.IsRecordingMonitorPaused,
+            positionSeconds = output.Position.TotalSeconds,
+            endSeconds = output.CapturedPosition.TotalSeconds,
+            firstSeconds = output.EarliestBufferedPosition.TotalSeconds,
+            behindLiveSeconds = output.BehindLive.TotalSeconds
+        };
+    }
+
+    private void RequireMonitor(string id)
+    {
+        lock (_gate)
+        {
+            if (_monitorId != id)
+                throw new LiteRequestException("Najpierw otwórz odsłuch tego nagrania.");
+        }
+    }
+
+    public object Rename(JsonElement args)
+    {
+        var id = LiteArgs.RequireText(args, "recordingId");
+        var name = LiteArgs.RequireText(args, "name");
+        lock (_gate)
+        {
+            ThrowIfDisposed();
+            if (!_active.TryGetValue(id, out var active))
+                throw new LiteRequestException("To nagranie już się zakończyło.");
+            var current = active.Control.CurrentPath;
+            if (string.IsNullOrWhiteSpace(current))
+                throw new LiteRequestException("Nagranie jeszcze się rozpoczyna.");
+            var safe = RadioRecordingFileNameTemplate.SanitizeBaseName(name);
+            var target = Path.Combine(Path.GetDirectoryName(current)!,
+                safe + Path.GetExtension(current));
+            if (_active.Values.Any(other => other.Id != id
+                && string.Equals(other.Control.CurrentPath, target,
+                    StringComparison.OrdinalIgnoreCase)))
+                throw new LiteRequestException("Inne trwające nagranie ma już tę nazwę.");
+            try
+            {
+                var path = active.Control.RenameCurrentSegment(name);
+                active.Path = path;
+                return new { fileName = Path.GetFileName(path), path };
+            }
+            catch (Exception error) when (error is IOException or ArgumentException
+                or InvalidOperationException or UnauthorizedAccessException)
+            {
+                throw new LiteRequestException(error.Message);
+            }
+        }
     }
 
     public bool HasActiveRecordings

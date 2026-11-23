@@ -21,7 +21,9 @@ from amc_wx_lite.gui import LiteFrame, radio_timeshift_label
 from amc_wx_lite.host_client import LiteHostClient
 from amc_wx_lite.library_db import LibraryDatabase, LibraryItem
 from amc_wx_lite.list_model import Row
-from amc_wx_lite.navigation import LibraryView, Navigator, SessionId
+from amc_wx_lite.navigation import (
+    LibraryView, Navigator, OpenRecordingMonitor, SessionId, View,
+)
 from amc_wx_lite.profile_layout import read_only_mirror
 from amc_wx_lite.radio_recording import (
     RadioRecordingHistoryEntry,
@@ -803,6 +805,106 @@ def test_active_recordings_are_one_accessible_row_per_station() -> None:
     assert rows[0].url == "https://example.invalid/live"
     assert rows[0].detail == ""
     assert "techniczne-id" not in f"{rows[0].title} {rows[0].detail}"
+    assert rows[0].service_id == "techniczne-id-1"
+
+
+def test_enter_on_active_recording_opens_its_capture_not_live_station() -> None:
+    nav = Navigator()
+    nav.switch_session(SessionId.RADIO)
+    rows = active_recording_rows({"recordings": [{
+        "recordingId": "internal-456",
+        "stationId": "radio-1",
+        "stationName": "Radio Test",
+        "url": "https://example.invalid/live",
+        "path": r"D:\Nagrania\audycja.mp3",
+        "state": "recording",
+    }]})
+    nav.apply_radio_view(LibraryView.ACTIVE_RADIO_RECORDINGS, "Nagrywane", rows)
+    intent = nav.activate_selected()[0]
+    assert isinstance(intent, OpenRecordingMonitor)
+    assert intent.recording_id == "internal-456"
+    assert nav.session.view is View.LIST
+    assert nav.session.now_playing_id is None
+
+
+def test_active_recording_rename_uses_f2_only_in_recording_view() -> None:
+    from amc_wx_lite import menu_model
+    from amc_wx_lite.shortcuts import resolve
+
+    active = resolve(
+        Chord("F2"), player_view=False, radio_session=True,
+        radio_recording_context=True,
+    )
+    ordinary = resolve(
+        Chord("F2"), player_view=False, radio_session=True,
+        radio_recording_context=False,
+    )
+    assert active is Action.RENAME_ACTIVE_RECORDING
+    assert ordinary is Action.STATION_EDIT
+    menu_item = next(
+        item for menu in menu_model.build_menus() for item in menu.items
+        if item.action is Action.RENAME_ACTIVE_RECORDING
+    )
+    assert menu_item.shortcut == "F2"
+    assert menu_item.needs_active_radio_recording_view
+    assert "trwającego nagrania" in menu_item.label
+
+
+def test_active_recording_enter_is_exposed_as_monitor_command() -> None:
+    from amc_wx_lite import menu_model
+    from amc_wx_lite.command_palette import entries_for_session
+    from amc_wx_lite.shortcuts import describe, resolve
+
+    active = resolve(
+        Chord("Return"), player_view=False, radio_session=True,
+        radio_recording_context=True,
+    )
+    ordinary = resolve(
+        Chord("Return"), player_view=False, radio_session=True,
+        radio_recording_context=False,
+    )
+    assert active is Action.OPEN_RECORDING_MONITOR
+    assert ordinary is Action.ACTIVATE
+    menu_item = next(
+        item for menu in menu_model.build_menus() for item in menu.items
+        if item.action is Action.OPEN_RECORDING_MONITOR
+    )
+    assert menu_item.shortcut == "Return"
+    assert menu_item.needs_active_radio_recording_view
+    assert "nagrywany materiał" in menu_item.label
+    assert any(
+        entry.action is Action.OPEN_RECORDING_MONITOR
+        and entry.name == menu_item.label.replace("&", "")
+        for entry in entries_for_session(SessionId.RADIO)
+    )
+    assert any(
+        shortcut == "Enter (Nagrywane)"
+        and "nagrywany materiał" in description
+        for shortcut, description in describe("Radio", {Action.OPEN_RECORDING_MONITOR})
+    )
+
+
+def test_recording_monitor_and_rename_client_routes_keep_ids_out_of_labels() -> None:
+    client = LiteHostClient("unused")
+    calls = []
+
+    def call(op, args=None, *, timeout=20.0):
+        calls.append((op, args, timeout))
+        return {"ok": True}
+
+    client.call = call  # type: ignore[method-assign]
+    client.radio_recording_monitor("internal-456", "start", volume=42)
+    client.radio_recording_monitor("internal-456", "seek", seconds=93)
+    client.rename_active_radio_recording("internal-456", "Nowa audycja")
+    assert [item[0] for item in calls] == [
+        "radio.recordingMonitor", "radio.recordingMonitor", "radio.recordingRename",
+    ]
+    assert calls[0][1] == {
+        "recordingId": "internal-456", "action": "start", "volume": 42,
+        "seconds": 0,
+    }
+    assert calls[1][1]["seconds"] == 93
+    assert calls[2][1] == {"recordingId": "internal-456", "name": "Nowa audycja"}
 
 
 def test_radio_navigator_accepts_active_recordings_and_back_returns_to_stations() -> None:
