@@ -12013,7 +12013,7 @@ class LiteFrame(wx.Frame):
             if entry.needs_local_path and not has_local_path:
                 enabled = False
             if entry.action in {Action.PLAY_LOCAL_VIDEO, Action.PLAY_LOCAL_AUDIO} and not (
-                files and self._local_video_target_path()
+                self._local_video_target_path()
             ):
                 enabled = False
             if entry.needs_podcast_item and (
@@ -29149,13 +29149,14 @@ class LiteFrame(wx.Frame):
         self.runner.submit("folder", work, done, failed)
 
     def _local_video_target_path(self) -> str | None:
-        if self.navigator.active is not SessionId.FILES:
+        session = self.navigator.active
+        if session not in (SessionId.FILES, SessionId.PODCASTS):
             return None
         state = self.navigator.session
         if state.view is View.LIST:
             row = state.model.selected_row
             return row.path if local_video_target(row) else None
-        status = self._transport_status_by_session.get(SessionId.FILES, {})
+        status = self._transport_status_by_session.get(session, {})
         path = status.get("source")
         return path if (
             local_video_file(path) and status.get("id") == state.now_playing_id
@@ -29186,14 +29187,16 @@ class LiteFrame(wx.Frame):
 
     def _sync_embedded_video(self, status: dict | None = None) -> None:
         surface = self._video_surface
+        session = self.navigator.active
+        local_session = session in (SessionId.FILES, SessionId.PODCASTS)
         if status is None:
-            status = self._transport_status_by_session.get(SessionId.FILES, {})
+            status = self._transport_status_by_session.get(session, {})
         path = status.get("source")
-        state = self.navigator.sessions[SessionId.FILES]
+        state = self.navigator.session
         should_show = bool(
             VIDEO_PREVIEW_CAPABILITY in current_profile().capabilities
             and self._video_mode_requested
-            and self.navigator.active is SessionId.FILES
+            and local_session
             and state.view is View.PLAYER
             and status.get("id") == state.now_playing_id
             and (status.get("playing") or status.get("paused"))
@@ -36540,7 +36543,7 @@ class LiteFrame(wx.Frame):
                 return
             self._transport_status_by_session[requested_session] = payload
             self._last_status = payload
-            if requested_session is SessionId.FILES:
+            if requested_session in (SessionId.FILES, SessionId.PODCASTS) and requested_session is self.navigator.active:
                 self._sync_embedded_video(payload)
             if requested_session is SessionId.TIDAL:
                 self._remember_tidal_history_bitrate(payload)
@@ -37079,7 +37082,7 @@ class LiteFrame(wx.Frame):
             self, "_local_file_rename_activation_guard_until", 0.0
         ):
             return
-        if (self.navigator.active is SessionId.FILES
+        if (self.navigator.active in (SessionId.FILES, SessionId.PODCASTS)
                 and local_video_target(self.navigator.session.model.selected_row)):
             self._video_mode_requested = False
         self._activate()

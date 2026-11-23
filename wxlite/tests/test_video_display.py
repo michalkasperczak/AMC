@@ -12,7 +12,7 @@ from amc_wx_lite.gui import LiteFrame
 from amc_wx_lite.local_video import VIDEO_SUFFIXES, local_video_file, local_video_target
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.menu_model import menus_for_session
-from amc_wx_lite.navigation import LibraryView, Navigator, PlayTrack, SessionId, View
+from amc_wx_lite.navigation import LibraryView, Navigator, PlayMedia, PlayTrack, SessionId, View
 from amc_wx_lite.podcast_source import external_video_page_url
 from amc_wx_lite.release_profile import PUBLIC_PROFILE, TEST_PROFILE
 from amc_wx_lite.shortcuts import Action, _help_entries, command_presentation
@@ -29,7 +29,8 @@ class VideoDisplayContracts(unittest.TestCase):
             self.assertTrue(local_video_target(Row("video", "Film", "track", path=str(video))))
             self.assertFalse(local_video_file(str(audio)))
             self.assertFalse(local_video_file(str(video) + ".missing"))
-            self.assertFalse(local_video_target(Row("episode", "Film", "episode", path=str(video))))
+            self.assertTrue(local_video_target(Row("episode", "Film", "episode", path=str(video))))
+            self.assertFalse(local_video_target(Row("remote", "Film", "episode", path="https://example.org/film.mp4")))
 
     def test_video_choices_cover_the_local_host_video_extensions(self):
         for suffix in (
@@ -56,7 +57,7 @@ class VideoDisplayContracts(unittest.TestCase):
     def test_menu_palette_and_help_have_the_same_actions(self):
         for session, actions in (
             (SessionId.FILES, {Action.PLAY_LOCAL_AUDIO, Action.PLAY_LOCAL_VIDEO}),
-            (SessionId.PODCASTS, {Action.OPEN_VIDEO_IN_BROWSER}),
+            (SessionId.PODCASTS, {Action.PLAY_LOCAL_AUDIO, Action.PLAY_LOCAL_VIDEO, Action.OPEN_VIDEO_IN_BROWSER}),
         ):
             with self.subTest(session=session):
                 menu = {item.action for group in menus_for_session(session) for item in group.items}
@@ -87,6 +88,31 @@ class VideoDisplayContracts(unittest.TestCase):
             self.assertTrue(frame._video_mode_requested)
             self.assertIs(navigator.session.view, View.PLAYER)
             self.assertTrue(any(isinstance(intent, PlayTrack) for intent in observed))
+
+    def test_downloaded_podcast_video_uses_existing_podcast_player(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "episode.mp4"
+            path.write_bytes(b"fixture")
+            navigator = Navigator()
+            navigator.active = SessionId.PODCASTS
+            navigator.apply_podcast_aggregate(
+                LibraryView.PODCAST_DOWNLOADS, "Pobrane odcinki",
+                [Row("episode:film", "Odcinek", "episode", path=str(path))],
+            )
+            observed = []
+            frame = SimpleNamespace(
+                navigator=navigator,
+                _local_video_target_path=lambda: str(path),
+                _run=lambda intents: observed.extend(intents),
+                announcer=SimpleNamespace(say=lambda message: observed.append(message)),
+            )
+            LiteFrame._play_local_video_mode(frame, True)
+            self.assertTrue(frame._video_mode_requested)
+            self.assertIs(navigator.session.view, View.PLAYER)
+            self.assertTrue(any(
+                isinstance(intent, PlayMedia) and intent.source == str(path)
+                for intent in observed
+            ))
 
     def test_video_surface_follows_host_status_and_hides_in_audio_mode(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -120,10 +146,41 @@ class VideoDisplayContracts(unittest.TestCase):
             LiteFrame._sync_embedded_video(frame, status)
             self.assertEqual(shown[-1], "hidden")
 
+    def test_podcast_video_surface_uses_podcast_host_status(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "episode.mp4"
+            path.write_bytes(b"fixture")
+            navigator = Navigator()
+            navigator.active = SessionId.PODCASTS
+            state = navigator.session
+            state.view = View.PLAYER
+            state.now_playing_id = "episode:film"
+            shown = []
+            surface = SimpleNamespace(
+                control=SimpleNamespace(IsShown=lambda: True),
+                present=lambda source, status: shown.append((source, status)),
+                hide=lambda: shown.append("hidden"),
+            )
+            status = {
+                "id": "episode:film", "source": str(path),
+                "playing": True, "paused": False, "positionSeconds": 3,
+            }
+            frame = SimpleNamespace(
+                navigator=navigator,
+                _video_mode_requested=True,
+                _video_surface=surface,
+                _transport_status_by_session={SessionId.PODCASTS: status},
+                player_panel=SimpleNamespace(Layout=lambda: None),
+            )
+            LiteFrame._sync_embedded_video(frame)
+            self.assertEqual(shown, [(str(path), status)])
+
     def test_command_labels_descriptions_and_shortcuts_are_shared(self):
         for session, action in (
             (SessionId.FILES, Action.PLAY_LOCAL_AUDIO),
             (SessionId.FILES, Action.PLAY_LOCAL_VIDEO),
+            (SessionId.PODCASTS, Action.PLAY_LOCAL_VIDEO),
+            (SessionId.PODCASTS, Action.PLAY_LOCAL_AUDIO),
             (SessionId.PODCASTS, Action.OPEN_VIDEO_IN_BROWSER),
         ):
             with self.subTest(action=action):

@@ -1,4 +1,4 @@
-"""Local video targets for the existing Files player."""
+"""Local video targets for the existing Files and Podcasts players."""
 
 from __future__ import annotations
 
@@ -26,4 +26,4 @@ def local_video_file(path: str | None) -> bool:
 
 
 def local_video_target(row: Row | None) -> bool:
-    return bool(row and row.kind == "track" and local_video_file(row.path))
+    return bool(row and row.kind in ("track", "episode") and local_video_file(row.path))

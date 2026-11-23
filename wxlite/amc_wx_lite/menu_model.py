@@ -228,6 +228,7 @@ class Menu:
 
 SEPARATOR = MenuItem(is_separator=True)
 FILES_ONLY = (SessionId.FILES,)
+LOCAL_VIDEO_SESSIONS = (SessionId.FILES, SessionId.PODCASTS)
 PODCASTS_ONLY = (SessionId.PODCASTS,)
 RADIOARCHIWISTA_ONLY = (SessionId.RADIOARCHIWISTA,)
 RADIO_ONLY = (SessionId.RADIO,)
@@ -545,13 +546,13 @@ def build_menus(
                 command_presentation(Action.PLAY_LOCAL_VIDEO).menu_label,
                 Action.PLAY_LOCAL_VIDEO,
                 accelerator=False,
-                visible_sessions=FILES_ONLY,
+                visible_sessions=LOCAL_VIDEO_SESSIONS,
             ),
             MenuItem(
                 command_presentation(Action.PLAY_LOCAL_AUDIO).menu_label,
                 Action.PLAY_LOCAL_AUDIO,
                 accelerator=False,
-                visible_sessions=FILES_ONLY,
+                visible_sessions=LOCAL_VIDEO_SESSIONS,
             ),
             MenuItem(
                 "Otwórz fo&lder zawierający",
