@@ -1,10 +1,11 @@
 # SEARCH-20261123 — wspólna kolejność wyników Ctrl+F
 
 - Data zgłoszenia i korekty użytkownika: 23.11.2026.
-- Status: zmiana źródeł i celowane testy zakończone; brak buildu, instalacji,
-  publikacji i ręcznego odbioru NVDA.
-- Baza źródeł: `0f58310daca70f3969b891ed5160bc9aa880748c`, gałąź
-  `codex/amc-test-public-20261109`. Nowe zmiany pozostają bez commitu.
+- Status 23.11.2026, po korekcie planu wydania: zmiana jest na gałęzi
+  `codex/amc-search-schedule-only-alpha515-20261123`, opartej na wydanej bazie
+  `d4ec91a4`. Paczki i odbiór NVDA są osobnymi krokami.
+- Wersja kandydata: `0.1.0-alpha.515`. Rewizję źródeł po ostatecznym zapisie
+  wskazują manifesty paczek i rejestr wydania.
 - Profil: wspólna wyszukiwarka AMC Test i AMC Public; katalog Apple Music jest
   dostępny tylko tam, gdzie profil udostępnia tę usługę.
 
@@ -67,9 +68,11 @@ dowodem działania z kontem ani zgodności mowy NVDA.
 Weryfikacja na żywym interfejsie wymaga wcześniejszego potwierdzenia, że AMC
 nie nagrywa. Odczyt stanu procesów przez CIM i `tasklist` był w tym środowisku
 zablokowany. Zgodnie z `wxlite/JAK_TESTOWAC.md` przed widoczną próbą GUI/NVDA
-potrzebna jest zgoda użytkownika; pytanie wysłano 23.11.2026 i pozostaje bez
-odpowiedzi. Obowiązuje też decyzja z 23.11.2026 o wstrzymaniu instalatorów i
-publikacji alpha.514.
+potrzebna jest zgoda użytkownika; pytanie wysłano 23.11.2026. Późniejsza
+odpowiedź Michała z tego samego dnia zezwoliła na próbę po 02:00 czasu
+polskiego i aktualizację obu profili z tą poprawką oraz jednorazowym
+pomijaniem terminu. Zastępuje to wcześniejszy zapis o braku odpowiedzi i
+wstrzymaniu nowego wydania. AMC Public nadal nie zawiera Apple Music.
 
 ## Szkic instrukcji użytkownika do zatwierdzenia
 

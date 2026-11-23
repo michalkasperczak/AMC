@@ -20,6 +20,7 @@ PROFILE_SCHEMA_VERSION = 1
 TEST_PROFILE_ID = "test"
 PUBLIC_PROFILE_ID = "public"
 VIDEO_PREVIEW_CAPABILITY = "local-video-preview"
+RECORDING_MONITOR_CAPABILITY = "recording.monitor"
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +115,7 @@ TEST_PROFILE = ReleaseProfile(
         "spotify.playlists",
         "youtube.account.readonly",
         VIDEO_PREVIEW_CAPABILITY,
+        RECORDING_MONITOR_CAPABILITY,
         "apple-music.experimental",
         "session.apple-music",
         "session.heos",
@@ -142,6 +144,7 @@ PUBLIC_PROFILE = ReleaseProfile(
             "apple-music.experimental",
             "session.apple-music",
             "session.heos",
+            RECORDING_MONITOR_CAPABILITY,
         }
     ),
 )

@@ -19,6 +19,7 @@ from amc_wx_lite.profile_layout import (
 from amc_wx_lite.release_profile import (
     PUBLIC_PROFILE,
     TEST_PROFILE,
+    RECORDING_MONITOR_CAPABILITY,
     current_profile,
     profile_directory,
     profile_from_id,
@@ -96,6 +97,7 @@ def test_public_manifest_exposes_only_approved_sessions_and_test_has_all() -> No
             "apple-music.experimental",
             "session.apple-music",
             "session.heos",
+            "recording.monitor",
         }
     }
 
@@ -111,6 +113,40 @@ def test_public_profile_keeps_presets_and_radio_timeshift_navigation() -> None:
     )
     assert resolve(Chord("End"), player_view=True, radio_session=True) is Action.RADIO_JUMP_LIVE
     assert resolve(Chord("5"), player_view=True, radio_session=True) is Action.SEEK_PERCENT_50
+
+
+def test_recording_monitor_and_live_rename_are_test_only_commands() -> None:
+    assert RECORDING_MONITOR_CAPABILITY in TEST_PROFILE.capabilities
+    assert RECORDING_MONITOR_CAPABILITY not in PUBLIC_PROFILE.capabilities
+    with _with_release_profile("test"):
+        assert resolve(
+            Chord("Return"), player_view=False, radio_session=True,
+            radio_recording_context=True,
+        ) is Action.OPEN_RECORDING_MONITOR
+        assert resolve(
+            Chord("F2"), player_view=False, radio_session=True,
+            radio_recording_context=True,
+        ) is Action.RENAME_ACTIVE_RECORDING
+    with _with_release_profile("public"):
+        assert resolve(
+            Chord("Return"), player_view=False, radio_session=True,
+            radio_recording_context=True,
+        ) is Action.ACTIVATE
+        assert resolve(
+            Chord("F2"), player_view=False, radio_session=True,
+            radio_recording_context=True,
+        ) is Action.STATION_EDIT
+        actions = {
+            item.action for menu in menu_model.menus_for_session(SessionId.RADIO)
+            for item in menu.items
+        }
+        assert Action.OPEN_RECORDING_MONITOR not in actions
+        assert Action.RENAME_ACTIVE_RECORDING not in actions
+        assert not describe("Radio", {Action.OPEN_RECORDING_MONITOR})
+        assert not any(
+            entry.action in {Action.OPEN_RECORDING_MONITOR, Action.RENAME_ACTIVE_RECORDING}
+            for entry in entries_for_session(SessionId.RADIO)
+        )
 
 
 def test_python_capabilities_match_closed_launcher_contract() -> None:
@@ -133,7 +169,7 @@ def test_python_capabilities_match_closed_launcher_contract() -> None:
         "internal static readonly ReleaseProfileDescriptor Public", 1
     )[1].split("internal static ReleaseProfileDescriptor Validate", 1)[0]
     assert "PublicCapabilities," in public_contract
-    assert '"apple-music.experimental" or "session.apple-music" or "session.heos"' in source
+    assert '"apple-music.experimental" or "session.apple-music" or "session.heos" or "recording.monitor"' in source
     assert 'session is not ("appleMusic" or "heos")' in source
     assert re.search(r'Test\.Capabilities\s*\.Where', source)
     assert 'Test.Sessions.Where' in source
@@ -146,6 +182,7 @@ def test_python_capabilities_match_closed_launcher_contract() -> None:
             "apple-music.experimental",
             "session.apple-music",
             "session.heos",
+            "recording.monitor",
         }
     ) == PUBLIC_PROFILE.capabilities
     assert common + test_only == TEST_PROFILE.capabilities

@@ -16,6 +16,7 @@ from enum import Enum
 
 from . import i18n
 from .list_model import ListModel, Row
+from .release_profile import RECORDING_MONITOR_CAPABILITY, current_profile
 
 
 def _duration_summary(rows: list[Row]) -> str:
@@ -691,13 +692,21 @@ class PlayStation:
 
 
 @dataclass(slots=True)
+class OpenRecordingMonitor:
+    """Listen to the selected private recording without restarting its station."""
+
+    recording_id: str
+    title: str
+
+
+@dataclass(slots=True)
 class PlayMedia:
     """Play a local or HTTP media source while preserving its stable AMC Id."""
 
     source: str
     item_id: str
     title: str
-    position_seconds: float = 0.0
+    position_seconds: float | None = None
     duration_seconds: float = 0.0
 
 
@@ -1166,7 +1175,6 @@ class Navigator:
                     target.path or "",
                     target.item_id,
                     target.title,
-                    position_seconds=target.position_seconds,
                 ),
                 Announce(target.title),
             ]
@@ -1929,6 +1937,14 @@ class Navigator:
             return [OpenFolder(row.path)]
 
         if row.kind == "station":
+            if (
+                state.session_id is SessionId.RADIO
+                and state.library_view is LibraryView.ACTIVE_RADIO_RECORDINGS
+                and RECORDING_MONITOR_CAPABILITY in current_profile().capabilities
+            ):
+                if not row.service_id:
+                    return [Announce("Nagranie jeszcze się rozpoczyna")]
+                return [OpenRecordingMonitor(row.service_id, row.title)]
             state.player_entry_anchor_id = row.item_id
             state.list_anchor_id = row.item_id
             state.now_playing_id = row.item_id
@@ -1964,7 +1980,6 @@ class Navigator:
                     row.path,
                     row.item_id,
                     row.title,
-                    position_seconds=row.position_seconds,
                 ),
                 Announce(row.title),
             ]
@@ -4555,7 +4570,6 @@ class Navigator:
                     target.path or "",
                     target.item_id,
                     target.title,
-                    position_seconds=target.position_seconds,
                 ),
                 Announce(target.title),
             ]

@@ -1,5 +1,7 @@
 # Rejestr zadań AMC
 
+**RELEASE-ALPHA519 (23.11.2026):** kandydat naprawczy Test/Public zachowuje odsłuch nagrania z Test alpha.516, rozdziela adresy odtwarzacza YouTube dla profili i dodaje wznawianie podcastów z aktualnej pozycji. Kod i testy celowane gotowe; pakiety, publikacja i instalacja do osobnego potwierdzenia. [Zapis zadania](RELEASE-ALPHA519-20261123.md).
+
 **RELEASE-ALPHA518 (23.11.2026):** połączone wydania Test i Public z wideo,
 wyszukiwaniem, poprawką kolejki Spotify i informacjami TIDAL; Public bez
 Apple Music, oba profile bez HEOS. [Zapis wydania](RELEASE-ALPHA518-20261123.md).

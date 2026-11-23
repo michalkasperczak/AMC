@@ -205,9 +205,13 @@ def test_shortcut_shown_in_menu_is_the_shortcut_that_really_works() -> None:
                 youtube_video_selection=True,
             ) is item.action
             continue
-        if item.action is Action.RECORDING_OUTPUT_INFORMATION:
+        if item.action in (
+            Action.OPEN_RECORDING_MONITOR,
+            Action.RECORDING_OUTPUT_INFORMATION,
+            Action.RENAME_ACTIVE_RECORDING,
+        ):
             assert resolve(
-                Chord("Right"),
+                Chord(item.shortcut),
                 player_view=False,
                 radio_session=True,
                 radio_recording_context=True,
@@ -272,7 +276,7 @@ def test_no_duplicate_labels_or_shortcuts() -> None:
         "Alt+D", "F5", "Ctrl+F5", "Ctrl+Shift+L",
             "Ctrl+Shift+U", "Ctrl+Shift+P",
         "B", "Shift+B", "Ctrl+Shift+B", "Ctrl+X", "Ctrl+V",
-        "Alt+Up", "Alt+Down", "F2", "Delete", "Right",
+        "Alt+Up", "Alt+Down", "F2", "Delete", "Right", "Return",
             "Ctrl+U", "Ctrl+P", "I", "O", "R", "S", "T", "End",
             "Prior", "Next"
     }, duplicates

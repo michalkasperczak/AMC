@@ -21,6 +21,20 @@ internal static class Program
                 "jawny takt ma użyć adaptacyjnego limitu, nie legacy pełnego limitu");
             Assert.Equal(1, DispatchRequested(root, "{\"cadenceSeconds\":0}"),
                 "jawne zero musi być nadal walidowane jako takt co najmniej jednej sekundy, nie jak brak pola");
+            using (var testProfile = new LiteEngineHandlers(
+                1, (LiteQueueStore?)null, enableRecordingMonitor: true))
+            using (var publicProfile = new LiteEngineHandlers(
+                1, (LiteQueueStore?)null, enableRecordingMonitor: false))
+            {
+                var testCommands = testProfile.Build();
+                var publicCommands = publicProfile.Build();
+                if (!testCommands.ContainsKey("radio.recordingMonitor")
+                    || !testCommands.ContainsKey("radio.recordingRename")
+                    || publicCommands.ContainsKey("radio.recordingMonitor")
+                    || publicCommands.ContainsKey("radio.recordingRename"))
+                    throw new InvalidOperationException(
+                        "Polecenia odsłuchu i zmiany nazwy nagrania mają być dostępne tylko w AMC Test.");
+            }
             Console.WriteLine("LiteHost automatic refresh dispatcher: OK");
             return 0;
         }

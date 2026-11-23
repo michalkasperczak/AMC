@@ -93,7 +93,9 @@ from .command_palette import (
     filter_entries as filter_command_entries,
 )
 from .host_client import HostError, HostUnavailable, LiteHostClient, default_host_path
-from .release_profile import VIDEO_PREVIEW_CAPABILITY, current_profile
+from .release_profile import (
+    VIDEO_PREVIEW_CAPABILITY, RECORDING_MONITOR_CAPABILITY, current_profile,
+)
 from .spotify_soloist import SoloistManager, SoloistSetupError
 from .spotify_soloist_dialog import SpotifySoloistDialog
 STARTUP_PODCAST_CATCH_UP_DELAY_SECONDS = 30.0
@@ -206,6 +208,7 @@ from .navigation import (
     Navigator,
     OpenFolder,
     OpenLibraryView,
+    OpenRecordingMonitor,
     OpenPodcastAggregateView,
     OpenWiiMDevicePresets,
     OpenWiiMNetworkStreams,
@@ -657,6 +660,7 @@ class _ContextMenuCommand:
 _LIST_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
     (
         Action.APPLE_MUSIC_OPEN_ORIGINAL,
+        Action.OPEN_RECORDING_MONITOR,
         Action.ACTIVATE,
         Action.PLAY_LOCAL_VIDEO,
         Action.PLAY_LOCAL_AUDIO,
@@ -713,6 +717,7 @@ _LIST_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
     (
         Action.RENAME_LIBRARY_ITEM,
         Action.RENAME_LOCAL_FILE,
+        Action.RENAME_ACTIVE_RECORDING,
         Action.STATION_EDIT,
         Action.REFRESH_YOUTUBE_RADIO_STATION,
         Action.EDIT_WIIM_NETWORK_STREAM,
@@ -3177,6 +3182,192 @@ class StationDialog(wx.Dialog):
     @property
     def values(self) -> tuple[str, str]:
         return self.name_field.GetValue().strip(), self.url_field.GetValue().strip()
+
+
+class RecordingMonitorDialog(wx.Dialog):
+    """A listener for a growing recording; it never controls the encoder."""
+
+    def __init__(self, parent: wx.Window, client, runner, intent, volume: int) -> None:
+        super().__init__(parent, title=f"Odsłuch nagrania: {intent.title}")
+        self.client = client
+        self.runner = runner
+        self.recording_id = intent.recording_id
+        self.volume = volume
+        self._busy = False
+        self._closing = False
+        self._snapshot: dict = {}
+        self._stream = f"recording-monitor-{id(self)}"
+        outer = wx.BoxSizer(wx.VERTICAL)
+        self.status = wx.StaticText(self, label="Uruchamianie odsłuchu nagrania")
+        self.status.SetName("Stan odsłuchu nagrania")
+        outer.Add(self.status, 0, wx.ALL | wx.EXPAND, 10)
+        info = wx.StaticText(
+            self,
+            label="Odsłuch nie wstrzymuje ani nie zmienia zapisywanego pliku. "
+                  "Dostępny początek zależy od długości bufora Time Shift.",
+        )
+        outer.Add(info, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 10)
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        self.pause_button = wx.Button(self, label="Wstrzymaj odsłuch")
+        self.pause_button.SetName("Wstrzymaj odsłuch nagrania")
+        self.pause_button.Disable()
+        row.Add(self.pause_button, 0, wx.RIGHT, 6)
+        back = wx.Button(self, label="Cofnij o 30 sekund")
+        back.SetName("Cofnij odsłuch o 30 sekund")
+        row.Add(back, 0, wx.RIGHT, 6)
+        forward = wx.Button(self, label="Przejdź 30 sekund naprzód")
+        forward.SetName("Przejdź w odsłuchu 30 sekund naprzód")
+        row.Add(forward)
+        outer.Add(row, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        row2 = wx.BoxSizer(wx.HORIZONTAL)
+        beginning = wx.Button(self, label="Początek dostępnego nagrania")
+        beginning.SetName("Początek dostępnego nagrania")
+        row2.Add(beginning, 0, wx.RIGHT, 6)
+        live = wx.Button(self, label="Koniec nagrania, na żywo")
+        live.SetName("Koniec nagrania, na żywo")
+        row2.Add(live)
+        outer.Add(row2, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        time_row = wx.BoxSizer(wx.HORIZONTAL)
+        time_label = wx.StaticText(self, label="Przejdź do czasu, minuty:sekundy:")
+        time_row.Add(time_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
+        self.time_field = wx.TextCtrl(self, value="0:00", size=(90, -1))
+        self.time_field.SetName("Czas od początku nagrania, minuty i sekundy")
+        time_row.Add(self.time_field, 0, wx.RIGHT, 6)
+        go = wx.Button(self, label="Przejdź")
+        go.SetName("Przejdź do podanego czasu nagrania")
+        time_row.Add(go)
+        outer.Add(time_row, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        close = wx.Button(self, wx.ID_CANCEL, "Zamknij odsłuch")
+        close.SetName("Zamknij odsłuch nagrania")
+        outer.Add(close, 0, wx.ALL | wx.ALIGN_RIGHT, 10)
+        self.SetSizerAndFit(outer)
+        self.SetMinSize((570, -1))
+        self.pause_button.Bind(wx.EVT_BUTTON, self._toggle_pause)
+        back.Bind(wx.EVT_BUTTON, lambda _event: self._move(-30))
+        forward.Bind(wx.EVT_BUTTON, lambda _event: self._move(30))
+        beginning.Bind(wx.EVT_BUTTON, lambda _event: self._go_to_start())
+        live.Bind(wx.EVT_BUTTON, lambda _event: self._issue("live"))
+        go.Bind(wx.EVT_BUTTON, self._go_to_time)
+        close.Bind(wx.EVT_BUTTON, self._close)
+        self.Bind(wx.EVT_CLOSE, self._close)
+        self._timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, lambda _event: self._issue("status"), self._timer)
+        close.SetFocus()
+        wx.CallAfter(self._issue, "start")
+
+    @staticmethod
+    def _clock(seconds: float) -> str:
+        total = max(0, int(seconds))
+        hours, remainder = divmod(total, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f"{hours}:{minutes:02}:{seconds:02}" if hours else f"{minutes}:{seconds:02}"
+
+    def _show_status(self, payload: dict, *, speak: bool) -> None:
+        self._snapshot = payload
+        first = float(payload.get("firstSeconds") or 0)
+        end = float(payload.get("endSeconds") or 0)
+        position = float(payload.get("positionSeconds") or 0)
+        state = "wstrzymany" if payload.get("paused") else "gra"
+        message = (
+            f"Odsłuch {state}. Pozycja {self._clock(position)}. "
+            f"Dostępne od {self._clock(first)} do {self._clock(end)}."
+        )
+        self.status.SetLabel(message)
+        self.status.SetName(message)
+        self.pause_button.SetLabel(
+            "Wznów odsłuch" if payload.get("paused") else "Wstrzymaj odsłuch"
+        )
+        self.pause_button.SetName(self.pause_button.GetLabel())
+        if speak:
+            self.GetParent().announcer.say(message)
+
+    def _issue(self, action: str, *, seconds: int = 0) -> None:
+        if self._closing or self._busy:
+            return
+        self._busy = True
+
+        def done(payload: dict) -> None:
+            self._busy = False
+            if self._closing:
+                self._stop_after_close()
+                return
+            self.pause_button.Enable()
+            self._show_status(payload, speak=action != "status")
+            if action == "start":
+                self._timer.Start(1000)
+                self.pause_button.SetFocus()
+
+        def failed(error: Exception) -> None:
+            self._busy = False
+            if self._closing:
+                self._stop_after_close()
+                return
+            self._timer.Stop()
+            message = f"Nie można odsłuchać nagrania: {error}"
+            self.status.SetLabel(message)
+            self.status.SetName(message)
+            self.GetParent().announcer.say(message)
+
+        self.runner.submit(
+            self._stream,
+            lambda: self.client.radio_recording_monitor(
+                self.recording_id, action, volume=self.volume, seconds=seconds,
+            ),
+            done,
+            failed,
+        )
+
+    def _toggle_pause(self, _event: wx.CommandEvent) -> None:
+        self._issue("resume" if self._snapshot.get("paused") else "pause")
+
+    def _move(self, delta: int) -> None:
+        position = int(float(self._snapshot.get("positionSeconds") or 0)) + delta
+        self._issue("seek", seconds=max(0, position))
+
+    def _go_to_start(self) -> None:
+        self._issue("seek", seconds=int(float(self._snapshot.get("firstSeconds") or 0)))
+
+    def _go_to_time(self, _event: wx.CommandEvent) -> None:
+        parts = self.time_field.GetValue().strip().split(":")
+        if len(parts) not in (2, 3) or any(not part.isdigit() for part in parts):
+            self.GetParent().announcer.say("Podaj czas jako minuty:sekundy albo godziny:minuty:sekundy")
+            self.time_field.SetFocus()
+            return
+        numbers = [int(part) for part in parts]
+        if numbers[-1] > 59 or (len(numbers) == 3 and numbers[-2] > 59):
+            self.GetParent().announcer.say("Sekundy i minuty muszą być mniejsze niż 60")
+            self.time_field.SetFocus()
+            return
+        seconds = numbers[-1] + 60 * numbers[-2]
+        if len(numbers) == 3:
+            seconds += 3600 * numbers[0]
+        first = float(self._snapshot.get("firstSeconds") or 0)
+        end = float(self._snapshot.get("endSeconds") or 0)
+        if seconds < first or seconds > end:
+            self.GetParent().announcer.say(
+                f"Dostępny fragment: od {self._clock(first)} do {self._clock(end)}"
+            )
+            self.time_field.SetFocus()
+            return
+        self._issue("seek", seconds=seconds)
+
+    def _stop_after_close(self) -> None:
+        self.runner.submit(
+            self._stream + "-stop",
+            lambda: self.client.radio_recording_monitor(self.recording_id, "stop"),
+            lambda _payload: None,
+            lambda _error: None,
+        )
+
+    def _close(self, _event: wx.Event) -> None:
+        if self._closing:
+            return
+        self._closing = True
+        self._timer.Stop()
+        if not self._busy:
+            self._stop_after_close()
+        if self.IsModal():
+            self.EndModal(wx.ID_CANCEL)
 
 
 class RadioarchiwistaFragmentDialog(wx.Dialog):
@@ -11927,6 +12118,19 @@ class LiteFrame(wx.Frame):
                 and not active_radio_recording_view
             ):
                 enabled = False
+            if (entry.action is Action.STATION_EDIT and active_radio_recording_view
+                    and RECORDING_MONITOR_CAPABILITY in current_profile().capabilities):
+                enabled = False
+            if entry.action in (
+                Action.OPEN_RECORDING_MONITOR,
+                Action.RENAME_ACTIVE_RECORDING,
+            ) and not (
+                active_radio_recording_view
+                and selected_row is not None
+                and selected_row.service_id
+                and (entry.action is Action.OPEN_RECORDING_MONITOR or selected_row.path)
+            ):
+                enabled = False
             if entry.needs_podcast_session and not podcasts:
                 enabled = False
             if entry.needs_podcast_inbox and not podcast_inbox:
@@ -18376,6 +18580,8 @@ class LiteFrame(wx.Frame):
             self._select_sonos_target()
         elif action is Action.ACTIVATE:
             self._activate_selected_if_ready()
+        elif action is Action.OPEN_RECORDING_MONITOR:
+            self._activate_selected_if_ready()
         elif action is Action.PARENT_FOLDER:
             if not LiteFrame._restore_transient_preview(self, announce=False):
                 self._run(self.navigator.go_to_parent())
@@ -18755,6 +18961,8 @@ class LiteFrame(wx.Frame):
             self._station_add()
         elif action is Action.STATION_EDIT:
             self._station_edit()
+        elif action is Action.RENAME_ACTIVE_RECORDING:
+            self._rename_active_radio_recording()
         elif action is Action.REFRESH_YOUTUBE_RADIO_STATION:
             self._refresh_selected_youtube_radio_station()
         elif action is Action.STATION_DELETE:
@@ -19823,6 +20031,8 @@ class LiteFrame(wx.Frame):
                 self._play_queue_at(intent)
             elif isinstance(intent, PlayStation):
                 self._play_station(intent)
+            elif isinstance(intent, OpenRecordingMonitor):
+                self._open_recording_monitor(intent)
             elif isinstance(intent, PlayMedia):
                 if self.navigator.active is SessionId.RADIOARCHIWISTA:
                     self._play_media(intent, session_id=SessionId.RADIOARCHIWISTA)
@@ -35346,6 +35556,22 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("playback", work, done, failed)
 
+    def _open_recording_monitor(self, intent: OpenRecordingMonitor) -> None:
+        if RECORDING_MONITOR_CAPABILITY not in current_profile().capabilities:
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik odsłuchu jest niedostępny")
+            return
+        dialog = RecordingMonitorDialog(
+            self, client, self.runner, intent, self.options.volume,
+        )
+        try:
+            dialog.ShowModal()
+        finally:
+            dialog.Destroy()
+            self._active_list().SetFocus()
+
     def _pause_on_player_exit_if_needed(self, session: SessionId) -> None:
         """Wstrzymaj po wyjsciu z odtwarzacza, jesli TA sesja tak ma ustawione.
 
@@ -40001,6 +40227,68 @@ class LiteFrame(wx.Frame):
         ), None)
         self.announcer.say(recording_output_description(selected))
 
+    def _rename_active_radio_recording(self) -> None:
+        if RECORDING_MONITOR_CAPABILITY not in current_profile().capabilities:
+            return
+        state = self.navigator.sessions[SessionId.RADIO]
+        row = state.model.selected_row
+        if (
+            state.library_view is not LibraryView.ACTIVE_RADIO_RECORDINGS
+            or row is None or not row.service_id or not row.path
+        ):
+            self.announcer.say("Wybierz rozpoczęte nagranie z listy Nagrywane")
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nagrywania jest niedostępny")
+            return
+        with RenameItemDialog(
+            self,
+            title="Zmień nazwę trwającego nagrania",
+            prompt="&Nowa nazwa bez rozszerzenia:",
+            field_name="Nowa nazwa nagrania bez rozszerzenia",
+            value=Path(row.path).stem,
+            help_text="Rozszerzenie i folder pozostaną bez zmian. Nagrywanie trwa dalej.",
+        ) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
+                return
+            name = dialog.value
+            self._local_file_rename_pending = True
+            self._local_file_rename_activation_guard_until = time.monotonic() + 1.0
+        self._restore_focus_after_dialog()
+        if not name:
+            self._local_file_rename_pending = False
+            self.announcer.say("Podaj nową nazwę nagrania")
+            return
+
+        def done(result: dict) -> None:
+            self._local_file_rename_pending = False
+            path = str((result or {}).get("path") or "")
+            if not path:
+                self.announcer.say("Silnik nie potwierdził nowej nazwy nagrania")
+                return
+            payload = getattr(self, "_active_radio_recordings_payload", {})
+            entries = payload.get("recordings") if isinstance(payload, dict) else None
+            if isinstance(entries, list):
+                for entry in entries:
+                    if isinstance(entry, dict) and entry.get("recordingId") == row.service_id:
+                        entry["path"] = path
+                state.model.replace(active_recording_rows(payload), preferred_id=row.item_id)
+                if self.navigator.active is SessionId.RADIO:
+                    self._sync_views()
+            self.announcer.say(f"Nowa nazwa nagrania: {Path(path).name}")
+
+        def failed(error: Exception) -> None:
+            self._local_file_rename_pending = False
+            self.announcer.say(f"Nie zmieniono nazwy nagrania: {error}")
+
+        self.runner.submit(
+            "radio-recording-rename",
+            lambda: client.rename_active_radio_recording(row.service_id, name),
+            done,
+            failed,
+        )
+
     def _remember_recording_result(self, payload: object) -> bool:
         """Utrwal wynik w prywatnym stanie bez zmiany profilu pelnego AMC."""
         entry = recording_history_payload_from_event(payload)
@@ -41021,6 +41309,30 @@ class LiteFrame(wx.Frame):
         )
 
     def _action_available_in_active_session(self, action: Action) -> bool:
+        if action in (
+            Action.OPEN_RECORDING_MONITOR, Action.RENAME_ACTIVE_RECORDING,
+        ) and RECORDING_MONITOR_CAPABILITY not in current_profile().capabilities:
+            return False
+        if action in (
+            Action.STATION_EDIT,
+            Action.OPEN_RECORDING_MONITOR,
+            Action.RENAME_ACTIVE_RECORDING,
+        ):
+            in_recordings = (
+                self.navigator.active is SessionId.RADIO
+                and self.navigator.session.view is View.LIST
+                and self.navigator.session.library_view
+                    is LibraryView.ACTIVE_RADIO_RECORDINGS
+            )
+            if (action is Action.STATION_EDIT and in_recordings
+                    and RECORDING_MONITOR_CAPABILITY in current_profile().capabilities):
+                return False
+            if action in (Action.OPEN_RECORDING_MONITOR, Action.RENAME_ACTIVE_RECORDING):
+                row = self.navigator.session.model.selected_row
+            return bool(
+                    in_recordings and row and row.service_id
+                    and (action is Action.OPEN_RECORDING_MONITOR or row.path)
+                )
         if (action in YOUTUBE_AUDIO_HOST_ONLY_ACTIONS
                 and getattr(self, "_youtube_playback_active", lambda: False)()):
             return False

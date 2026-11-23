@@ -37,7 +37,8 @@ internal sealed record RadioAudioClipBounds(long FirstByte, long LastByte, long 
 /// creating unbounded temporary files.
 /// </summary>
 public sealed class RadioMediaOutput(
-    int timeshiftMinutes, bool audible = true, string? timeshiftFolder = null)
+    int timeshiftMinutes, bool audible = true, string? timeshiftFolder = null,
+    bool recordingMonitorBuffer = false)
     : IMediaOutput, IPlaybackRateStateOutput, IDisposable
 {
     // Gorna granica bufora transmisji. ZGLOSZENIE Michala 15.09.2026: "10 min
@@ -223,6 +224,93 @@ public sealed class RadioMediaOutput(
         {
             lock (_gate) return _pipeline?.Buffer.BufferedDuration ?? TimeSpan.Zero;
         }
+    }
+
+    /// <summary>Earliest position still available in this capture buffer.</summary>
+    public TimeSpan EarliestBufferedPosition
+    {
+        get
+        {
+            lock (_gate) return _pipeline?.Buffer.EarliestBufferedPosition ?? TimeSpan.Zero;
+        }
+    }
+
+    /// <summary>End of received audio; unlike playback position it keeps advancing.</summary>
+    public TimeSpan CapturedPosition
+    {
+        get
+        {
+            lock (_gate) return _pipeline?.Buffer.CapturedPosition ?? TimeSpan.Zero;
+        }
+    }
+
+    public bool IsRecordingMonitorPaused
+    {
+        get
+        {
+            lock (_gate) return _pauseRequested;
+        }
+    }
+
+    /// <summary>Attach an audio output to an already recording private pipeline.</summary>
+    public bool StartRecordingMonitor(int volume)
+    {
+        if (!recordingMonitorBuffer) return false;
+        RadioPipeline? pipeline;
+        string? deviceId;
+        lock (_gate)
+        {
+            if (_disposed || _pipeline?.Buffer.IsRecording != true) return false;
+            pipeline = _pipeline;
+            deviceId = _outputDeviceId;
+            _volume = Math.Clamp(volume, 0, 100);
+            pipeline.Volume.Volume = _volume / 100f;
+            _pauseRequested = false;
+        }
+        if (pipeline.Output is not null)
+        {
+            ResumeRecordingMonitor();
+            return true;
+        }
+        pipeline.Buffer.Seek(pipeline.Buffer.EarliestBufferedPosition);
+        return ReplacePlaybackOutput(pipeline, deviceId, announceFallback: true);
+    }
+
+    public void PauseRecordingMonitor()
+    {
+        if (recordingMonitorBuffer) Pause();
+    }
+
+    public void ResumeRecordingMonitor()
+    {
+        if (!recordingMonitorBuffer) return;
+        RadioPipeline? pipeline;
+        lock (_gate)
+        {
+            if (_disposed || _pipeline?.Buffer.IsRecording != true) return;
+            _pauseRequested = false;
+            pipeline = _pipeline;
+        }
+        AudioOutputPauseGuard.Play(pipeline.Output, () =>
+        {
+            lock (_gate) return _disposed || !ReferenceEquals(_pipeline, pipeline) || _pauseRequested;
+        });
+    }
+
+    /// <summary>Detach only the listener. Capture and the encoder keep running.</summary>
+    public void StopRecordingMonitor()
+    {
+        if (!recordingMonitorBuffer) return;
+        RadioPipeline? pipeline;
+        lock (_gate)
+        {
+            _pauseRequested = true;
+            pipeline = _pipeline;
+        }
+        var lease = pipeline?.TakeOutput();
+        if (lease is null) return;
+        try { lease.Output.Stop(); } catch (ObjectDisposedException) { }
+        lease.Dispose();
     }
 
     public TimeSpan BehindLive
@@ -429,7 +517,8 @@ public sealed class RadioMediaOutput(
                 _timeshiftMinutes,
                 MaximumTimeshiftBytes,
                 RaiseRecordingFailed,
-                _timeshiftFolder);
+                _timeshiftFolder,
+                recordingMonitorBuffer);
             // Do not announce a started station while the output still holds
             // only silence. The first decoded portion also proves that opening
             // the URL produced audio rather than headers followed by EOF.
@@ -1294,6 +1383,16 @@ public sealed class RadioMediaOutput(
         }
     }
 
+    public void RenameRecording(string path)
+    {
+        lock (_gate)
+        {
+            if (_pipeline?.Buffer.IsRecording != true)
+                throw new InvalidOperationException("Nagranie już się zakończyło.");
+            _pipeline.Buffer.RenameRecording(path);
+        }
+    }
+
     public void PauseRecording()
     {
         lock (_gate)
@@ -1678,6 +1777,18 @@ public sealed class RadioMediaOutput(
             }
         }
 
+        public AudioOutputDeviceLease? TakeOutput()
+        {
+            lock (_outputGate)
+            {
+                var previous = _outputLease;
+                if (previous is not null && _outputStoppedHandler is not null)
+                    previous.Output.PlaybackStopped -= _outputStoppedHandler;
+                _outputLease = null;
+                return previous;
+            }
+        }
+
         public void StartStreamTitleTracking()
         {
             if (_streamTitleSource is not null)
@@ -1930,6 +2041,7 @@ public sealed class RadioMediaOutput(
         private readonly TimeshiftRingStorage _ring;
         private readonly int _blockAlign;
         private readonly Action<Exception> _recordingFailed;
+        private readonly bool _recordedOnly;
         private readonly Guid _bufferId = Guid.NewGuid();
         private readonly List<(long StartByte, Guid Id)> _segments = new() { (0, Guid.NewGuid()) };
         private long _totalWritten;
@@ -1943,16 +2055,39 @@ public sealed class RadioMediaOutput(
             int minutes,
             long maximumBytes,
             Action<Exception> recordingFailed,
-            string? timeshiftFolder)
+            string? timeshiftFolder,
+            bool recordedOnly)
         {
             WaveFormat = waveFormat;
             _recordingFailed = recordingFailed;
+            _recordedOnly = recordedOnly;
             _blockAlign = Math.Max(1, waveFormat.BlockAlign);
             var requested = (long)waveFormat.AverageBytesPerSecond * Math.Max(1, minutes) * 60;
             var capacity = Math.Min(maximumBytes, Math.Max(waveFormat.AverageBytesPerSecond * 5L, requested));
             capacity -= capacity % _blockAlign;
             _ring = new TimeshiftRingStorage(
                 Math.Max(_blockAlign, capacity), timeshiftFolder);
+        }
+
+        public RadioTimeshiftWaveProvider(
+            WaveFormat waveFormat,
+            int minutes,
+            long maximumBytes,
+            Action<Exception> recordingFailed,
+            string? timeshiftFolder)
+            : this(waveFormat, minutes, maximumBytes, recordingFailed,
+                timeshiftFolder, recordedOnly: false)
+        {
+        }
+
+        public RadioTimeshiftWaveProvider(
+            WaveFormat waveFormat,
+            int minutes,
+            long maximumBytes,
+            Action<Exception> recordingFailed)
+            : this(waveFormat, minutes, maximumBytes, recordingFailed,
+                timeshiftFolder: null, recordedOnly: false)
+        {
         }
 
         /// <summary>Czy bufor lezy na dysku (duzy) czy w pamieci (maly).</summary>
@@ -2028,6 +2163,16 @@ public sealed class RadioMediaOutput(
             }
         }
 
+        public TimeSpan CapturedPosition
+        {
+            get { lock (_gate) return BytesToTime(_totalWritten); }
+        }
+
+        public TimeSpan EarliestBufferedPosition
+        {
+            get { lock (_gate) return BytesToTime(Math.Max(0, _totalWritten - _ring.Length)); }
+        }
+
         public TimeSpan BehindLive
         {
             get
@@ -2064,18 +2209,22 @@ public sealed class RadioMediaOutput(
                     _recording = null;
                     _recordingPath = null;
                 }
-                var writeIndex = _totalWritten % _ring.Length;
-                var first = (int)Math.Min(count, _ring.Length - writeIndex);
-                _ring.Write(buffer, offset, writeIndex, first);
-                if (first < count)
+                // A private recording monitor follows the saved timeline.
+                // Audio heard before StartRecording or while the encoder is paused
+                // must never appear in its time shift.
+                if (!_recordedOnly || _recording is { IsPaused: false })
                 {
-                    _ring.Write(buffer, offset + first, 0, count - first);
+                    var writeIndex = _totalWritten % _ring.Length;
+                    var first = (int)Math.Min(count, _ring.Length - writeIndex);
+                    _ring.Write(buffer, offset, writeIndex, first);
+                    if (first < count)
+                        _ring.Write(buffer, offset + first, 0, count - first);
+                    _totalWritten += count;
+                    var oldest = Math.Max(0, _totalWritten - _ring.Length);
+                    if (_readPosition < oldest) _readPosition = oldest;
+                    while (_segments.Count > 1 && _segments[1].StartByte <= oldest)
+                        _segments.RemoveAt(0);
                 }
-                _totalWritten += count;
-                var oldest = Math.Max(0, _totalWritten - _ring.Length);
-                if (_readPosition < oldest) _readPosition = oldest;
-                while (_segments.Count > 1 && _segments[1].StartByte <= oldest)
-                    _segments.RemoveAt(0);
             }
             if (failedRecording is not null && recordingException is not null)
             {
@@ -2322,6 +2471,25 @@ public sealed class RadioMediaOutput(
                 _recordingPath = null;
             }
             return recording.Stop();
+        }
+
+        public void RenameRecording(string path)
+        {
+            lock (_gate)
+            {
+                switch (_recording)
+                {
+                    case RadioMp3Recorder encoded:
+                        encoded.RenameFinalPath(path);
+                        break;
+                    case RadioOriginalStreamRecorder original:
+                        original.RenameFinalPath(path);
+                        break;
+                    default:
+                        throw new InvalidOperationException("Nagranie już się zakończyło.");
+                }
+                _recordingPath = path;
+            }
         }
 
         public void PauseRecording()

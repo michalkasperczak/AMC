@@ -27,13 +27,19 @@ internal static class ManualRadioRecorder
         int recordingBitrateKbps,
         RadioRecordingControl control,
         Action<string> recordingStarted,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int monitorBufferMinutes = 1,
+        string? monitorBufferFolder = null,
+        bool monitorEnabled = false)
     {
         ArgumentNullException.ThrowIfNull(station);
         ArgumentNullException.ThrowIfNull(control);
         ArgumentNullException.ThrowIfNull(recordingStarted);
         using var power = WindowsPowerRequest.TryCreate($"AMC nagrywa stację {station.Title}");
-        using var output = new RadioMediaOutput(timeshiftMinutes: 1, audible: false);
+        using var output = new RadioMediaOutput(
+            monitorEnabled ? monitorBufferMinutes : 1, audible: false,
+            timeshiftFolder: monitorEnabled ? monitorBufferFolder : null,
+            recordingMonitorBuffer: monitorEnabled);
         var started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var failed = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         var recordingFailed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);

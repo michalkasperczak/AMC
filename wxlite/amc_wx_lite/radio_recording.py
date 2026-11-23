@@ -328,6 +328,8 @@ def active_recording_rows(payload: object) -> list[Row]:
             detail="",
             show_kind=False,
             duration_ticks=duration_ticks,
+            service_id=str(entry.get("recordingId") or "") or None,
+            service_kind="activeRadioRecording",
         ))
     return rows
 

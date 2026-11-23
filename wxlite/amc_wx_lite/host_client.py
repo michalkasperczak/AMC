@@ -674,7 +674,7 @@ class LiteHostClient:
         title: str,
         volume: int,
         rate: float,
-        position_seconds: float = 0.0,
+        position_seconds: float | None = None,
         duration_seconds: float = 0.0,
         session_id: str = "podcasts",
     ) -> Any:
@@ -685,9 +685,10 @@ class LiteHostClient:
             "title": title,
             "volume": volume,
             "rate": rate,
-            "positionSeconds": max(0.0, float(position_seconds)),
             "sessionId": session_id,
         }
+        if position_seconds is not None:
+            args["positionSeconds"] = max(0.0, float(position_seconds))
         if duration_seconds > 0:
             args["durationSeconds"] = float(duration_seconds)
         return self.call(
@@ -2523,6 +2524,25 @@ class LiteHostClient:
 
     def radio_recording_status(self) -> Any:
         return self.call("radio.recordingStatus", timeout=5.0)
+
+    def radio_recording_monitor(
+        self, recording_id: str, action: str, *, volume: int = 35,
+        seconds: int = 0,
+    ) -> Any:
+        """Control a listener attached to the private capture buffer."""
+        return self.call(
+            "radio.recordingMonitor",
+            {"recordingId": recording_id, "action": action,
+             "volume": volume, "seconds": seconds},
+            timeout=5.0,
+        )
+
+    def rename_active_radio_recording(self, recording_id: str, name: str) -> Any:
+        return self.call(
+            "radio.recordingRename",
+            {"recordingId": recording_id, "name": name},
+            timeout=10.0,
+        )
 
     def current_radio_broadcast_information(self) -> Any:
         """Tekst Alt+D zlozony wspolnym formatterem hosta C# AMC."""
