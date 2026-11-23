@@ -151,3 +151,54 @@ def search(entries: list[SearchEntry], query: str) -> list[SearchEntry]:
         seen.add(identity)
         result.append(entry)
     return result
+
+
+_RESULT_KIND_ORDER = {
+    "artist": 0,
+    "podcast": 0,
+    "channel": 0,
+    "album": 1,
+    "folder": 1,
+    "track": 2,
+    "episode": 2,
+    "recording": 2,
+    "playlist": 3,
+}
+
+
+def order_search_results(
+    entries: list[SearchEntry],
+    query: str,
+    sessions: tuple[SessionId, ...],
+) -> list[SearchEntry]:
+    """Shared order for every current and future search source.
+
+    Exact title hits lead their kind; otherwise the provider's order remains
+    stable. The entries themselves are unchanged, including their navigation
+    targets and addresses. New adapters only need to use the common Row.kind
+    values; no provider-specific result sorting belongs in the GUI.
+    """
+
+    session_rank = {session: index for index, session in enumerate(sessions)}
+    term = normalize_search_text(query.strip())
+
+    def title_rank(entry: SearchEntry) -> int:
+        if not term:
+            return 3
+        title = normalize_search_text(entry.row.title)
+        if title == term:
+            return 0
+        if title.startswith(term):
+            return 1
+        if term in title:
+            return 2
+        return 3
+
+    return sorted(
+        entries,
+        key=lambda entry: (
+            session_rank.get(entry.session_id, len(session_rank)),
+            _RESULT_KIND_ORDER.get(entry.row.kind, 4),
+            title_rank(entry),
+        ),
+    )

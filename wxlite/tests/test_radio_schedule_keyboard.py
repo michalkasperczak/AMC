@@ -33,7 +33,7 @@ def test_schedule_list_receives_space_directly_and_through_the_dialog_hook() -> 
     assert "self.schedule_list.Bind(wx.EVT_KEY_DOWN, self._on_key)" in source
     assert "event_object is self.schedule_list" in source
     assert "focus_on_list and code == wx.WXK_SPACE" in source
-    assert "self._toggle(event)" in source
+    assert 'self._invoke_list_action("Spacja", event)' in source
 
 
 def test_modal_status_sends_one_real_live_region_event() -> None:
@@ -92,16 +92,23 @@ def test_schedule_context_menu_contains_the_same_actions_as_keyboard() -> None:
 
     dialog = RadioSchedulesDialog.__new__(RadioSchedulesDialog)
     dialog.schedule_list = type("ScheduleList", (), {"SetFocus": lambda self: focus.append(True)})()
-    dialog._selected_schedule = lambda: {"id": "plan-1"}
+    dialog._selected_schedule = lambda: {
+        "id": "plan-1", "enabled": True,
+        "nextStartUtcTicks": 999_999_999_999_999_999,
+    }
+    dialog._active_ids = set()
     dialog.PopupMenu = lambda _menu: shown.append(True)
     previous_menu = dialogs.wx.Menu
     previous_id = getattr(dialogs.wx, "NewIdRef", None)
+    previous_call_after = dialogs.wx.CallAfter
     dialogs.wx.Menu = _Menu
     dialogs.wx.NewIdRef = iter(range(100, 200)).__next__
+    dialogs.wx.CallAfter = lambda callback: callback()
     try:
         RadioSchedulesDialog._show_context_menu(dialog)
     finally:
         dialogs.wx.Menu = previous_menu
+        dialogs.wx.CallAfter = previous_call_after
         if previous_id is None:
             delattr(dialogs.wx, "NewIdRef")
         else:
@@ -113,6 +120,7 @@ def test_schedule_context_menu_contains_the_same_actions_as_keyboard() -> None:
         ("Edytuj plan (Enter)", True),
         ("Powiel plan (Ctrl+D)", True),
         ("Włącz lub wyłącz plan (Spacja)", True),
+        ("Pomiń najbliższy termin lub cofnij pominięcie (Shift+Spacja)", True),
         ("Krótka informacja (strzałka w lewo)", True),
         ("Ustawienia pliku (strzałka w prawo)", True),
         ("Usuń plan (Delete)", True),
