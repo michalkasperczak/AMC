@@ -156,6 +156,7 @@ from .list_model import (
     rows_from_stations,
 )
 from . import menu_model
+from .local_video import local_video_file, local_video_target
 from .shell_paths import ShellPathError, looks_like_local_path, open_in_explorer
 from .shell_requests import ShellRequest, start_request_reader
 from .service_picker import (
@@ -376,6 +377,7 @@ from .podcast_source import (
     SORT_CUSTOM,
     complete_youtube_description,
     is_supported_video_row,
+    external_video_page_url,
     subscription_rows,
 )
 from .youtube_variants import DownloadVariant, can_choose_variant, read_variants
@@ -625,6 +627,8 @@ _LIST_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
     (
         Action.APPLE_MUSIC_OPEN_ORIGINAL,
         Action.ACTIVATE,
+        Action.PLAY_LOCAL_VIDEO,
+        Action.PLAY_LOCAL_AUDIO,
         Action.APPLE_MUSIC_RELATIONS,
         Action.TIDAL_PLAY_NATIVE,
         Action.TIDAL_OPEN_ORIGINAL,
@@ -644,6 +648,7 @@ _LIST_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
         Action.SAVE_PODCAST_EPISODE_AS,
         Action.DOWNLOAD_YOUTUBE_VIDEOS,
         Action.SAVE_YOUTUBE_VIDEO_AS,
+        Action.OPEN_VIDEO_IN_BROWSER,
         Action.SELECT_YOUTUBE_VARIANT,
         Action.SHOW_PODCAST_DESCRIPTION,
         Action.GO_TO_RELATED_PODCAST,
@@ -709,6 +714,8 @@ _LIST_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
 _PLAYER_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
     (
         Action.PLAY_PAUSE,
+        Action.PLAY_LOCAL_VIDEO,
+        Action.PLAY_LOCAL_AUDIO,
         Action.QUEUE_PREVIOUS,
         Action.QUEUE_NEXT,
         Action.TOGGLE_MUTE,
@@ -11045,6 +11052,8 @@ class LiteFrame(wx.Frame):
         self._youtube_live_scan_pending = False
         self._youtube_live_channels_by_id: dict[str, object] = {}
         self._last_status: dict = {}
+        self._video_mode_requested = False
+        self._video_surface = None
         self._transport_status_by_session: dict[SessionId, dict] = {}
         self._radio_transport_status_poll_pending = False
         self._last_recording_status: dict = {}
@@ -11883,6 +11892,11 @@ class LiteFrame(wx.Frame):
                 enabled = False
             if entry.needs_youtube_video_item and not youtube_video_items:
                 enabled = False
+            if entry.action is Action.OPEN_VIDEO_IN_BROWSER and not (
+                podcasts and session.view is View.LIST
+                and external_video_page_url(selected_row)
+            ):
+                enabled = False
             if (
                 entry.needs_single_youtube_video_item
                 and not single_youtube_video_item
@@ -11997,6 +12011,10 @@ class LiteFrame(wx.Frame):
             if entry.needs_item_information and not has_information_item:
                 enabled = False
             if entry.needs_local_path and not has_local_path:
+                enabled = False
+            if entry.action in {Action.PLAY_LOCAL_VIDEO, Action.PLAY_LOCAL_AUDIO} and not (
+                files and self._local_video_target_path()
+            ):
                 enabled = False
             if entry.needs_podcast_item and (
                 not podcasts or selected_kind not in ("podcast", "episode")
@@ -18519,6 +18537,10 @@ class LiteFrame(wx.Frame):
             self._choose_folder()
         elif action is Action.OPEN_FILE_DIALOG:
             self._choose_file()
+        elif action is Action.PLAY_LOCAL_VIDEO:
+            self._play_local_video_mode(True)
+        elif action is Action.PLAY_LOCAL_AUDIO:
+            self._play_local_video_mode(False)
         elif action is Action.OPEN_CONTAINING_FOLDER:
             self._open_containing_folder()
         elif action is Action.QUICK_INFORMATION:
@@ -18731,6 +18753,8 @@ class LiteFrame(wx.Frame):
             self._download_youtube_videos()
         elif action is Action.SAVE_YOUTUBE_VIDEO_AS:
             self._save_youtube_video_as()
+        elif action is Action.OPEN_VIDEO_IN_BROWSER:
+            self._open_video_in_browser()
         elif action is Action.SELECT_YOUTUBE_VARIANT:
             self._select_youtube_variant()
         elif action is Action.SHOW_PODCAST_DESCRIPTION:
@@ -19918,6 +19942,7 @@ class LiteFrame(wx.Frame):
         )
         self.list_panel.Show(not want_player or keep_file_list)
         self.player_panel.Show(want_player)
+        self._sync_embedded_video()
         active_list.Show(not want_player or keep_file_list)
         active_list.player_covers = want_player and keep_file_list
         for control in other_lists:
@@ -27917,6 +27942,19 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("podcast-download", work, done, failed)
 
+    def _open_video_in_browser(self) -> None:
+        row = self.navigator.session.model.selected_row
+        address = (
+            external_video_page_url(row)
+            if self.navigator.active is SessionId.PODCASTS
+            and self.navigator.session.view is View.LIST else None
+        )
+        if address is None:
+            self.announcer.say("Wybierz film internetowy z poprawnym adresem")
+            return
+        if not wx.LaunchDefaultBrowser(address):
+            self.announcer.say("Nie udało się otworzyć filmu w przeglądarce")
+
     def _download_youtube_videos(self) -> None:
         """Ctrl+Shift+D: download selected public YouTube items as video."""
 
@@ -29107,6 +29145,82 @@ class LiteFrame(wx.Frame):
             self.announcer.say(f"Nie moge wczytac folderu: {error}")
 
         self.runner.submit("folder", work, done, failed)
+
+    def _local_video_target_path(self) -> str | None:
+        if self.navigator.active is not SessionId.FILES:
+            return None
+        state = self.navigator.session
+        if state.view is View.LIST:
+            row = state.model.selected_row
+            return row.path if local_video_target(row) else None
+        status = self._transport_status_by_session.get(SessionId.FILES, {})
+        path = status.get("source")
+        return path if (
+            local_video_file(path) and status.get("id") == state.now_playing_id
+        ) else None
+
+    def _play_local_video_mode(self, show_picture: bool) -> None:
+        if not self._local_video_target_path():
+            self.announcer.say("Wybierz dostępny lokalny plik wideo")
+            return
+        self._video_mode_requested = show_picture
+        if self.navigator.session.view is View.PLAYER:
+            self._sync_embedded_video()
+            if not show_picture:
+                self.announcer.say("Odtwarzanie tylko dźwięku")
+            return
+        self._run(self.navigator.activate_selected(open_player_on_activation=True))
+
+    def _video_unavailable(self) -> None:
+        self._video_mode_requested = False
+        if self._video_surface is not None:
+            self._video_surface.hide()
+            self.player_panel.Layout()
+        self.announcer.say(
+            "Nie można wyświetlić obrazu tego pliku. Dźwięk pozostaje w AMC"
+        )
+
+    def _sync_embedded_video(self, status: dict | None = None) -> None:
+        surface = self._video_surface
+        if status is None:
+            status = self._transport_status_by_session.get(SessionId.FILES, {})
+        path = status.get("source")
+        state = self.navigator.sessions[SessionId.FILES]
+        should_show = bool(
+            self._video_mode_requested
+            and self.navigator.active is SessionId.FILES
+            and state.view is View.PLAYER
+            and status.get("id") == state.now_playing_id
+            and (status.get("playing") or status.get("paused"))
+            and local_video_file(path)
+        )
+        if not should_show:
+            if surface is not None and surface.control.IsShown():
+                surface.hide()
+                self.player_panel.Layout()
+            return
+        if surface is None:
+            try:
+                from .embedded_video import EmbeddedVideo
+                surface = EmbeddedVideo(
+                    self.player_panel, self._video_unavailable,
+                    lambda: self.announcer.say("Wyświetlanie wideo"),
+                    self.play_button,
+                )
+            except (ImportError, RuntimeError, wx.PyAssertionError):
+                self._video_unavailable()
+                return
+            self._video_surface = surface
+            self.player_panel.GetSizer().Insert(
+                2, surface.control, 1, wx.EXPAND | wx.ALL, 6
+            )
+        was_shown = surface.control.IsShown()
+        try:
+            surface.present(path, status)
+        except (RuntimeError, OSError, wx.PyAssertionError):
+            self._video_unavailable()
+        if surface.control.IsShown() != was_shown:
+            self.player_panel.Layout()
 
     def _open_containing_folder(self) -> None:
         """Otwórz lokalny folder zaznaczonego lub odtwarzanego elementu."""
@@ -36421,6 +36535,8 @@ class LiteFrame(wx.Frame):
                 return
             self._transport_status_by_session[requested_session] = payload
             self._last_status = payload
+            if requested_session is SessionId.FILES:
+                self._sync_embedded_video(payload)
             if requested_session is SessionId.TIDAL:
                 self._remember_tidal_history_bitrate(payload)
             if self.navigator.active is requested_session:
@@ -36958,6 +37074,9 @@ class LiteFrame(wx.Frame):
             self, "_local_file_rename_activation_guard_until", 0.0
         ):
             return
+        if (self.navigator.active is SessionId.FILES
+                and local_video_target(self.navigator.session.model.selected_row)):
+            self._video_mode_requested = False
         self._activate()
 
     def _profile_edit_client(self) -> LiteHostClient | None:
@@ -39888,6 +40007,14 @@ class LiteFrame(wx.Frame):
         )
 
     def _action_available_in_active_session(self, action: Action) -> bool:
+        if action in {Action.PLAY_LOCAL_VIDEO, Action.PLAY_LOCAL_AUDIO}:
+            return bool(self._local_video_target_path())
+        if action is Action.OPEN_VIDEO_IN_BROWSER:
+            return bool(
+                self.navigator.active is SessionId.PODCASTS
+                and self.navigator.session.view is View.LIST
+                and external_video_page_url(self.navigator.session.model.selected_row)
+            )
         if self._in_download_history():
             if action is Action.RENAME_LIBRARY_ITEM:
                 return False

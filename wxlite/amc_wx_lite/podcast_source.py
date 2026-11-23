@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TypeVar
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from .collation import (
     COLLATION_TITLE_IGNORE_CASE,
@@ -454,6 +454,34 @@ def is_supported_video_row(row: Row | None) -> bool:
             and parts[kind_index] in ("p", "reel", "reels", "tv")
         )
     return False
+
+
+def external_video_page_url(row: Row | None) -> str | None:
+    """Return only the public HTTPS page of a selected online video."""
+    if not is_supported_video_row(row):
+        return None
+    address = str(getattr(row, "url", "") or "").strip()
+    try:
+        parsed = urlparse(address)
+        host = (parsed.hostname or "").casefold()
+        if parsed.scheme.casefold() != "https" or parsed.username or parsed.password:
+            return None
+        if parsed.port not in (None, 443):
+            return None
+    except ValueError:
+        return None
+    if host == "youtu.be":
+        return address if parsed.path.strip("/") else None
+    if host == "youtube.com" or host.endswith(".youtube.com"):
+        path = parsed.path.strip("/").casefold()
+        if (path == "watch" and any(parse_qs(parsed.query).get("v", []))) or path.startswith(("shorts/", "live/", "embed/")):
+            return address
+        return None
+    if host == "fb.watch" or host == "facebook.com" or host.endswith(".facebook.com"):
+        return address
+    if host == "instagram.com" or host.endswith(".instagram.com"):
+        return address
+    return None
 
 
 def is_youtube_video_row(row: Row | None) -> bool:

@@ -306,6 +306,8 @@ class Action(Enum):
     EXPORT_SONOS_OWN_STREAMS = "sonos.ownStreams.export"
     OPEN_FOLDER_DIALOG = "files.openFolder"
     OPEN_FILE_DIALOG = "files.openFile"
+    PLAY_LOCAL_VIDEO = "files.playVideo"
+    PLAY_LOCAL_AUDIO = "files.playAudioOnly"
     OPEN_CONTAINING_FOLDER = "files.openContainingFolder"
     COPY_NAME = "clipboard.copyName"
     COPY_DOWNLOAD_NAME = "downloads.copyFileName"
@@ -380,6 +382,7 @@ class Action(Enum):
     DOWNLOAD_YOUTUBE_VIDEOS = "podcasts.youtube.video.download"
     SAVE_YOUTUBE_VIDEO_AS = "podcasts.youtube.video.saveAs"
     SELECT_YOUTUBE_VARIANT = "podcasts.youtube.video.selectVariant"
+    OPEN_VIDEO_IN_BROWSER = "podcasts.video.openBrowser"
     SHOW_PODCAST_DESCRIPTION = "podcasts.description"
     CURRENT_RADIO_BROADCAST_INFORMATION = "radio.currentBroadcastInformation"
     RECOGNIZE_RADIO_TRACK = "radio.recognition.now"
@@ -474,6 +477,27 @@ class CommandPresentation:
 
 
 _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
+    Action.PLAY_LOCAL_VIDEO: CommandPresentation(
+        Action.PLAY_LOCAL_VIDEO,
+        "Odtwarzaj wideo",
+        "Odtwarzaj zaznaczony lokalny film z obrazem w obecnym odtwarzaczu AMC",
+        "",
+        "Odtwarzaj &wideo",
+    ),
+    Action.PLAY_LOCAL_AUDIO: CommandPresentation(
+        Action.PLAY_LOCAL_AUDIO,
+        "Odtwarzaj tylko audio",
+        "Odtwarzaj zaznaczony lokalny film tylko jako dźwięk",
+        "",
+        "Odtwarzaj tylko &audio",
+    ),
+    Action.OPEN_VIDEO_IN_BROWSER: CommandPresentation(
+        Action.OPEN_VIDEO_IN_BROWSER,
+        "Otwórz w przeglądarce",
+        "Otwórz stronę zaznaczonego filmu w domyślnej przeglądarce",
+        "",
+        "Otwórz w &przeglądarce",
+    ),
     Action.APPLE_MUSIC_TOGGLE_LIBRARY: CommandPresentation(
         Action.APPLE_MUSIC_TOGGLE_LIBRARY,
         "Dodaj lub usuń z Biblioteki Apple Music",
@@ -2778,6 +2802,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
             "Pobierz zaznaczone filmy YouTube, Facebooka lub Instagrama jako wideo"
         ),
         Action.SAVE_YOUTUBE_VIDEO_AS: "Zapisz jeden film internetowy jako plik wideo",
+        Action.OPEN_VIDEO_IN_BROWSER: _STATIC_COMMAND_PRESENTATIONS[Action.OPEN_VIDEO_IN_BROWSER].description,
         Action.SELECT_YOUTUBE_VARIANT: (
             "Wybierz dokładny wariant obrazu i dźwięku jednego filmu YouTube"
         ),
@@ -2827,6 +2852,8 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.SEEK_PERCENT_90: "Skok do 90% materiału lub bufora Time Shift",
         Action.OPEN_FOLDER_DIALOG: "Wybierz folder",
         Action.OPEN_FILE_DIALOG: "Wybierz plik",
+        Action.PLAY_LOCAL_VIDEO: _STATIC_COMMAND_PRESENTATIONS[Action.PLAY_LOCAL_VIDEO].description,
+        Action.PLAY_LOCAL_AUDIO: _STATIC_COMMAND_PRESENTATIONS[Action.PLAY_LOCAL_AUDIO].description,
         Action.OPEN_CONTAINING_FOLDER: "Otwórz folder zawierający",
         Action.TRACK_START: "Poczatek utworu",
         # Pomoc mowi, ILE oryginal zostawia (CommandRouter.cs:321), zeby
@@ -3143,6 +3170,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.CONFIGURE_YOUTUBE_LIVE_CHANNELS,
         Action.CHOOSE_PODCAST_INBOX_SOURCES,
         Action.SELECT_YOUTUBE_VARIANT,
+        Action.OPEN_VIDEO_IN_BROWSER,
         Action.TOGGLE_YOUTUBE_LIVE_AGGREGATE_CHANNEL,
         Action.FRONTIER_SMART_SELECT_MODE,
         Action.REFRESH_COMMON_DATA,
@@ -3150,6 +3178,8 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.EXPORT_BACKUP,
         Action.IMPORT_BACKUP,
         Action.OPEN_CONTAINING_FOLDER,
+        Action.PLAY_LOCAL_VIDEO,
+        Action.PLAY_LOCAL_AUDIO,
         Action.COPY_DOWNLOAD_NAME,
         Action.RELINK_DOWNLOAD,
         Action.CHECK_APPLICATION_UPDATE,

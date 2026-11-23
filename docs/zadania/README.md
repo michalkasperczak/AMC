@@ -1,5 +1,7 @@
 # Rejestr zadań AMC
 
+**VIDEO-001 (23.11.2026): kod i 10 testów celowanych gotowe; widoczny odbiór, build i wydanie otwarte.** Obraz lokalnego filmu w obecnym odtwarzaczu AMC, wybór samego audio i otwieranie strony filmu internetowego w zwykłej przeglądarce. [Zadanie](VIDEO-20261123-odtwarzanie-w-odtwarzaczu-AMC.md).
+
 **HEOS-001 (23.11.2026): W trakcie; przerwane na prośbę Michała do następnego dnia.** Odczytowy adapter CLI i 8 testów na atrapach gotowe; urządzenia „HEOS 200” nie wykryto przez SSDP. Sesja AMC Test, próba na sprzęcie, build, instalacja i wydanie pozostają otwarte. [Zadanie](HEOS-001-20261123-rekonesans-i-adapter-odczytowy.md).
 
 **Jedna aktywna gałąź i przekazanie 22.11.2026:** [bieżący stan oraz kolejność pracy](AMC-HANDOFF-20261122-jedna-galaz.md).

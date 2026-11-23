@@ -537,6 +537,18 @@ def build_menus(
                 ),
             ),
             MenuItem(
+                command_presentation(Action.PLAY_LOCAL_VIDEO).menu_label,
+                Action.PLAY_LOCAL_VIDEO,
+                accelerator=False,
+                visible_sessions=FILES_ONLY,
+            ),
+            MenuItem(
+                command_presentation(Action.PLAY_LOCAL_AUDIO).menu_label,
+                Action.PLAY_LOCAL_AUDIO,
+                accelerator=False,
+                visible_sessions=FILES_ONLY,
+            ),
+            MenuItem(
                 "Otwórz fo&lder zawierający",
                 Action.OPEN_CONTAINING_FOLDER,
                 accelerator=False,
@@ -740,6 +752,12 @@ def build_menus(
                 needs_youtube_video_item=True,
                 needs_single_youtube_video_item=True,
                 needs_selection=True,
+                visible_sessions=PODCASTS_ONLY,
+            ),
+            MenuItem(
+                command_presentation(Action.OPEN_VIDEO_IN_BROWSER).menu_label,
+                Action.OPEN_VIDEO_IN_BROWSER,
+                accelerator=False,
                 visible_sessions=PODCASTS_ONLY,
             ),
             MenuItem(
