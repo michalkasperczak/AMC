@@ -8,17 +8,23 @@ from . import i18n
 
 from .cast_media import CastFileShare, cast_source
 from .cast_protocol import CastConnection, CastDevice, CastError, discover_cast_devices
+from .cast_tidal import TidalCastShare
+from .network_audio import (NETWORK_AUDIO_SESSIONS, SHARED_DECODER_SESSIONS,
+                            play_session, tidal_request, valid_tidal_request)
 
 
-CAST_SESSIONS = ("files", "radio", "podcasts")
+CAST_SESSIONS = NETWORK_AUDIO_SESSIONS
 UNHANDLED = object()
 
 
-def cast_session_available(session: str, status: dict | None = None, *, active: bool = False) -> bool:
+def cast_session_available(session: str, status: dict | None = None, *, active: bool = False,
+                           source_available: bool = False) -> bool:
     if session not in CAST_SESSIONS:
         return False
     if active:
         return True
+    if session == "tidal":
+        return source_available
     status = status or {}
     if status.get("source") and (status.get("playing") or status.get("paused")):
         try:
@@ -69,12 +75,13 @@ def cast_action_available(action: object, active: bool, session: str | None = No
 class CastSessionRouter:
     def __init__(self, native: Callable, event: Callable | None = None,
                  *, discover=discover_cast_devices, connect=CastConnection,
-                 share=CastFileShare) -> None:
+                 share=CastFileShare, tidal_share=TidalCastShare) -> None:
         self.native = native
         self.event = event
         self._discover = discover
         self._connect = connect
         self._share = share
+        self._tidal_share = tidal_share
         self._devices: tuple[CastDevice, ...] | None = None
         self.routes: dict[str, CastRoute] = {}
         self._lock = threading.RLock()
@@ -109,27 +116,35 @@ class CastSessionRouter:
             status = ({**previous.item, "paused": True} if previous and previous.failed else
                       self.status(session) if previous else self.native(
                           "transport.status", {"sessionId": session}))
+            if session == "tidal" and previous:
+                status = {**status, "_tidal_request": tidal_request(previous.item)}
             if status.get("source") and (status.get("playing") or status.get("paused")):
-                cast_source(status["source"])
+                if session == "tidal":
+                    if not valid_tidal_request(tidal_request(status), cast=True):
+                        raise CastError("cast.error.source")
+                else:
+                    cast_source(status["source"])
             connection = self._connect(device)
             connection.connect()
             route = CastRoute(device, connection)
             route.native_volume = previous.native_volume if previous else int(status.get("volume", 20))
             route.native_rate = previous.native_rate if previous else float(status.get("rate", 1.0))
             was_playing = bool(status.get("playing"))
+            owns_native = ("loadedId" not in status or status.get("loadedId") == status.get("id")
+                           or bool(status.get("playing") and not status.get("paused")))
             paused_native = False
             try:
                 volume = connection.receiver_status().get("volume", {})
                 route.volume = round(float(volume.get("level", 0.2)) * 100)
                 route.muted = bool(volume.get("muted", False))
                 if status.get("source") and (was_playing or status.get("paused")):
-                    if not previous and was_playing and not status.get("paused"):
+                    if not previous and owns_native and was_playing and not status.get("paused"):
                         self.native("transport.pauseResume", {"sessionId": session})
                         paused_native = True
                     self._load(route, session, status, paused=bool(status.get("paused")))
                     if previous and not previous.failed:
                         previous.connection.transport("STOP")
-                    elif not previous:
+                    elif not previous and owns_native and session != "tidal":
                         self.native("transport.stop", {"sessionId": session})
                 self.routes[session] = route
                 if previous:
@@ -147,9 +162,17 @@ class CastSessionRouter:
                 raise
 
     def _load(self, route: CastRoute, session: str, item: dict, *, paused: bool = False) -> dict:
-        source = str(item.get("source") or item.get("path") or item.get("url") or "")
-        url, mime, path = cast_source(source)
-        share = self._share(path, route.device.host, mime) if path else None
+        if session == "tidal":
+            request = tidal_request(item)
+            share = self._tidal_share(request, route.device.host)
+            source = "tidal:track:" + str(request["id"])
+            url, mime = share.url, share.mime
+            item = {**item, "id": "tidal:" + str(request["id"]),
+                    "_tidal_request": request}
+        else:
+            source = str(item.get("source") or item.get("path") or item.get("url") or "")
+            url, mime, path = cast_source(source)
+            share = self._share(path, route.device.host, mime) if path else None
         try:
             route.connection.load(share.url if share else url, mime, str(item.get("title") or ""),
                                   current_time=float(item.get("positionSeconds") or 0),
@@ -166,7 +189,8 @@ class CastSessionRouter:
         route.ended = False
         if old_share:
             old_share.close()
-        return self._status(route, session)
+        result = self._status(route, session)
+        return {**result, "ok": True} if session == "tidal" else result
 
     def _status(self, route: CastRoute, session: str) -> dict:
         if route.failed:
@@ -228,19 +252,35 @@ class CastSessionRouter:
         if route.item.get("source") and (status["playing"] or status["paused"]):
             if not route.failed:
                 route.connection.transport("PAUSE")
-            op = {"files": "files.play", "radio": "radio.play", "podcasts": "media.play"}[session]
+            op = {"files": "files.play", "radio": "radio.play", "podcasts": "media.play",
+                  "radioarchiwista": "media.play", "tidal": "tidal.nativePlay"}[session]
             args = {**route.item, "positionSeconds": status["positionSeconds"],
                     "volume": 0 if status["paused"] else route.native_volume, "rate": route.native_rate}
             args["path" if session == "files" else "url" if session == "radio" else "source"] = route.item["source"]
+            if session == "tidal":
+                args = {**tidal_request(route.item), "positionSeconds": status["positionSeconds"]}
+                self.native("transport.setVolume", {"sessionId": session, "volume": 0})
+            else:
+                args["sessionId"] = session
             try:
                 self.native(op, args)
                 if status["paused"]:
                     self.native("transport.pauseResume", {"sessionId": session})
+                if status["paused"] or session == "tidal":
                     self.native("transport.setVolume", {"sessionId": session, "volume": route.native_volume})
             except Exception:
+                if session == "tidal":
+                    try:
+                        self.native("transport.setVolume", {"sessionId": session, "volume": route.native_volume})
+                    except Exception:
+                        pass
                 if status["playing"] and not route.failed:
                     route.connection.transport("PLAY")
                 raise
+        elif session == "tidal":
+            native_status = self.native("transport.status", {"sessionId": session})
+            if native_status.get("loadedId") == route.item.get("id"):
+                self.native("transport.stop", {"sessionId": session})
         warning = (i18n.tr("cast.error.stopUnconfirmed") if route.failed else None)
         try:
             if not route.stopped and not route.failed:
@@ -266,9 +306,9 @@ class CastSessionRouter:
 
     def call(self, op: str, args: dict) -> object:
         session = args.get("sessionId")
-        play_session = {"files.play": "files", "radio.play": "radio", "media.play": "podcasts"}.get(op)
-        if play_session:
-            session = play_session
+        requested_session = play_session(op, args)
+        if requested_session:
+            session = requested_session
         if op in ("podcast.checkpoint", "local.checkpoint"):
             owner = "podcasts" if op.startswith("podcast") else "files"
             if owner in self.routes:
@@ -277,11 +317,11 @@ class CastSessionRouter:
             if op.startswith("queue.") and op in ("queue.playAt", "queue.next", "queue.previous") and any(
                     owner in self.routes for owner in ("files", "podcasts")):
                 raise CastError("cast.error.queue")
-            if play_session in ("files", "podcasts"):
+            if requested_session in SHARED_DECODER_SESSIONS:
                 with self._lock:
-                    other_session = "podcasts" if play_session == "files" else "files"
-                    other = self.routes.get(other_session)
-                    if other and not other.stopped:
+                    for other_session, other in self.routes.items():
+                        if other_session == requested_session or other_session not in SHARED_DECODER_SESSIONS or other.stopped:
+                            continue
                         was_paused = self._status(other, other_session)["paused"]
                         other.connection.transport("PAUSE")
                         try:
@@ -299,11 +339,12 @@ class CastSessionRouter:
             return UNHANDLED
         with self._lock:
             route = self.routes[session]
-            if play_session:
+            if requested_session:
                 result = self._load(route, session, args)
-                if session in ("files", "podcasts"):
-                    other = self.routes.get("podcasts" if session == "files" else "files")
-                    if other is not None and not other.stopped:
+                if session in SHARED_DECODER_SESSIONS:
+                    for other_session, other in self.routes.items():
+                        if other_session == session or other_session not in SHARED_DECODER_SESSIONS or other.stopped:
+                            continue
                         other.connection.transport("STOP")
                         other.stopped = True
                         if other.share:
@@ -317,6 +358,8 @@ class CastSessionRouter:
                 if route.failed:
                     raise CastError("cast.error.reconnect")
                 if route.stopped:
+                    if session == "tidal":
+                        raise CastError("cast.error.noMaterial")
                     if not route.item.get("source"):
                         raise CastError("cast.error.noMaterial")
                     route.item["positionSeconds"] = 0

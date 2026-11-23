@@ -2790,7 +2790,7 @@ internal sealed class LiteEngineHandlers : IDisposable
         try
         {
             _files.PlayTransientFlac(
-                item, request.ProxyUri, request.Duration, TimeSpan.Zero,
+                item, request.ProxyUri, request.Duration, request.Position,
                 muted ? 0 : volume, 1d);
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
@@ -3797,10 +3797,12 @@ internal sealed class LiteEngineHandlers : IDisposable
     private object NoteCastPlayback(JsonElement args)
     {
         var sessionId = LiteArgs.RequireText(args, "sessionId");
-        if (sessionId is not ("files" or "radio" or "podcasts"))
+        if (sessionId is not ("files" or "radio" or "podcasts" or "radioarchiwista" or "tidal"))
             throw new LiteRequestException("Ta sesja nie obsługuje Google Cast.");
         var itemId = LiteArgs.RequireText(args, "id");
-        var error = TryRecordPlaybackHistory(sessionId == "files" ? "local" : sessionId, itemId);
+        // These provider histories are owned by the frontend, as in native playback.
+        var error = sessionId is "radioarchiwista" or "tidal" ? null
+            : TryRecordPlaybackHistory(sessionId == "files" ? "local" : sessionId, itemId);
         return new { historyError = error };
     }
 

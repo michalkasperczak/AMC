@@ -269,6 +269,7 @@ QUEUE_SESSIONS = (
 )
 PLAY_NEXT_SESSIONS = (SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA, SessionId.HEOS)
 LOCAL_AUDIO = (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
+NETWORK_AUDIO_SOURCES = (*LOCAL_AUDIO, SessionId.RADIOARCHIWISTA, SessionId.TIDAL)
 LOCAL_PLAYLISTS = (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
 SESSION_AUDIO_OUTPUTS = (*LOCAL_AUDIO, SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA, SessionId.TIDAL)
 NETWORK_DEVICE_SESSIONS = (
@@ -2121,14 +2122,14 @@ def build_menus(
                 Action.CAST_SESSION,
                 shortcut=command_presentation(Action.CAST_SESSION).shortcut,
                 accelerator=False,
-                visible_sessions=LOCAL_AUDIO,
+                visible_sessions=NETWORK_AUDIO_SOURCES,
             ),
             MenuItem(
                 command_presentation(Action.MIRROR_SESSION).menu_label,
                 Action.MIRROR_SESSION,
                 shortcut=command_presentation(Action.MIRROR_SESSION).shortcut,
                 accelerator=False,
-                visible_sessions=LOCAL_AUDIO,
+                visible_sessions=NETWORK_AUDIO_SOURCES,
             ),
             # Ustawienia dotyczą sesji, także na pustej liście. Ctrl+Alt+Enter
             # jest skrótem okna, więc rejestrujemy natywny akcelerator;

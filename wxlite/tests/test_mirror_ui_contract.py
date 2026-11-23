@@ -17,7 +17,8 @@ class MirrorUiContractTests(unittest.TestCase):
         self.assertIn("lokalne", presentation.description)
         self.assertEqual(describe_action(Action.MIRROR_SESSION), presentation.description)
         self.assertIn(("Shift+M", presentation.description), describe())
-        for session in (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS):
+        for session in (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS,
+                        SessionId.RADIOARCHIWISTA, SessionId.TIDAL):
             entry = next(item for item in command_palette.entries_for_session(session)
                          if item.action is Action.MIRROR_SESSION)
             menu = next(item for group in menu_model.menus_for_session(session)
@@ -26,7 +27,7 @@ class MirrorUiContractTests(unittest.TestCase):
                              (presentation.name, presentation.shortcut))
             self.assertEqual((menu.label, menu.shortcut),
                              (presentation.menu_label, presentation.shortcut))
-        for session in (SessionId.SPOTIFY, SessionId.TIDAL, SessionId.WIIM,
+        for session in (SessionId.SPOTIFY, SessionId.WIIM,
                         SessionId.SONOS, SessionId.FRONTIER_SMART):
             self.assertFalse(any(item.action is Action.MIRROR_SESSION
                                  for item in command_palette.entries_for_session(session)))
@@ -37,8 +38,11 @@ class MirrorUiContractTests(unittest.TestCase):
                                   radio_session=True), Action.MIRROR_SESSION)
             self.assertIs(resolve(Chord("A", shift=True), player_view=player,
                                   radio_session=True), Action.SELECT_AUDIO_OUTPUT)
+            for context in ("radioarchiwista_session", "tidal_session"):
+                self.assertIs(resolve(Chord("M", shift=True), player_view=player,
+                                      radio_session=False, **{context: True}), Action.MIRROR_SESSION)
             for context in ("wiim_session", "sonos_session", "spotify_session",
-                            "tidal_session", "frontier_smart_session"):
+                            "frontier_smart_session"):
                 self.assertIsNone(resolve(Chord("M", shift=True), player_view=player,
                                           radio_session=False,
                                           **{context: True}))

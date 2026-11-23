@@ -54,7 +54,7 @@ class AirPlayRouteTests(unittest.TestCase):
     def test_start_failure_keeps_previous_receiver(self):
         self.router.enable("files", "private-id")
         other = AirPlayDevice("other", "Gabinet")
-        self.router.devices = lambda: (self.device, other)
+        self.router.devices = lambda **_kwargs: (self.device, other)
         self.router._start = lambda *args: (_ for _ in ()).throw(RuntimeError("RAOP"))
         with self.assertRaisesRegex(RuntimeError, "RAOP"):
             self.router.enable("files", "other")
@@ -74,8 +74,10 @@ class AirPlayRouteTests(unittest.TestCase):
         self.router._stream = fail
         self.router._start = MirrorAirPlayRouter._start.__get__(self.router)
         route = AirPlayRoute(self.device, str(self.ffmpeg))
-        with self.assertRaisesRegex(RuntimeError, "WiiM Pro Plus nie odpowiada przez AirPlay"):
+        with self.assertRaisesRegex(RuntimeError, "Nie udało się uruchomić AirPlay na WiiM Pro Plus") as raised:
             self.router._start("files", route, self.status)
+        self.assertNotIn("RTSP", str(raised.exception))
+        self.assertNotIn("GET /info", str(raised.exception))
 
 
 class AirPlayRetryTests(unittest.IsolatedAsyncioTestCase):

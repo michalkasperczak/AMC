@@ -186,6 +186,7 @@ class LiteHostClient:
         self._mirror = None
         self._local_mirror = None
         self._airplay_mirror = None
+        self._tidal_network_request = None
 
     # ------------------------------------------------------------ start/stop
 
@@ -274,6 +275,7 @@ class LiteHostClient:
             self._mirror.close()
         if self._cast is not None:
             self._cast.close()
+        self._tidal_network_request = None
         with self._lifecycle_lock:
             self._closed = True
             process = self._process
@@ -364,23 +366,63 @@ class LiteHostClient:
     def call(self, op: str, args: dict | None = None, *, timeout: float = 20.0) -> Any:
         if self._cast is not None:
             from .cast_session import UNHANDLED
+            from .network_audio import play_session
+            session = play_session(op, args or {}) or (args or {}).get("sessionId")
+            was_cast = self.cast_active(session)
             result = self._cast.call(op, args or {})
             if result is not UNHANDLED:
+                self._remember_network_source(op, args, result)
+                if not was_cast:
+                    self._notify_mirrors(op, args or {}, result)
                 return result
         result = self._call_native(op, args, timeout=timeout)
+        self._remember_network_source(op, args, result)
+        self._notify_mirrors(op, args or {}, result)
+        return result
+
+    def _notify_mirrors(self, op: str, args: dict, result: Any) -> None:
         if self._mirror is not None:
-            self._mirror.after_native(op, args or {}, result)
+            self._mirror.after_native(op, args, result)
         if getattr(self, "_local_mirror", None) is not None:
-            self._local_mirror.after_native(op, args or {}, result)
+            self._local_mirror.after_native(op, args, result)
         if getattr(self, "_airplay_mirror", None) is not None:
-            self._airplay_mirror.after_native(op, args or {}, result)
+            self._airplay_mirror.after_native(op, args, result)
+
+    def _remember_network_source(self, op: str, args: dict | None, result: Any) -> None:
+        if op == "tidal.nativePlay":
+            from .network_audio import valid_tidal_request
+            if (valid_tidal_request(args) and isinstance(result, dict)
+                    and result.get("ok") is True and result.get("id") == "tidal:" + args["id"]):
+                self._tidal_network_request = dict(args)
+
+    def network_source_available(self, session_id: str, status: dict | None,
+                                 *, cast: bool = False) -> bool:
+        if session_id != "tidal":
+            from .network_audio import DIRECT_AUDIO_SESSIONS
+            return session_id in DIRECT_AUDIO_SESSIONS
+        from .network_audio import valid_tidal_request
+        request = getattr(self, "_tidal_network_request", None)
+        return bool(valid_tidal_request(request, cast=cast) and isinstance(status, dict)
+                    and status.get("id") == "tidal:" + str(request["id"])
+                    and (status.get("playing") or status.get("paused")))
+
+    def _network_native(self, op: str, args: dict) -> Any:
+        result = self._call_native(op, args, timeout=120)
+        request = getattr(self, "_tidal_network_request", None)
+        if op == "transport.status" and args.get("sessionId") == "tidal":
+            from .network_audio import valid_tidal_request
+            if (valid_tidal_request(request) and isinstance(result, dict)
+                    and result.get("id") == "tidal:" + str(request["id"])
+                    and (result.get("playing") or result.get("paused") or result.get("preparing"))):
+                return {**result, "source": "tidal:track:" + str(request["id"]),
+                        "_tidal_request": dict(request)}
         return result
 
     def cast_devices(self, *, refresh: bool = False):
         if self._cast is None:
             from .cast_session import CastSessionRouter
             self._cast = CastSessionRouter(
-                lambda op, args: self._call_native(op, args, timeout=120), self._on_event)
+                self._network_native, self._on_event)
         return self._cast.devices(refresh)
 
     def cast_active(self, session_id: str) -> bool:
@@ -404,8 +446,15 @@ class LiteHostClient:
 
     def mirror_targets(self, session_id: str, primary_id: str | None,
                        *, refresh: bool = False):
+        return self.mirror_target_snapshot(session_id, primary_id, refresh=refresh)["devices"]
+
+    def mirror_target_snapshot(self, session_id: str, primary_id: str | None,
+                               *, refresh: bool = False) -> dict:
+        from . import i18n
         from .audio_output import choices_from_payload
+        from .airplay_adapter import AirPlayUnavailable
         from .mirror_local import MirrorChoice
+        notes = []
         try:
             cast_devices = self.cast_devices(refresh=refresh)
         except Exception:
@@ -413,12 +462,16 @@ class LiteHostClient:
         cast = [MirrorChoice("cast:" + item.device_id,
                              "Google Cast: " + item.label)
                 for item in cast_devices if item.available]
+        if session_id == "tidal":
+            from .network_audio import valid_tidal_request
+            if not valid_tidal_request(getattr(self, "_tidal_network_request", None), cast=True):
+                cast = []
+                notes.append(i18n.tr("mirror.tidalCastUnavailable"))
         try:
             local_devices = choices_from_payload(self.audio_outputs(primary_id, session_id))
         except Exception:
-            if not cast:
-                raise
             local_devices = ()
+            notes.append(i18n.tr("mirror.localUnavailable"))
         local = [MirrorChoice("local:" + item.device_id,
                               "Wyjście lokalne: " + item.label)
                  for item in local_devices
@@ -434,14 +487,20 @@ class LiteHostClient:
                 if getattr(self, "_airplay_mirror", None) is None:
                     from .mirror_airplay import MirrorAirPlayRouter
                     self._airplay_mirror = MirrorAirPlayRouter(
-                        lambda op, args: self._call_native(op, args, timeout=120),
+                        self._network_native,
                         ffmpeg, self._on_event)
                 airplay = [MirrorChoice("airplay:" + item.device_id,
                                         "AirPlay: " + item.label)
-                           for item in self._airplay_mirror.devices()]
+                           for item in self._airplay_mirror.devices(refresh=refresh)]
+                if not airplay:
+                    notes.append(i18n.tr("mirror.airplayNotFound"))
+            else:
+                notes.append(i18n.tr("mirror.airplayNoEncoder"))
+        except AirPlayUnavailable:
+            notes.append(i18n.tr("mirror.airplayNotInstalled"))
         except Exception:
-            pass
-        return tuple(local + cast + airplay)
+            notes.append(i18n.tr("mirror.airplayDiscoveryFailed"))
+        return {"devices": tuple(local + cast + airplay), "information": " ".join(notes)}
 
     def mirror_selected_target_id(self, session_id: str) -> str | None:
         cast = self.mirror_selected_device_id(session_id)
@@ -458,13 +517,16 @@ class LiteHostClient:
     def select_mirror_target(self, session_id: str, target_id: str | None,
                              *, label: str = "") -> dict:
         if target_id is None:
+            warnings = []
             if self._mirror is not None:
-                self._mirror.disable(session_id)
+                result = self._mirror.disable(session_id)
+                if result.get("warning"):
+                    warnings.append(result["warning"])
             if getattr(self, "_local_mirror", None) is not None:
                 self._local_mirror.disable(session_id)
             if getattr(self, "_airplay_mirror", None) is not None:
                 self._airplay_mirror.disable(session_id)
-            return {"active": False}
+            return {"active": False, "warning": " ".join(warnings)} if warnings else {"active": False}
         kind, separator, device_id = target_id.partition(":")
         if not separator or not device_id:
             raise ValueError("Nieprawidłowy cel dublowania")
@@ -481,7 +543,7 @@ class LiteHostClient:
             if self._local_mirror is None:
                 from .mirror_local import MirrorLocalRouter
                 self._local_mirror = MirrorLocalRouter(
-                    lambda op, args: self._call_native(op, args, timeout=120),
+                    self._network_native,
                     lambda: LiteHostClient(self.executable,
                                            release_profile=self.release_profile),
                     self._on_event)
@@ -501,7 +563,7 @@ class LiteHostClient:
                 if not ffmpeg:
                     raise ValueError("AirPlay wymaga FFmpeg w systemie")
                 self._airplay_mirror = MirrorAirPlayRouter(
-                    lambda op, args: self._call_native(op, args, timeout=120),
+                    self._network_native,
                     ffmpeg, self._on_event)
             result = self._airplay_mirror.enable(session_id, device_id)
             if self._mirror is not None:
@@ -522,7 +584,7 @@ class LiteHostClient:
         if self._mirror is None:
             from .mirror_core import MirrorCastRouter
             self._mirror = MirrorCastRouter(
-                lambda op, args: self._call_native(op, args, timeout=120),
+                self._network_native,
                 self._on_event, discover=lambda: self.cast_devices(refresh=True))
         return self._mirror.enable(session_id, device_id)
 

@@ -35653,19 +35653,30 @@ class LiteFrame(wx.Frame):
         session = self.navigator.active
         if client is None or session.value not in CAST_SESSIONS:
             return
+        request = getattr(self, "_network_output_request", 0) + 1
+        self._network_output_request = request
+        def is_current() -> bool:
+            return (self._window_alive() and self.navigator.active is session
+                    and self._network_output_request == request)
         if refresh or getattr(client, "_cast", None) is None:
             self.announcer.say(i18n.tr("cast.loading"))
 
         def failed(error: Exception) -> None:
+            if not is_current():
+                return
             message = str(error) if isinstance(error, CastError) else i18n.tr("cast.empty")
             self.announcer.say(i18n.tr("cast.failed", error=message))
 
         def prepared(devices) -> None:
+            if not is_current():
+                return
             selected = client.cast_selected_device_id(session.value)
             with CastDeviceDialog(self, session_options.session_display_name(session), devices, selected) as dialog:
                 result = dialog.ShowModal()
                 device_id = dialog.selected_device_id
             self._restore_focus_after_dialog()
+            if not is_current():
+                return
             if result == wx.ID_REFRESH:
                 wx.CallAfter(self._choose_cast_output, refresh=True)
                 return
@@ -35676,6 +35687,8 @@ class LiteFrame(wx.Frame):
                 (device.label for device in devices if device.device_id == device_id), i18n.tr("cast.local"))))
 
             def applied(payload: dict) -> None:
+                if not is_current():
+                    return
                 self.announcer.say(i18n.tr("cast.selected", name=(
                     i18n.tr("cast.local") if device_id is None else payload.get("name", "Google Cast"))))
                 if payload.get("warning"):
@@ -35693,6 +35706,11 @@ class LiteFrame(wx.Frame):
         if client is None or session.value not in CAST_SESSIONS:
             self.announcer.say(i18n.tr("mirror.unavailable"))
             return
+        request = getattr(self, "_network_output_request", 0) + 1
+        self._network_output_request = request
+        def is_current() -> bool:
+            return (self._window_alive() and self.navigator.active is session
+                    and self._network_output_request == request)
         primary_id = effective_output_device_id(
             session,
             self.state.audio_output_device_ids_by_session,
@@ -35701,15 +35719,29 @@ class LiteFrame(wx.Frame):
         self.announcer.say(i18n.tr("mirror.loading"))
 
         def failed(error: Exception) -> None:
+            if not is_current():
+                return
             self.announcer.say(i18n.tr("mirror.failed", error=str(error)))
 
-        def prepared(devices) -> None:
+        def prepared(snapshot) -> None:
+            if not is_current():
+                return
+            devices = snapshot["devices"]
+            information = snapshot["information"]
+            if session is SessionId.TIDAL and (
+                    not getattr(self, "_tidal_native_has_playback", False)
+                    or getattr(self, "_tidal_desktop_has_playback", False)):
+                devices, information = (), i18n.tr("mirror.unavailable")
             selected = client.mirror_selected_target_id(session.value)
             with MirrorDeviceDialog(self, session_options.session_display_name(session),
-                                    devices, selected) as dialog:
+                                    devices, selected, information=information) as dialog:
+                if information:
+                    wx.CallAfter(self.announcer.say, information)
                 result = dialog.ShowModal()
                 target_id = dialog.selected_device_id
             self._restore_focus_after_dialog()
+            if not is_current():
+                return
             if result == wx.ID_REFRESH:
                 wx.CallAfter(self._choose_cast_mirror, refresh=True)
                 return
@@ -35718,10 +35750,14 @@ class LiteFrame(wx.Frame):
             choice = next((item for item in devices if item.device_id == target_id), None)
 
             def applied(payload: dict) -> None:
+                if not is_current():
+                    return
                 if target_id is None:
-                    self.announcer.say(i18n.tr("mirror.stopped"))
+                    self.announcer.say(payload.get("warning") or i18n.tr("mirror.stopped"))
                 else:
                     self.announcer.say(i18n.tr("mirror.started", name=payload["name"]))
+                    if payload.get("warning"):
+                        self.announcer.say(str(payload["warning"]))
                 self._refresh_menu_state()
 
             self.runner.submit(
@@ -35733,7 +35769,7 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit(
             "mirror-list",
-            lambda: client.mirror_targets(session.value, primary_id, refresh=refresh),
+            lambda: client.mirror_target_snapshot(session.value, primary_id, refresh=refresh),
             prepared, failed,
         )
 
@@ -41415,12 +41451,25 @@ class LiteFrame(wx.Frame):
         if action is Action.MIRROR_SESSION:
             client = getattr(self, "client", None)
             session_id = self.navigator.active.value
+            if client and getattr(client, "mirror_selected_target_id", lambda _: None)(session_id) is not None:
+                return True  # An active additional output must always be stoppable.
+            if session_id == "tidal":
+                status = getattr(self, "_transport_status_by_session", {}).get(self.navigator.active)
+                if not (getattr(self, "_tidal_native_has_playback", False)
+                        and not getattr(self, "_tidal_desktop_has_playback", False) and client
+                        and getattr(client, "network_source_available", lambda *_a, **_k: False)(session_id, status)):
+                    return False
             return (session_id in CAST_SESSIONS and not (client and
                 getattr(client, "cast_active", lambda _: False)(session_id)))
         if action is Action.CAST_SESSION:
             client = getattr(self, "client", None)
+            status = getattr(self, "_transport_status_by_session", {}).get(self.navigator.active)
+            source_available = bool(self.navigator.active is SessionId.TIDAL
+                and getattr(self, "_tidal_native_has_playback", False)
+                and not getattr(self, "_tidal_desktop_has_playback", False) and client
+                and getattr(client, "network_source_available", lambda *_a, **_k: False)("tidal", status, cast=True))
             return cast_session_available(self.navigator.active.value,
-                getattr(self, "_transport_status_by_session", {}).get(self.navigator.active),
+                status, source_available=source_available,
                 active=bool(client and getattr(client, "cast_active", lambda _: False)(self.navigator.active.value)))
         client = getattr(self, "client", None)
         if client is not None and getattr(client, "cast_active", lambda _: False)(self.navigator.active.value):

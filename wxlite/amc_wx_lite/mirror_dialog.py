@@ -6,7 +6,7 @@ from . import i18n
 
 
 class MirrorDeviceDialog(wx.Dialog):
-    def __init__(self, parent, session_name, devices, selected_id=None):
+    def __init__(self, parent, session_name, devices, selected_id=None, *, information=""):
         super().__init__(parent, title=i18n.tr("mirror.title", session=session_name))
         self._ids = [None] + [device.device_id for device in devices]
         panel = wx.Panel(self)
@@ -17,7 +17,7 @@ class MirrorDeviceDialog(wx.Dialog):
         )
         self.devices.SetName(i18n.tr("mirror.devices"))
         self.devices.SetSelection(self._ids.index(selected_id) if selected_id in self._ids else 0)
-        hint = wx.StaticText(panel, label=i18n.tr("mirror.hint"))
+        hint = wx.StaticText(panel, label=(i18n.tr("mirror.hint") + " " + information).strip())
         hint.Wrap(540)
         refresh = wx.Button(panel, wx.ID_REFRESH, i18n.tr("cast.refresh"))
         refresh.SetName(i18n.tr("cast.refresh"))

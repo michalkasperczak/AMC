@@ -1,0 +1,5 @@
+Rozszerzono wybór Google Cast pod Shift+C oraz „AirPlay i dodatkowe wyjście audio” pod Shift+M o Radio Archiwistę i obsługiwane źródła natywnego TIDAL. TIDAL Connect nie jest wymagany. Cast TIDAL obsługuje nieszyfrowany strumień BTS FLAC/AAC/MP3; strumienie DASH/MPD pozostają niedostępne dla Cast.
+
+Poprawiono kierowanie kolejnych materiałów między sesjami oraz powrót z Cast. Lista dodatkowych wyjść wyjaśnia brak AirPlay, odrzuca spóźnione wyniki po zmianie sesji i pozwala wyłączyć aktywny odsłuch po zakończeniu materiału. Brak potwierdzenia zatrzymania odbiornika jest zgłaszany. Shift+A nadal wybiera lokalny tor audio.
+
+AirPlay jest dodatkowym odsłuchem, z możliwym opóźnieniem. Odsłuch nowych wariantów na fizycznym odbiorniku i odbiór NVDA pozostają do potwierdzenia; historyczny problem AirPlay na WiiM nie ma jeszcze potwierdzonej naprawy. Nie jest to uniwersalne przechwytywanie dźwięku Spotify/Apple Music ani całego Windows. Aktualizacja zachowuje pozostały zakres alpha.518, w tym Apple Music tylko w Test; HEOS pozostaje poza oboma wydaniami.

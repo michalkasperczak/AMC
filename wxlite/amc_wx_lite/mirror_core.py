@@ -13,10 +13,12 @@ from typing import Callable
 from . import i18n
 from .cast_media import CastFileShare, cast_source
 from .cast_protocol import CastConnection, CastDevice, CastError, discover_cast_devices
+from .cast_tidal import TidalCastShare
+from .network_audio import (NETWORK_AUDIO_SESSIONS, PLAY_OPERATIONS, play_session,
+                            tidal_request, retire_displaced_mirrors)
 
 
-MIRROR_SESSIONS = ("files", "radio", "podcasts")
-PLAY_OPERATIONS = {"files.play": "files", "radio.play": "radio", "media.play": "podcasts"}
+MIRROR_SESSIONS = NETWORK_AUDIO_SESSIONS
 
 
 @dataclass
@@ -45,12 +47,13 @@ class MirrorCastRouter:
 
     def __init__(self, native: Callable, event: Callable | None = None,
                  *, discover=discover_cast_devices, connect=CastConnection,
-                 share=CastFileShare) -> None:
+                 share=CastFileShare, tidal_share=TidalCastShare) -> None:
         self.native = native
         self.event = event
         self._discover = discover
         self._connect = connect
         self._share = share
+        self._tidal_share = tidal_share
         self.routes: dict[str, MirrorRoute] = {}
 
     def selected_device_id(self, session: str) -> str | None:
@@ -74,7 +77,8 @@ class MirrorCastRouter:
         if not status.get("source") or not (status.get("playing") or status.get("paused")):
             raise CastError("cast.error.noMaterial")
         source = str(status["source"])
-        cast_source(source)
+        if session != "tidal":
+            cast_source(source)
         connection = self._connect(device)
         route = MirrorRoute(device, connection)
         try:
@@ -85,29 +89,39 @@ class MirrorCastRouter:
             route.close()
             raise
         self.routes[session] = route
+        warning = None
         if previous is not None:
-            self._stop_and_close(previous)
-        return {"name": device.name, "synchronized": False}
+            warning = self._stop_and_close(previous)
+        result = {"name": device.name, "synchronized": False}
+        if warning:
+            result["warning"] = warning
+        return result
 
     def disable(self, session: str) -> dict:
         route = self.routes.pop(session, None)
         if route is None:
             return {"active": False}
-        self._stop_and_close(route)
-        return {"active": False}
+        warning = self._stop_and_close(route)
+        return {"active": False, "warning": warning} if warning else {"active": False}
 
-    def _stop_and_close(self, route: MirrorRoute) -> None:
+    def _stop_and_close(self, route: MirrorRoute) -> str | None:
+        warning = None
         try:
             route.connection.transport("STOP")
         except CastError:
-            pass
+            warning = i18n.tr("cast.error.stopUnconfirmed")
         finally:
             route.close()
+        return warning
 
     def _load(self, route: MirrorRoute, session: str, item: dict) -> None:
         source = str(item.get("source") or item.get("path") or item.get("url") or "")
-        url, mime, path = cast_source(source)
-        share = self._share(path, route.device.host, mime) if path else None
+        if session == "tidal":
+            share = self._tidal_share(tidal_request(item), route.device.host)
+            url, mime = share.url, share.mime
+        else:
+            url, mime, path = cast_source(source)
+            share = self._share(path, route.device.host, mime) if path else None
         try:
             route.connection.load(
                 share.url if share else url, mime, str(item.get("title") or ""),
@@ -165,13 +179,16 @@ class MirrorCastRouter:
         A receiver error removes the second target and never undoes the local
         command. The caller remains responsible for announcing the failure.
         """
-        session = PLAY_OPERATIONS.get(op, args.get("sessionId"))
+        retire_displaced_mirrors(self, op, args)
+        session = play_session(op, args) or args.get("sessionId")
         route = self.routes.get(session)
         if route is None:
             return
         try:
             if op in PLAY_OPERATIONS:
-                self._load(route, session, {**args, **(result or {})})
+                item = (self.native("transport.status", {"sessionId": session})
+                        if session == "tidal" else {**args, **(result or {})})
+                self._load(route, session, item)
                 self._align_file_route(route, session)
             elif op == "transport.pauseResume":
                 paused = bool((result or {}).get("paused"))

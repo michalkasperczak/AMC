@@ -552,16 +552,16 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
     Action.CAST_SESSION: CommandPresentation(
         Action.CAST_SESSION,
         "Google Cast bieżącej sesji…",
-        "Wybierz urządzenie Google Cast dla Plików, Radia lub Podcastów albo wróć do komputera; radio jest przesyłane na żywo",
+        "Wybierz Google Cast dla Plików, Radia, Podcastów, Radio Archiwisty lub natywnego TIDAL albo wróć do komputera; dostępność zależy od strumienia, radio jest na żywo",
         "Shift+C",
-        "Google &Cast bieżącej sesji…",
+        "G&oogle Cast bieżącej sesji…",
     ),
     Action.MIRROR_SESSION: CommandPresentation(
         Action.MIRROR_SESSION,
-        "Dubluj dźwięk AMC…",
-        "Wybierz drugie wyjście lokalne, Google Cast albo AirPlay dla pliku, radia lub podcastu; między urządzeniami może być opóźnienie",
+        "AirPlay i dodatkowe wyjście audio…",
+        "Wybierz dodatkowe wyjście lokalne, Google Cast albo AirPlay dla Plików, Radia, Podcastów, Radio Archiwisty lub natywnego TIDAL; dostępność zależy od strumienia, może być opóźnienie",
         "Shift+M",
-        "&Dubluj dźwięk AMC…",
+        "AirPlay i &dodatkowe wyjście audio…",
     ),
     Action.VIEW_RADIO_RECOGNITION_HISTORY: CommandPresentation(
         Action.VIEW_RADIO_RECOGNITION_HISTORY,
@@ -757,6 +757,7 @@ SESSION_INDEPENDENT_ACTIONS = frozenset({
 # TIDAL ma dwa tory odtwarzania. Polecenia lokalnego silnika sa dostepne
 # wylacznie podczas natywnego odtwarzania w AMC Test (druga bramka ponizej).
 TIDAL_SUPPORTED_ACTIONS = frozenset({
+    Action.CAST_SESSION, Action.MIRROR_SESSION,
     *SESSION_INDEPENDENT_ACTIONS,
     Action.SESSION_FILES,
     Action.SESSION_RADIO,
@@ -1444,6 +1445,7 @@ RADIOARCHIWISTA_SUPPORTED_ACTIONS = frozenset(
         Action.FRONTIER_SMART_SELECT_MODE,
     })
     | {
+        Action.CAST_SESSION, Action.MIRROR_SESSION,
         Action.SELECT_AUDIO_OUTPUT,
         Action.PREVIOUS_AUDIO_OUTPUT,
         Action.NEXT_AUDIO_OUTPUT,
@@ -2493,9 +2495,9 @@ def _resolve_default(
         return None
     if canonical in {"Shift+C", "Shift+M"}:
         action = Action.CAST_SESSION if canonical == "Shift+C" else Action.MIRROR_SESSION
-        return (action if not any((tidal_session, spotify_session,
+        return (action if not any((spotify_session,
                 apple_music_session, wiim_session, sonos_session, heos_session,
-                frontier_smart_session, radioarchiwista_session)) else None)
+                frontier_smart_session)) else None)
     if canonical in GLOBAL_VIEW_SHORTCUTS:
         action = GLOBAL_VIEW_SHORTCUTS[canonical]
         if (

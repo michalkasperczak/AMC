@@ -234,7 +234,14 @@
     "view.spotifyHistory": "",
     "view.spotifyLibrary": "",
     "view.youtubeAggregateBroadcasts": "",
-    "view.youtubeBroadcasts": ""
+    "view.youtubeBroadcasts": "",
+    "mirror.localUnavailable": "",
+    "mirror.tidalCastUnavailable": "",
+    "mirror.airplayNotInstalled": "",
+    "mirror.airplayNoEncoder": "",
+    "mirror.airplayNotFound": "",
+    "mirror.airplayDiscoveryFailed": "",
+    "mirror.airplayPlaybackFailed": ""
   },
   "legacyUi": {
     "&Adres (http/https):": "",

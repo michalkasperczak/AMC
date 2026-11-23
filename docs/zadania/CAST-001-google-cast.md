@@ -1,5 +1,7 @@
 # CAST-001 — Google Cast jako wyjście odtwarzania
 
+**Korekta 23.11.2026:** zakres nowych źródeł i istniejące już polecenie Shift+M opisuje [CAST-002](CAST-002-20261123-zakres-sesji-i-AirPlay.md). Zastępuje to poniższe ogólne założenia o wyłącznie trzech sesjach oraz o mirroringu tylko jako pomyśle. Odbiór CAST-001 pozostaje dowodem historycznym, nie odbiorem nowych sesji ani AirPlay. CAST-002 jest przyrostem do następnej wersji, bez nowej instalacji.
+
 Status: **Zrobione w podstawowym zakresie — AMC Test alpha.465 wydany i zainstalowany 02.11.2026. Ograniczenia oraz dodatkowy odbiór w głównym AMC opisano poniżej.**
 
 ## Nadrzędna korekta użytkownika 01.11.2026

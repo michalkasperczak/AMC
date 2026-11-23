@@ -2,6 +2,8 @@
 
 **RELEASE-ALPHA519 (23.11.2026):** kandydat naprawczy Test/Public zachowuje odsłuch nagrania z Test alpha.516, rozdziela adresy odtwarzacza YouTube dla profili i dodaje wznawianie podcastów z aktualnej pozycji. Kod i testy celowane gotowe; pakiety, publikacja i instalacja do osobnego potwierdzenia. [Zapis zadania](RELEASE-ALPHA519-20261123.md).
 
+**CAST-002 (23.11.2026): wydane w Test i Public alpha.519.** Shift+C i Shift+M obejmują Radio Archiwistę oraz obsługiwane źródła natywnego TIDAL. Zdalny commit, oba instalatory z SHA-256 i dostępność w aktualizatorach potwierdzone; użytkownik instaluje sam. Odsłuch nowych wariantów, NVDA oraz istniejące braki angielskich tłumaczeń pozostają otwarte. [Wynik wydania i ścieżki](RELEASE-ALPHA519-20261123-Cast-AirPlay.md); [zakres](CAST-002-20261123-zakres-sesji-i-AirPlay.md).
+
 **RELEASE-ALPHA518 (23.11.2026):** połączone wydania Test i Public z wideo,
 wyszukiwaniem, poprawką kolejki Spotify i informacjami TIDAL; Public bez
 Apple Music, oba profile bez HEOS. [Zapis wydania](RELEASE-ALPHA518-20261123.md).
