@@ -375,7 +375,7 @@ def menus_for_session(
                 access_key = {
                     SessionId.FILES: "b",
                     SessionId.RADIO: "o",
-                    SessionId.PODCASTS: "w",
+                    SessionId.PODCASTS: "s",
                     SessionId.SPOTIFY: "f",
                     SessionId.TIDAL: "t",
                     SessionId.WIIM: "d",
@@ -750,7 +750,7 @@ def build_menus(
                 visible_sessions=PODCASTS_ONLY,
             ),
             MenuItem(
-                "Zapisz wideo internetowe j&ako…",
+                "Zapisz wideo internetowe ja&ko…",
                 Action.SAVE_YOUTUBE_VIDEO_AS,
                 shortcut="Ctrl+S",
                 accelerator=False,
