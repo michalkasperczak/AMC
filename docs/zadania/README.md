@@ -1,5 +1,7 @@
 # Rejestr zadań AMC
 
+**SPOTIFY-SOLOIST-QUEUE (23.11.2026): kod i celowany test gotowe; wydanie Public w przygotowaniu.** Przedwczesne samoczynne przejście Soloist nie przesuwa kolejki AMC jako naturalny koniec. [Zakres i dowody](SPOTIFY-SOLOIST-QUEUE-20261123.md).
+
 **Jedna aktywna gałąź i przekazanie 22.11.2026:** [bieżący stan oraz kolejność pracy](AMC-HANDOFF-20261122-jedna-galaz.md).
 
 **AUDIO-EDIT Tok 22.11.2026:** [odzyskano kopię nagrania i zabezpieczono edycję plików synchronizowanych](AUDIO-EDIT-20261122-Tok-odzysk-i-zabezpieczenie.md). Oryginalna nazwa zniknęła po cięciu; jest kopia na D. Zmiana źródeł jeszcze nie została wydana.
