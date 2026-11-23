@@ -206,6 +206,100 @@ class AppleMusicCredentialTests(unittest.TestCase):
         self.assertFalse((auth.session_dir / "credentials.json").exists())
         self.assertFalse((auth.session_dir / "storage-state.json").exists())
 
+    def test_visible_login_uses_installed_edge_without_plaintext_files(self) -> None:
+        layout = private_sandbox(self.root)
+        store = AppleMusicCredentialStore(
+            layout, profile=TEST_PROFILE,
+            protect=fake_protect, unprotect=fake_unprotect,
+        )
+
+        @dataclass
+        class ExternalCredentials:
+            developer_token: str
+            media_user_token: str
+            cookie_header: str
+
+        class ExternalAuth:
+            def __init__(self, session_dir, **options):
+                self.session_dir = Path(session_dir)
+                self.headless = options["headless"]
+                self.auth_timeout = options["auth_timeout"]
+
+            def authenticate(self, *, force=False):
+                assert force
+                return self._authenticate_via_browser()
+
+            def _has_captured_credentials(self, _context, tokens):
+                return bool(tokens)
+
+            def _capture_credentials(self, _context, tokens):
+                return ExternalCredentials(tokens[-1], MEDIA_TOKEN, COOKIE)
+
+            def _validate(self, _candidate):
+                return True
+
+        calls = []
+
+        class FakePage:
+            def on(self, event, handler):
+                self.request_handler = handler
+
+            def goto(self, url, **_options):
+                calls.append(("goto", url))
+                self.request_handler(SimpleNamespace(
+                    url="https://amp-api.music.apple.com/v1/me/storefront",
+                    headers={"authorization": f"Bearer {DEVELOPER_TOKEN}"},
+                ))
+
+        class FakeContext:
+            def __init__(self):
+                self.pages = [FakePage()]
+
+            def close(self):
+                calls.append(("close",))
+
+        class FakeChromium:
+            def launch_persistent_context(self, profile_dir, **options):
+                calls.append(("launch", Path(profile_dir).name, options))
+                return FakeContext()
+
+        class FakePlaywright:
+            chromium = FakeChromium()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+        fake_apple_auth = SimpleNamespace(APPLE_MUSIC_HOME="https://music.apple.com")
+        fake_playwright_api = SimpleNamespace(sync_playwright=FakePlaywright)
+        fake_apple_exceptions = SimpleNamespace(AppleMusicAuthError=RuntimeError)
+        modules = {
+            "applemusic.auth": fake_apple_auth,
+            "applemusic.exceptions": fake_apple_exceptions,
+            "playwright.sync_api": fake_playwright_api,
+        }
+        external_module = SimpleNamespace(
+            AppleMusicAuth=ExternalAuth,
+            AppleMusicCredentials=ExternalCredentials,
+        )
+        with patch.dict(sys.modules, modules):
+            auth = create_secure_library_auth(
+                layout, profile=TEST_PROFILE,
+                store=store, auth_module=external_module,
+            )
+            auth.authenticate(force=True)
+
+        self.assertEqual(calls[0][0:2], ("launch", "browser-profile-edge"))
+        self.assertEqual(calls[0][2]["channel"], "msedge")
+        self.assertFalse(calls[0][2]["headless"])
+        self.assertEqual(calls[1], ("goto", "https://music.apple.com"))
+        self.assertEqual(calls[2], ("close",))
+        self.assertTrue(store.path.is_file())
+        self.assertFalse((auth.session_dir / "credentials.json").exists())
+        self.assertFalse((auth.session_dir / "storage-state.json").exists())
+
     def test_library_auth_is_test_only_and_optional(self) -> None:
         layout = private_sandbox(self.root)
         with self.assertRaises(AppleMusicLibraryUnavailable):

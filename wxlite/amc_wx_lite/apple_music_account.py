@@ -23,8 +23,18 @@ from .release_profile import TEST_PROFILE_ID, ReleaseProfile, current_profile
 class AppleMusicAccountError(RuntimeError):
     """One intentionally generic account message without provider details."""
 
+    def __init__(self, stage: str = "generic") -> None:
+        self.stage = stage
+
     def __str__(self) -> str:
-        return "Nie udało się połączyć konta Apple Music."
+        return {
+            "browser": "Nie można uruchomić przeglądarki logowania Apple Music.",
+            "page": "Nie udało się otworzyć strony logowania Apple Music.",
+            "login": "Logowanie Apple Music zostało przerwane lub nie zakończyło się.",
+            "capture": "Apple Music nie przekazało sesji po logowaniu.",
+            "validate": "Apple Music odrzuciło nową sesję.",
+            "save": "Nie udało się bezpiecznie zapisać sesji Apple Music.",
+        }.get(self.stage, "Nie udało się połączyć konta Apple Music.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +88,7 @@ def connect_account(
     selected = profile or current_profile()
     if selected.profile_id != TEST_PROFILE_ID:
         raise AppleMusicAccountError()
+    auth = None
     try:
         auth = auth_factory(
             layout,
@@ -88,11 +99,14 @@ def connect_account(
         # This call follows an explicit Yes to opening a visible login window.
         # The upstream default silently returns a valid cached session instead.
         authenticate(force=True)
-    except (AppleMusicCredentialStoreError, AppleMusicLibraryUnavailable):
-        raise AppleMusicAccountError() from None
+    except AppleMusicCredentialStoreError:
+        raise AppleMusicAccountError("save") from None
+    except AppleMusicLibraryUnavailable:
+        raise AppleMusicAccountError("browser") from None
     except Exception:
         # Upstream errors can contain URLs, headers or raw provider messages.
-        raise AppleMusicAccountError() from None
+        stage = getattr(auth, "_login_stage", "generic")
+        raise AppleMusicAccountError(stage) from None
     return AppleMusicAccountStatus(
         stored_session=True,
         message="Apple Music: logowanie zakończone i sesja zapisana bezpiecznie.",

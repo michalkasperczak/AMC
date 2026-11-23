@@ -3,9 +3,9 @@
 # instalować tych pakietów globalnie ani kopiować ich do AMC Public.
 #
 # Kod klienta jest przypięty do sprawdzonej rewizji źródłowej, ponieważ projekt
-# Alpha 0.0.1 nie ma jeszcze stabilnego wydania na PyPI. Chromium Playwrighta
-# jest osobnym artefaktem i przed żywym logowaniem wymaga kontrolowanego
-# pobrania do projektowego katalogu roboczego; nie jest częścią tego pliku.
+# Alpha 0.0.1 nie ma jeszcze stabilnego wydania na PyPI. Logowanie AMC Test
+# używa zainstalowanego Microsoft Edge przez kanał Playwright `msedge`.
+# Oddzielne pobieranie przeglądarki Playwright nie jest potrzebne.
 
 applemusic @ git+https://github.com/LunaParker/apple-music-py.git@1d698359155d9b70d640234a1489165a06e6e01b
 playwright==1.65.0
