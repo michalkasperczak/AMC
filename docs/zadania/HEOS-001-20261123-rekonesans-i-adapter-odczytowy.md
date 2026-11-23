@@ -1,6 +1,6 @@
 # HEOS-001 — rozpoznanie urządzenia HEOS 200 i adapter odczytowy
 
-**Status: W trakcie; przerwane na prośbę Michała 23.11.2026, powrót następnego dnia.**
+**Status: W trakcie; próba odczytowa na urządzeniu wykonana 23.11.2026.**
 
 ## Cel i zakres
 
@@ -46,3 +46,13 @@ HEOS nie jest jeszcze dostępny w AMC Test. Planowana sesja będzie sterować wy
 ## Następny krok
 
 Gdy urządzenie „HEOS 200” będzie dostępne, powtórzyć SSDP lub użyć podanego przez Michała adresu IP. Wykonać wyłącznie odczyt `get_players`, `get_groups`, `check_account`, stanu, `get_music_sources`, znanej kolekcji i kolejki. Zapisać dokładny model, firmware i faktyczne możliwości bez prywatnych nazw/ID. Dopiero po tej bramce dodać sesję AMC Test i osobno uzgodnić próbę zmieniającą odtwarzanie.
+
+## Korekta i wynik próby sprzętowej — 23.11.2026
+
+Michał uruchomił głośnik i wznowił zadanie tego samego dnia. Wcześniejsze „nie wykryto urządzenia” było wynikiem odmowy dostępu do sieci przez piaskownicę (Windows 10013), a nie dowodem uśpienia lub niezgodności głośnika. Ta korekta zastępuje wcześniejsze przypuszczenie o uśpieniu. Po uruchomieniu próby z dostępem do lokalnej sieci SSDP wykrył jedno urządzenie HEOS; CLI na porcie 1255 odpowiada.
+
+Odczyt potwierdził model **Denon Home 200**, firmware **3.139.175**, jednego odtwarzacza i brak grup. `system/check_account` zwrócił `success`, co potwierdza wykonanie komendy, lecz samo nie dowodzi zalogowania konta. Odczyt stanu, bieżących metadanych, głośności i wyciszenia się powiódł; podczas próby grała stacja. Kolejka zwróciła zero pozycji. Nie zapisano tytułów, nazw kont, identyfikatorów urządzenia ani adresu sieciowego w tym raporcie.
+
+Lista źródeł w kolejnych odczytach miała 5, a następnie 8 pozycji. Po ustabilizowaniu pojawiły się trzy źródła `music_service`, jedno `heos_server` i cztery `heos_service`. `Local Music` zwróciło pustą listę. Dwa serwisy muzyczne zwróciły katalogi, a Historia dwie pozycje typu kontener, z których jedna była oznaczona jako odtwarzalna. Trzy źródła zwróciły `success` bez pola `payload` i bez liczników `returned`/`count`; obecny klient zgłasza dla nich `HeosProtocolError`, co jest uczciwsze od uznania ich za puste. Nie stwierdzono obecności DLNA ani USB. Nie uruchomiono żadnej pozycji.
+
+Próba była wyłącznie odczytowa. Kod klienta i 8 testów na atrapach pozostają w commitcie `99e602ec6532`. Nie wykonano testu sterowania, interfejsu, NVDA, kompilacji, instalacji ani publikacji. Następny krok: zaprojektować adapter źródeł z osobnym stanem źródła bez listy, odświeżaniem źródeł i rozróżnieniem stacji od kolejki; następnie wpiąć HEOS wyłącznie do AMC Test, z pełnym parytetem poleceń i dostępności. Fizyczną próbę zmieniającą odtwarzanie uzgodnić osobno po przygotowaniu interfejsu.
