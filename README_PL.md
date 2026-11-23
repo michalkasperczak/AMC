@@ -264,6 +264,13 @@ katalogu nie może już wyczyścić lokalnej Kolejki ani stanu **Odtwórz jako
 następne**: są one zapisywane według stabilnego identyfikatora usługi i
 odtwarzane po wymianie obiektów katalogu oraz po ponownym uruchomieniu AMC.
 
+Gdy odpowiedź TIDAL dla zapisanej pozycji pomija znany wcześniej czas albo
+powiązanie, odświeżenie zachowuje te dane dla tego samego zasobu. Dzięki temu
+prawa strzałka nadal pokazuje dostępne przejścia do albumu i wykonawcy.
+Lewa strzałka na albumie bez czasu w danych sprawdza czas jego utworów na
+żądanie. Gdy nie da się potwierdzić czasu wszystkich utworów, mówi
+„Czas trwania nieznany”. Zwykłe przechodzenie po liście nie pobiera albumu.
+
 Wersja `alpha.324` ujednolica krótkie informacje wywoływane lewą strzałką na
 listach multimediów i w wynikach wyszukiwania. Wiersz listy podaje już nazwę,
 więc komunikat jej nie powtarza. Zaczyna się od formatu lub rozszerzenia,

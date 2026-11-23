@@ -87,6 +87,7 @@ LIBRESPOT_BUILD = (
     "lokalna przypięta kompilacja Release offline dla AMC Test; bez publikacji"
 )
 PROFILE_GATED_SERVICE_MODULES = {
+    "heos_client.py": "session.heos",
     "embedded_video.py": "local-video-preview",
     "youtube_embedded.py": "local-video-preview",
     "apple_music_account.py": "apple-music.experimental",

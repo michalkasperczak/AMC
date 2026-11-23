@@ -86,13 +86,13 @@ def test_public_manifest_exposes_only_approved_sessions_and_test_has_all() -> No
     assert "frontier-smart" in public_text
     assert "radioarchiwista" in public_text
     assert "apple-music" not in public_text
+    assert "local-video-preview" in PUBLIC_PROFILE.capabilities
     assert "apple-music.experimental" in TEST_PROFILE.capabilities
     assert set(PUBLIC_PROFILE.capabilities) == {
         capability for capability in TEST_PROFILE.capabilities
         if capability not in {
             "apple-music.experimental",
             "session.apple-music",
-            "local-video-preview",
         }
     }
 
@@ -130,7 +130,7 @@ def test_python_capabilities_match_closed_launcher_contract() -> None:
         "internal static readonly ReleaseProfileDescriptor Public", 1
     )[1].split("internal static ReleaseProfileDescriptor Validate", 1)[0]
     assert "PublicCapabilities," in public_contract
-    assert '"apple-music.experimental" or "session.apple-music" or "local-video-preview"' in source
+    assert '"apple-music.experimental" or "session.apple-music"' in source
     assert 'session is not "appleMusic"' in source
     assert re.search(r'Test\.Capabilities\s*\.Where', source)
     assert 'Test.Sessions.Where' in source
@@ -142,7 +142,6 @@ def test_python_capabilities_match_closed_launcher_contract() -> None:
         if capability not in {
             "apple-music.experimental",
             "session.apple-music",
-            "local-video-preview",
         }
     ) == PUBLIC_PROFILE.capabilities
     assert common + test_only == TEST_PROFILE.capabilities
