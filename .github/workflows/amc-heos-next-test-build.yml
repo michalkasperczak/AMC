@@ -1,4 +1,4 @@
-name: AMC Test alpha.519 — HEOS build
+name: AMC Test alpha.521 — HEOS build
 
 on:
   push:
@@ -33,7 +33,7 @@ jobs:
             throw 'Nieoczekiwana gałąź źródłowa.'
           }
           [xml]$props = Get-Content -LiteralPath 'Directory.Build.props' -Raw
-          if ([string]$props.Project.PropertyGroup.Version -cne '0.1.0-alpha.519') {
+          if ([string]$props.Project.PropertyGroup.Version -cne '0.1.0-alpha.521') {
             throw 'Nieoczekiwana wersja źródeł.'
           }
           if (@(git status --porcelain=v1 --untracked-files=no).Count -ne 0) {
@@ -48,20 +48,20 @@ jobs:
         with:
           dotnet-version: 8.0.423
 
-      - name: Pobierz zweryfikowany runtime alpha.518
+      - name: Pobierz zweryfikowany runtime alpha.519 Cast
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $prior = Join-Path $env:RUNNER_TEMP 'amc-alpha518-input'
+          $prior = Join-Path $env:RUNNER_TEMP 'amc-alpha519-input'
           New-Item -ItemType Directory -Path $prior -Force | Out-Null
-          gh release download test-2026.11.23.2136 --repo michalkasperczak/AMC `
-            --pattern AMC-Test-2026-11-23-2136.exe --dir $prior
-          if ($LASTEXITCODE -ne 0) { throw 'Nie pobrano instalatora alpha.518.' }
-          $installer = Join-Path $prior 'AMC-Test-2026-11-23-2136.exe'
-          if ((Get-Item -LiteralPath $installer).Length -ne 214456190 -or
+          gh release download test-2026.11.23.2231 --repo michalkasperczak/AMC `
+            --pattern AMC-Test-2026-11-23-2231.exe --dir $prior
+          if ($LASTEXITCODE -ne 0) { throw 'Nie pobrano instalatora alpha.519.' }
+          $installer = Join-Path $prior 'AMC-Test-2026-11-23-2231.exe'
+          if ((Get-Item -LiteralPath $installer).Length -ne 214459178 -or
               (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant() -cne
-              '0b055bdeae984f287d38755579245380052c9abedf7c41407c201433c2c62c64') {
-            throw 'Instalator alpha.518 ma nieprawidłowy rozmiar lub SHA-256.'
+              '5cdff6a048a89a911879542180e1d4ff45185a59e33fff81d3b91dfaf551dbb8') {
+            throw 'Instalator alpha.519 ma nieprawidłowy rozmiar lub SHA-256.'
           }
           $archive = Join-Path $prior 'innoextract670.zip'
           Invoke-WebRequest -Uri `
@@ -76,7 +76,7 @@ jobs:
           $tool = Join-Path $toolDir 'innoextract.exe'
           $extracted = Join-Path $prior 'extracted'
           & $tool --extract --silent --output-dir $extracted $installer
-          if ($LASTEXITCODE -ne 0) { throw 'Nie rozpakowano instalatora alpha.518.' }
+          if ($LASTEXITCODE -ne 0) { throw 'Nie rozpakowano instalatora alpha.519.' }
           $runtime = Join-Path $extracted 'app\runtime'
           $site = Join-Path $runtime 'Lib\site-packages'
           $addon = Join-Path $extracted 'tmp\quickAppSwitcher-0.1.6.nvda-addon'
@@ -134,13 +134,13 @@ jobs:
             -OutputDirectory (Join-Path $env:RUNNER_TEMP 'amc-heos-bundle')
           if ($LASTEXITCODE -ne 0) { throw 'Budowa paczki AMC Test nie powiodła się.' }
 
-      - name: Skompiluj i sprawdź instalator alpha.519
+      - name: Skompiluj i sprawdź instalator alpha.521
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           & .\wxlite\tools\Build-AMCInstaller.ps1 -Profile test `
             -BundleRoot (Join-Path $env:RUNNER_TEMP 'amc-heos-bundle') `
-            -Version '0.1.0-alpha.519' `
+            -Version '0.1.0-alpha.521' `
             -OutputDirectory (Join-Path $env:RUNNER_TEMP 'amc-heos-installer') `
             -NvdaAddonPath $env:AMC_QAS_ADDON -IsccPath $env:AMC_ISCC
           if ($LASTEXITCODE -ne 0) { throw 'Budowa instalatora AMC Test nie powiodła się.' }
@@ -157,7 +157,7 @@ jobs:
       - name: Zachowaj instalator do odbioru
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: amc-test-alpha519-heos-${{ github.sha }}
+          name: amc-test-alpha521-heos-${{ github.sha }}
           path: ${{ runner.temp }}/amc-heos-installer/
           if-no-files-found: error
           retention-days: 14
