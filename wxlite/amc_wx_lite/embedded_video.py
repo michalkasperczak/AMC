@@ -21,7 +21,7 @@ class EmbeddedVideo:
     ) -> None:
         self.control = wx.media.MediaCtrl(parent, style=wx.SIMPLE_BORDER)
         self.control.SetName(i18n.ui_text("Obraz odtwarzanego wideo"))
-        self.control.SetMinSize((480, 270))
+        self.control.SetMinSize((320, 180))
         self.control.SetVolume(0.0)
         self.control.Hide()
         self.control.Bind(wx.media.EVT_MEDIA_LOADED, self._loaded)
