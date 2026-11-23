@@ -34,7 +34,7 @@ Odtwarzanie YouTube osadzone w AMC wymagałoby osobnego odtwarzacza przeglądark
 
 ## Testy i rzeczywisty wynik
 
-- Dwanaście testów `wxlite/tests/test_video_display.py`: **12/12 PASS** w runtime AMC Python 3.14.7 / wxPython 4.3.1. Obejmują wybór pliku, walidację dokładnej strony wideo, zgodność nazw/opisów/skrótów, trasę dispatchera, dostępność według zaznaczenia, użycie tego samego nawigatora i `PlayTrack`, synchronizację widoczności z hostem, przekazanie adresu do przeglądarki, powrót do audio po błędzie izolację profilu Test/Public oraz tłumaczenia nowych komunikatów.
+- Trzynaście testów `wxlite/tests/test_video_display.py`: **13/13 PASS** w runtime AMC Python 3.14.7 / wxPython 4.3.1. Obejmują wybór pliku, walidację dokładnej strony wideo, zgodność nazw/opisów/skrótów, trasę dispatchera, dostępność według zaznaczenia, użycie tego samego nawigatora i `PlayTrack`, synchronizację widoczności z hostem, przekazanie adresu do przeglądarki, powrót do audio po błędzie izolację profilu Test/Public oraz tłumaczenia nowych komunikatów.
 - Syntetyczny MP4: `wx.media.MediaCtrl.Load` zwrócił sukces i długość 3000 ms w ukrytym oknie; obraz ani zachowanie w widocznym odtwarzaczu nie zostały przez tę próbę potwierdzone.
 - Po połączeniu źródeł na D: **159 testów i 12 podtestów zaliczonych** dla wideo, profili Test/Public, wyszukiwania i harmonogramu. Oddzielnie 86 testów i 10 podtestów profili, menu i palety zaliczonych.
 - Celowana regresja menu, palety, tłumaczeń, podcastów i plików: **142 zaliczone, 1 pominięty, 10 podtestów zaliczonych, 2 niezaliczone**. Dwa niezaliczone testy kompletności angielskich tłumaczeń zawodzą także na zastanym checkoutcie D, przed przeniesieniem tej poprawki. Nie są dowodem regresji wideo, ale nie wolno uznać całej regresji za zieloną.
@@ -42,7 +42,7 @@ Odtwarzanie YouTube osadzone w AMC wymagałoby osobnego odtwarzacza przeglądark
 
 ## Ograniczenia i odbiór
 
-- Obsługa formatów zależy od dekoderów dostępnych w Windows. Rozszerzenia MP4, M4V, MOV, AVI, WMV, WebM i MKV oznaczają możliwość wyboru, nie gwarantują dekodowania obrazu. Szczególnie oryginalny WebM/MKV pobrany z YouTube wymaga rzeczywistej próby. Przy braku obrazu AMC ma pozostawić audio.
+- Obsługa formatów zależy od dekoderów dostępnych w Windows. Wybór obejmuje rozszerzenia wideo znane hostowi plików AMC, między innymi MP4, WebM, MKV, OGV, AVI, MPEG, TS i FLV; nie gwarantuje dekodowania obrazu. Szczególnie oryginalny WebM/MKV pobrany z YouTube wymaga rzeczywistej próby. Przy braku obrazu AMC ma pozostawić audio.
 - Osobny dekoder obrazu jest synchronizowany ze stanem hosta okresowo; płynność, opóźnienie po przewijaniu i tempo inne niż 1× wymagają próby na rzeczywistym pliku.
 - Wideo bez ścieżki audio zależy od możliwości obecnego hosta plików. Taki przypadek nie został potwierdzony.
 - Odbiór: krótki MP4 z audio, pobrany WebM/MKV, pauza/wznowienie, strzałki, przewijanie, zmiana tempa, przełączanie audio/wideo, fokus przycisku, powrót Escape, ponowne otwarcie, NVDA na menu/kontekście/palecie/pomocy oraz otwarcie dokładnego filmu YouTube w zwykłej przeglądarce. W systemie działa już AMC z hostem; nie podmieniano go ani nie uruchamiano widocznej drugiej instancji.

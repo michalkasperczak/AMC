@@ -9,7 +9,7 @@ from unittest.mock import patch
 from amc_wx_lite.command_palette import entries_for_session
 from amc_wx_lite import i18n
 from amc_wx_lite.gui import LiteFrame
-from amc_wx_lite.local_video import local_video_file, local_video_target
+from amc_wx_lite.local_video import VIDEO_SUFFIXES, local_video_file, local_video_target
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.menu_model import menus_for_session
 from amc_wx_lite.navigation import LibraryView, Navigator, PlayTrack, SessionId, View
@@ -30,6 +30,14 @@ class VideoDisplayContracts(unittest.TestCase):
             self.assertFalse(local_video_file(str(audio)))
             self.assertFalse(local_video_file(str(video) + ".missing"))
             self.assertFalse(local_video_target(Row("episode", "Film", "episode", path=str(video))))
+
+    def test_video_choices_cover_the_local_host_video_extensions(self):
+        for suffix in (
+            ".mp4", ".webm", ".mkv", ".ogv", ".3gp", ".avi",
+            ".wmv", ".mpeg", ".ts", ".m2ts", ".vob", ".flv",
+        ):
+            with self.subTest(suffix=suffix):
+                self.assertIn(suffix, VIDEO_SUFFIXES)
 
     def test_browser_opens_only_exact_public_video_page(self):
         good = Row("yt", "Film", "episode", url="https://www.youtube.com/watch?v=abc123", service_kind="youtubeVideo")

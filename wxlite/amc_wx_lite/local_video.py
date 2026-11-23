@@ -7,7 +7,12 @@ from pathlib import Path
 from .list_model import Row
 
 
-VIDEO_SUFFIXES = frozenset({".mp4", ".m4v", ".mov", ".avi", ".wmv", ".webm", ".mkv"})
+# Keep this set aligned with Core.LocalAudioFileDiscovery.VideoExtensions.
+VIDEO_SUFFIXES = frozenset({
+    ".mkv", ".webm", ".mp4", ".m4v", ".mov", ".ogv",
+    ".3g2", ".3gp", ".3gp2", ".3gpp", ".avi", ".wmv",
+    ".mpeg", ".mpg", ".mpe", ".ts", ".mts", ".m2ts", ".vob", ".flv",
+})
 
 
 def local_video_file(path: str | None) -> bool:
