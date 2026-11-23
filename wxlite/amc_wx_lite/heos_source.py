@@ -11,6 +11,8 @@ import hashlib
 from dataclasses import dataclass
 from urllib.parse import parse_qs
 
+from .heos_client import queue_fingerprint
+
 
 def _text(value: object) -> str:
     return value.strip() if isinstance(value, str) else ""
@@ -66,6 +68,15 @@ class HeosItem:
     child_source_id: str = ""
     parent_container_id: str = ""
     media_type: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class HeosQueueItem:
+    item_id: str
+    title: str
+    detail: str
+    queue_id: str
+    fingerprint: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -241,5 +252,31 @@ def catalog_items(source_id: str, container_id: str | None, payload: object) -> 
             child_source_id=child_sid,
             parent_container_id=parent,
             media_type=kind,
+        ))
+    return tuple(result)
+
+
+def queue_items(payload: object) -> tuple[HeosQueueItem, ...]:
+    """Keep shifting HEOS queue IDs private, with a list snapshot token."""
+
+    if not isinstance(payload, list) or any(not isinstance(raw, dict) for raw in payload):
+        raise ValueError("HEOS nie zwrócił listy kolejki.")
+    fingerprint = queue_fingerprint(payload)
+    result: list[HeosQueueItem] = []
+    for index, raw in enumerate(payload):
+        qid = _id(raw.get("qid"))
+        if not qid:
+            continue
+        title = (_text(raw.get("song")) or _text(raw.get("station"))
+                 or _text(raw.get("name")) or "Pozycja kolejki")
+        detail = _text(raw.get("artist"))
+        if detail == title:
+            detail = ""
+        result.append(HeosQueueItem(
+            item_id=_key("queue", qid, _id(raw.get("mid")), title, index),
+            title=title,
+            detail=detail,
+            queue_id=qid,
+            fingerprint=fingerprint,
         ))
     return tuple(result)

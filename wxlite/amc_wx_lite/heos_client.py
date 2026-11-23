@@ -375,12 +375,7 @@ class HeosControlClient(HeosReadClient):
 def queue_fingerprint(items: list[dict[str, Any]]) -> str:
     """A private comparison token, never a spoken queue label."""
 
-    fields = tuple(
-        (item.get("qid"), item.get("mid"), item.get("song"),
-         item.get("album"), item.get("artist"))
-        for item in items
-    )
-    encoded = json.dumps(fields, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")
+    encoded = json.dumps(items, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 
