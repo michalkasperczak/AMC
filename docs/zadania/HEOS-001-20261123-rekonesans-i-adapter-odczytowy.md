@@ -15,7 +15,7 @@ Wprowadzić HEOS do AMC Test według `D:\Projekty Codex\Hermes\Nowe\HEOS-2026112
 
 ## Próba sieciowa
 
-23.11.2026 z komputera w lokalnej sieci wysłano odczytowe M-SEARCH SSDP z oficjalnym typem `urn:schemas-denon-com:device:ACT-Denon:1` oraz zapytania `ssdp:all` i `MediaRenderer:1`. Nie było odpowiedzi HEOS. Nie próbowano zgadywać adresu, łączyć się z portem 1255 ani wysyłać komend zmieniających stan. Michał wskazał urządzenie „HEOS 200” i możliwość jego uśpienia; zdecydował wrócić do próby następnego dnia. Brak odpowiedzi SSDP nie dowodzi niezgodności urządzenia. Ręczny adres IP pozostaje poprawną drogą.
+Pierwsze próby SSDP 23.11.2026 nie przyniosły odpowiedzi, ponieważ środowisko odmówiło dostępu do lokalnej sieci. Późniejsza próba z dostępem sieciowym wykryła urządzenie i potwierdziła działanie CLI; szczegóły w korekcie poniżej. Nie wysłano komend zmieniających stan.
 
 ## Uzasadnienie i decyzje
 
@@ -31,7 +31,7 @@ Wprowadzić HEOS do AMC Test według `D:\Projekty Codex\Hermes\Nowe\HEOS-2026112
 
 ## Znane ograniczenia
 
-- Brak odpowiedzi urządzenia i brak zweryfikowanego IP. Nie wykonano próby prawdziwego CLI. Dokładny model wymaga potwierdzenia.
+- Odczyt CLI na Denon Home 200 działa; zgodność poleceń sterowania i zachowanie po utracie połączenia pozostają do próby.
 - Brak sesji HEOS i czynności użytkowych w GUI. Odczytowy adapter jest etapem wewnętrznym.
 - Paginacja i format odpowiedzi wymagają jeszcze sprawdzenia na obecnym firmware Denon Home 200.
 
@@ -41,11 +41,11 @@ Baza `d4ec91a4`; kod i testy HEOS: commit `99e602ec6532`. Żadna wersja AMC z HE
 
 ## Materiał do dokumentacji użytkownika
 
-HEOS nie jest jeszcze dostępny w AMC Test. Planowana sesja będzie sterować wybranym urządzeniem Denon lub Marantz, a dźwięk pozostanie na urządzeniu. Nie trzeba dziś wybudzać sprzętu ani zmieniać jego ustawień. Po wznowieniu sprawdzimy odczytowo urządzenie „HEOS 200”. Jeżeli wyszukiwanie go nie pokaże, można podać jego adres IP z sieci lokalnej.
+HEOS nie jest jeszcze dostępny w AMC Test. Wykryto Denon Home 200 i odczytano jego stan bez wpływu na graną stację. Planowana sesja pozwoli wybrać urządzenie i sterować nim z klawiatury; dźwięk pozostanie na urządzeniu. Biblioteka pokaże tylko źródła naprawdę dostępne przez CLI. Komendy i komunikaty NVDA zostaną opisane po przygotowaniu interfejsu.
 
 ## Następny krok
 
-Gdy urządzenie „HEOS 200” będzie dostępne, powtórzyć SSDP lub użyć podanego przez Michała adresu IP. Wykonać wyłącznie odczyt `get_players`, `get_groups`, `check_account`, stanu, `get_music_sources`, znanej kolekcji i kolejki. Zapisać dokładny model, firmware i faktyczne możliwości bez prywatnych nazw/ID. Dopiero po tej bramce dodać sesję AMC Test i osobno uzgodnić próbę zmieniającą odtwarzanie.
+Wpiąć HEOS do AMC Test na podstawie potwierdzonego odczytu: wybór celu, stan odtwarzacza, dostępne źródła, Biblioteka i kolejka. Rozróżnić źródło bez listy od pustej listy oraz odświeżać zmienną listę źródeł. Zaktualizować wspólny model poleceń, menu, pomoc, paletę, testy parytetu i dokumentację. Po przygotowaniu sprawdzalnego interfejsu osobno uzgodnić fizyczną próbę sterowania.
 
 ## Korekta i wynik próby sprzętowej — 23.11.2026
 
