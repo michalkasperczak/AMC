@@ -17,10 +17,12 @@ import importlib
 import json
 import os
 import sys
+import time
 from ctypes import wintypes
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable
+from urllib.parse import urlsplit
 
 from .profile_layout import ProfileLayout
 from .release_profile import TEST_PROFILE_ID, ReleaseProfile, current_profile
@@ -291,8 +293,8 @@ def create_secure_library_auth(
     The third-party class owns the browser flow.  This adapter replaces all of
     its explicit credential persistence points: the extracted values go to
     DPAPI and Playwright's plaintext ``storage-state.json`` is not written.
-    Chromium's own persistent profile remains under the profile-isolated
-    Apple Music directory and is never exposed to the GUI.
+    Edge uses a dedicated persistent profile under the profile-isolated
+    Apple Music directory; it is never exposed to the GUI.
 
     The import is intentionally lazy, so AMC can start normally without the
     optional laboratory dependency.
@@ -314,6 +316,85 @@ def create_secure_library_auth(
     session_directory = layout.lite_settings_dir / "apple-music"
 
     class _AmcSecureAppleMusicAuth(base):
+        def _authenticate_via_browser(self):
+            """Use installed Edge; Playwright's downloaded Chromium is optional.
+
+            The user completes Apple's sign-in in the visible browser. Only
+            allowlisted credentials are retained in the DPAPI store below.
+            """
+            self._login_stage = "browser"
+            from applemusic.auth import APPLE_MUSIC_HOME
+            from applemusic.exceptions import AppleMusicAuthError
+            from playwright.sync_api import sync_playwright
+
+            self.session_dir.mkdir(parents=True, exist_ok=True)
+            profile_dir = self.session_dir / "browser-profile-edge"
+            captured_tokens: list[str] = []
+
+            def on_request(request) -> None:
+                if urlsplit(request.url).hostname != "amp-api.music.apple.com":
+                    return
+                authorization = request.headers.get("authorization", "")
+                if authorization.startswith("Bearer "):
+                    token = authorization[len("Bearer "):]
+                    if token and token not in captured_tokens:
+                        captured_tokens.append(token)
+
+            with sync_playwright() as playwright:
+                context = playwright.chromium.launch_persistent_context(
+                    str(profile_dir),
+                    channel="msedge",
+                    headless=self.headless,
+                    viewport={"width": 1280, "height": 800},
+                )
+                try:
+                    page = context.pages[0] if context.pages else context.new_page()
+                    page.on("request", on_request)
+                    self._login_stage = "page"
+                    page.goto(
+                        APPLE_MUSIC_HOME,
+                        wait_until="domcontentloaded",
+                        timeout=60_000,
+                    )
+                    deadline = time.monotonic() + self.auth_timeout
+                    refreshed_library = False
+                    self._login_stage = "login"
+                    while time.monotonic() < deadline:
+                        if self._has_captured_credentials(context, captured_tokens):
+                            break
+                        # An already signed-in page may make no new API request.
+                        # Refresh the library only after its user cookie appears.
+                        if not refreshed_library and not captured_tokens and any(
+                            cookie["name"] == "media-user-token"
+                            for cookie in context.cookies(APPLE_MUSIC_HOME)
+                        ):
+                            refreshed_library = True
+                            page.goto(
+                                f"{APPLE_MUSIC_HOME}/library/songs",
+                                wait_until="domcontentloaded",
+                                timeout=30_000,
+                            )
+                        page.wait_for_timeout(500)
+                    else:
+                        raise AppleMusicAuthError("Apple Music sign-in timed out")
+
+                    self._login_stage = "capture"
+                    credentials = self._capture_credentials(
+                        context, captured_tokens
+                    )
+                    self._login_stage = "validate"
+                    if not self._validate(credentials):
+                        raise AppleMusicAuthError(
+                            "Apple Music sign-in validation failed"
+                        )
+                    self._save_storage_state(context)
+                    self._login_stage = "save"
+                    self.save(credentials)
+                    self._login_stage = "complete"
+                    return credentials
+                finally:
+                    context.close()
+
         def load_cached(self):
             try:
                 saved = secure_store.read()

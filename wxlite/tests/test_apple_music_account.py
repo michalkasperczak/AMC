@@ -114,6 +114,29 @@ class AppleMusicAccountTests(unittest.TestCase):
         )
         self.assertNotIn(PRIVATE_TOKEN, str(caught.exception))
 
+    def test_login_stage_explains_failure_without_provider_details(self) -> None:
+        for stage, expected in (
+            ("browser", "Nie można uruchomić przeglądarki logowania Apple Music."),
+            ("login", "Logowanie Apple Music zostało przerwane lub nie zakończyło się."),
+            ("capture", "Apple Music nie przekazało sesji po logowaniu."),
+        ):
+            with self.subTest(stage=stage):
+                auth = SimpleNamespace(_login_stage=stage)
+
+                def fail(*, force=False):
+                    self.assertTrue(force)
+                    raise RuntimeError(PRIVATE_TOKEN)
+
+                auth.authenticate = fail
+                with self.assertRaises(AppleMusicAccountError) as caught:
+                    connect_account(
+                        self.layout,
+                        profile=TEST_PROFILE,
+                        auth_factory=lambda *_args, **_kw: auth,
+                    )
+                self.assertEqual(str(caught.exception), expected)
+                self.assertNotIn(PRIVATE_TOKEN, str(caught.exception))
+
     def test_public_profile_refuses_status_and_login(self) -> None:
         store = FakeStore(credentials())
         with self.assertRaises(AppleMusicAccountError):
