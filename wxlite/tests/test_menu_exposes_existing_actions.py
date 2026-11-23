@@ -273,7 +273,8 @@ def test_no_duplicate_labels_or_shortcuts() -> None:
             "Ctrl+Shift+U", "Ctrl+Shift+P",
         "B", "Shift+B", "Ctrl+Shift+B", "Ctrl+X", "Ctrl+V",
         "Alt+Up", "Alt+Down", "F2", "Delete", "Right",
-        "Ctrl+U", "Ctrl+P", "I", "O", "R", "S", "T", "End"
+            "Ctrl+U", "Ctrl+P", "I", "O", "R", "S", "T", "End",
+            "Prior", "Next"
     }, duplicates
     for item in duplicates.get("End", []):
         assert not item.accelerator, (
@@ -584,6 +585,7 @@ def test_queue_membership_menu_matches_supported_sessions() -> None:
         menu_model.SessionId.TIDAL,
         menu_model.SessionId.SPOTIFY,
         menu_model.SessionId.RADIOARCHIWISTA,
+        menu_model.SessionId.HEOS,
     }
     assert play_next.shortcut == "Ctrl+Shift+Return"
     assert play_next.needs_selection and play_next.needs_play_next_item
@@ -591,6 +593,7 @@ def test_queue_membership_menu_matches_supported_sessions() -> None:
         menu_model.SessionId.FILES,
         menu_model.SessionId.PODCASTS,
         menu_model.SessionId.RADIOARCHIWISTA,
+        menu_model.SessionId.HEOS,
     }
     assert not queue.accelerator and not play_next.accelerator
 

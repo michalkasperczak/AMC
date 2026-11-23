@@ -38,6 +38,7 @@ from .shortcuts import (
     Action,
     APPLE_MUSIC_SUPPORTED_ACTIONS,
     FRONTIER_SMART_SUPPORTED_ACTIONS,
+    HEOS_SUPPORTED_ACTIONS,
     RADIOARCHIWISTA_SUPPORTED_ACTIONS,
     RECOGNITION_HISTORY_SESSIONS,
     SONOS_SUPPORTED_ACTIONS,
@@ -253,6 +254,7 @@ PLAYBACK_HISTORY_SESSIONS = (
 TIDAL_ONLY = (SessionId.TIDAL,)
 WIIM_ONLY = (SessionId.WIIM,)
 SONOS_ONLY = (SessionId.SONOS,)
+HEOS_ONLY = (SessionId.HEOS,)
 SPOTIFY_ONLY = (SessionId.SPOTIFY,)
 APPLE_MUSIC_ONLY = (SessionId.APPLE_MUSIC,)
 FRONTIER_SMART_ONLY = (SessionId.FRONTIER_SMART,)
@@ -260,16 +262,16 @@ LOCAL_MEDIA = (SessionId.FILES, SessionId.PODCASTS)
 PLAYBACK_RATE_SESSIONS = LOCAL_MEDIA
 QUEUE_SESSIONS = (
     SessionId.FILES, SessionId.PODCASTS, SessionId.TIDAL,
-    SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA,
+    SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA, SessionId.HEOS,
 )
-PLAY_NEXT_SESSIONS = (SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA)
+PLAY_NEXT_SESSIONS = (SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA, SessionId.HEOS)
 LOCAL_AUDIO = (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
 LOCAL_PLAYLISTS = (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
 SESSION_AUDIO_OUTPUTS = (*LOCAL_AUDIO, SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA, SessionId.TIDAL)
 NETWORK_DEVICE_SESSIONS = (
     SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART,
 )
-MUTE_SESSIONS = (*LOCAL_AUDIO, SessionId.SPOTIFY, SessionId.FRONTIER_SMART, SessionId.TIDAL)
+MUTE_SESSIONS = (*LOCAL_AUDIO, SessionId.SPOTIFY, SessionId.FRONTIER_SMART, SessionId.TIDAL, SessionId.HEOS)
 LOCAL_TIMELINE = (*LOCAL_AUDIO, SessionId.SPOTIFY, SessionId.TIDAL)
 INPUT_TIME_SESSIONS = (*LOCAL_MEDIA, SessionId.SPOTIFY, SessionId.TIDAL, SessionId.RADIOARCHIWISTA, SessionId.SONOS)
 INPUT_PERCENT_SESSIONS = (*INPUT_TIME_SESSIONS, SessionId.RADIO)
@@ -308,6 +310,7 @@ def menus_for_session(
         SessionId.FRONTIER_SMART: FRONTIER_SMART_SUPPORTED_ACTIONS,
         SessionId.RADIOARCHIWISTA: RADIOARCHIWISTA_SUPPORTED_ACTIONS,
         SessionId.APPLE_MUSIC: APPLE_MUSIC_SUPPORTED_ACTIONS,
+        SessionId.HEOS: HEOS_SUPPORTED_ACTIONS,
     }.get(session_id)
     menus: list[Menu] = []
     for described in build_menus(
@@ -357,6 +360,7 @@ def menus_for_session(
                     SessionId.FRONTIER_SMART: "abc",
                     SessionId.RADIOARCHIWISTA: "bcf",
                     SessionId.APPLE_MUSIC: "cde",
+                    SessionId.HEOS: "heo",
                 }[session_id]
                 index = {
                     Action.VIEW_MUSIC_SONGS: 0,
@@ -383,6 +387,7 @@ def menus_for_session(
                     SessionId.FRONTIER_SMART: "r",
                     SessionId.RADIOARCHIWISTA: "a",
                     SessionId.APPLE_MUSIC: "m",
+                    SessionId.HEOS: "h",
                 }[session_id]
                 key_index = ctrl_f5.name.casefold().find(access_key)
                 label = (
@@ -415,6 +420,13 @@ def menus_for_session(
                 entry = replace(entry, label={
                     Action.VIEW_SAVED_QUEUE: "&Kolejka Spotify",
                     Action.ADD_TO_QUEUE: "Dodaj lub usuń z kolejki S&potify",
+                }[entry.action])
+            if session_id is SessionId.HEOS and entry.action in {
+                Action.ADD_TO_QUEUE, Action.TOGGLE_PLAY_NEXT,
+            }:
+                entry = replace(entry, label={
+                    Action.ADD_TO_QUEUE: "&Dodaj na koniec kolejki HEOS",
+                    Action.TOGGLE_PLAY_NEXT: "Odtwarzaj jako &następne w HEOS",
                 }[entry.action])
             if session_id is SessionId.SPOTIFY and entry.action in {
                 Action.VIEW_CHAPTERS,
@@ -540,6 +552,7 @@ def build_menus(
                     SessionId.FRONTIER_SMART,
                     SessionId.RADIOARCHIWISTA,
                     SessionId.APPLE_MUSIC,
+                    SessionId.HEOS,
                 ),
             ),
             MenuItem(
@@ -1451,6 +1464,12 @@ def build_menus(
             MenuItem("&Następny utwór Apple Music", Action.QUEUE_NEXT,
                      shortcut="Shift+Next", accelerator=False, needs_playback=True,
                      visible_sessions=APPLE_MUSIC_ONLY),
+            MenuItem("Pop&rzedni utwór HEOS", Action.QUEUE_PREVIOUS,
+                     shortcut="Prior", accelerator=False, needs_playback=True,
+                     visible_sessions=HEOS_ONLY),
+            MenuItem("&Następny utwór HEOS", Action.QUEUE_NEXT,
+                     shortcut="Next", accelerator=False, needs_playback=True,
+                     visible_sessions=HEOS_ONLY),
             MenuItem(
                 "Wycisz albo włącz dźwięk bieżącej sesji (&V)",
                 Action.TOGGLE_MUTE,

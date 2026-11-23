@@ -63,6 +63,7 @@ class SessionId(Enum):
     FRONTIER_SMART = "frontierSmart"
     RADIOARCHIWISTA = "radioarchiwista"
     APPLE_MUSIC = "appleMusic"
+    HEOS = "heos"
 
 
 class LibraryView(Enum):
@@ -173,6 +174,10 @@ class LibraryView(Enum):
     SONOS_FAVORITES = "sonosFavorites"
     SONOS_PLAYLISTS = "sonosPlaylists"
     SONOS_OWN_STREAMS = "sonosOwnStreams"
+    HEOS_TARGETS = "heosTargets"
+    HEOS_SOURCES = "heosSources"
+    HEOS_CATALOG = "heosCatalog"
+    HEOS_QUEUE = "heosQueue"
     #: Poziomy katalogu nagrań Radio Archiwisty. Osobne wartości pozwalają
     #: Backspace i filtrom rozpoznać poziom bez wstawiania identyfikatora
     #: stacji do nazwy dostępnej.
@@ -1009,6 +1014,7 @@ class Navigator:
             SessionId.FRONTIER_SMART: SessionState(SessionId.FRONTIER_SMART),
             SessionId.RADIOARCHIWISTA: SessionState(SessionId.RADIOARCHIWISTA),
             SessionId.APPLE_MUSIC: SessionState(SessionId.APPLE_MUSIC),
+            SessionId.HEOS: SessionState(SessionId.HEOS),
         }
         self.active = SessionId.FILES
         # Plik z ``play_local_file``, na którego folder jeszcze czekamy.
@@ -1412,6 +1418,7 @@ class Navigator:
             SessionId.FRONTIER_SMART: "Frontier Smart",
             SessionId.RADIOARCHIWISTA: "Radio Archiwista",
             SessionId.APPLE_MUSIC: "Apple Music",
+            SessionId.HEOS: "HEOS",
         }[session_id]
 
     def capture_transient_navigation(self) -> TransientNavigationSnapshot:

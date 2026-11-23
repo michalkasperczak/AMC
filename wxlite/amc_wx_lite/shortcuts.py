@@ -107,6 +107,7 @@ class Action(Enum):
     SESSION_FRONTIER_SMART = "session.frontierSmart"
     SESSION_RADIOARCHIWISTA = "session.radioarchiwista"
     SESSION_APPLE_MUSIC = "session.appleMusic"
+    SESSION_HEOS = "session.heos"
     SESSION_LIST = "session.list"
     SESSION_ENABLE = "session.enable"
     SESSION_DISABLE_CURRENT = "session.disableCurrent"
@@ -694,6 +695,12 @@ _CTRL_F5_PRESENTATIONS: dict[str, CommandPresentation] = {
         "Sprawdź zapisaną sesję albo świadomie rozpocznij ponowne logowanie do Apple Music",
         "Ctrl+F5",
     ),
+    "heos": CommandPresentation(
+        Action.SESSION_CONFIGURE_CURRENT,
+        "Urządzenia i grupy HEOS",
+        "Wyszukaj urządzenia HEOS w sieci lokalnej lub podaj ich adres IP",
+        "Ctrl+F5",
+    ),
 }
 
 
@@ -757,6 +764,7 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_FRONTIER_SMART,
     Action.SESSION_RADIOARCHIWISTA,
     Action.SESSION_APPLE_MUSIC,
+    Action.SESSION_HEOS,
     Action.SESSION_LIST,
     Action.SESSION_ENABLE,
     Action.SESSION_DISABLE_CURRENT,
@@ -931,6 +939,7 @@ SPOTIFY_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_FRONTIER_SMART,
     Action.SESSION_RADIOARCHIWISTA,
     Action.SESSION_APPLE_MUSIC,
+    Action.SESSION_HEOS,
     Action.SESSION_LIST,
     Action.SESSION_ENABLE,
     Action.SESSION_DISABLE_CURRENT,
@@ -1074,6 +1083,7 @@ APPLE_MUSIC_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_FRONTIER_SMART,
     Action.SESSION_RADIOARCHIWISTA,
     Action.SESSION_APPLE_MUSIC,
+    Action.SESSION_HEOS,
     Action.SESSION_LIST,
     Action.SESSION_ENABLE,
     Action.SESSION_DISABLE_CURRENT,
@@ -1129,6 +1139,7 @@ WIIM_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_FRONTIER_SMART,
     Action.SESSION_RADIOARCHIWISTA,
     Action.SESSION_APPLE_MUSIC,
+    Action.SESSION_HEOS,
     Action.SESSION_LIST,
     Action.SESSION_ENABLE,
     Action.SESSION_DISABLE_CURRENT,
@@ -1223,6 +1234,7 @@ SONOS_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_FRONTIER_SMART,
     Action.SESSION_RADIOARCHIWISTA,
     Action.SESSION_APPLE_MUSIC,
+    Action.SESSION_HEOS,
     Action.SESSION_LIST,
     Action.SESSION_ENABLE,
     Action.SESSION_DISABLE_CURRENT,
@@ -1327,6 +1339,35 @@ SONOS_SUPPORTED_ACTIONS = frozenset({
 })
 
 
+# HEOS ma własny odtwarzacz sieciowy. Ten zbiór zasila dispatcher, menu,
+# paletę i pomoc; polecenia lokalnego silnika nie przechodzą do HEOS.
+HEOS_SUPPORTED_ACTIONS = frozenset({
+    *SESSION_INDEPENDENT_ACTIONS,
+    Action.SESSION_FILES, Action.SESSION_RADIO, Action.SESSION_PODCASTS,
+    Action.SESSION_TIDAL, Action.SESSION_WIIM, Action.SESSION_SONOS,
+    Action.SESSION_SPOTIFY, Action.SESSION_FRONTIER_SMART,
+    Action.SESSION_RADIOARCHIWISTA, Action.SESSION_APPLE_MUSIC,
+    Action.SESSION_HEOS, Action.SESSION_LIST, Action.SESSION_ENABLE,
+    Action.SESSION_DISABLE_CURRENT, Action.SESSION_CONFIGURE_CURRENT,
+    Action.PREVIOUS_SESSION, Action.NEXT_SESSION, Action.COMMAND_PALETTE,
+    Action.ACTIVATE, Action.PARENT_FOLDER, Action.CLOSE_LIST_PREVIEW,
+    Action.SHOW_PLAYER, Action.SHOW_LIST, Action.PLAY_PAUSE,
+    Action.TOGGLE_MUTE, Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS,
+    Action.VOLUME_UP_5, Action.VOLUME_DOWN_5, Action.VOLUME_UP_1,
+    Action.VOLUME_DOWN_1, Action.VIEW_LIBRARY, Action.VIEW_FAVORITES,
+    Action.VIEW_PLAYLISTS, Action.VIEW_SAVED_QUEUE, Action.ADD_TO_QUEUE,
+    Action.TOGGLE_PLAY_NEXT, Action.FOCUS_FILTER,
+    Action.COPY_NAME, Action.HELP,
+    Action.KEYBOARD_HELP, Action.REPORT_PROBLEM, Action.VERSION_INFO,
+    Action.GENERAL_SETTINGS, Action.REFRESH_COMMON_DATA,
+    Action.COMMON_DATA_STATUS, Action.EXPORT_BACKUP, Action.IMPORT_BACKUP,
+    Action.CHECK_APPLICATION_UPDATE, Action.UPDATE_MEDIA_COMPONENTS,
+} - {
+    Action.VIEW_MUSIC_SONGS, Action.VIEW_MUSIC_ALBUMS,
+    Action.VIEW_MUSIC_ARTISTS,
+})
+
+
 # Frontier Smart jest autonomicznym radiem. Jawna lista chroni przed
 # skierowaniem polecenia lokalnego silnika albo innej usługi do FSAPI.
 FRONTIER_SMART_SUPPORTED_ACTIONS = frozenset({
@@ -1342,6 +1383,7 @@ FRONTIER_SMART_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_FRONTIER_SMART,
     Action.SESSION_RADIOARCHIWISTA,
     Action.SESSION_APPLE_MUSIC,
+    Action.SESSION_HEOS,
     Action.SESSION_LIST,
     Action.SESSION_ENABLE,
     Action.SESSION_DISABLE_CURRENT,
@@ -1446,6 +1488,7 @@ SPOTIFY_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
 APPLE_MUSIC_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
 WIIM_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
 SONOS_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
+HEOS_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
 FRONTIER_SMART_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
 RADIOARCHIWISTA_SUPPORTED_ACTIONS |= _GLOBAL_PREVIEW_ACTIONS
 for _queue_actions in (Action.MOVE_LIST_ITEM_UP, Action.MOVE_LIST_ITEM_DOWN):
@@ -2132,6 +2175,16 @@ SONOS_SESSION_VIEW: dict[str, Action] = {
 }
 
 
+HEOS_SESSION_VIEW: dict[str, Action] = {
+    "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
+    "Ctrl+U": Action.VIEW_FAVORITES,
+    "Ctrl+P": Action.VIEW_PLAYLISTS,
+    "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
+    "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
+    "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
+}
+
+
 SONOS_OWN_STREAMS_VIEW: dict[str, Action] = {
     "Ctrl+N": Action.ADD_SONOS_OWN_STREAM,
     "F2": Action.EDIT_SONOS_OWN_STREAM,
@@ -2172,6 +2225,7 @@ _SHORTCUT_TABLES: tuple[dict[str, Action], ...] = (
     FRONTIER_SMART_SESSION_VIEW,
     RADIOARCHIWISTA_SESSION_VIEW,
     SONOS_SESSION_VIEW,
+    HEOS_SESSION_VIEW,
     SONOS_OWN_STREAMS_VIEW,
     LIST_VIEW,
     RADIO_COLLECTION_LIST_VIEW,
@@ -2205,6 +2259,7 @@ _PROTECTED_SHORTCUT_ACTIONS = frozenset({
     Action.SESSION_FRONTIER_SMART,
     Action.SESSION_RADIOARCHIWISTA,
     Action.SESSION_APPLE_MUSIC,
+    Action.SESSION_HEOS,
     Action.SESSION_LIST,
     Action.PREVIOUS_SESSION,
     Action.NEXT_SESSION,
@@ -2418,6 +2473,7 @@ def _resolve_default(
     frontier_smart_session: bool = False,
     radioarchiwista_session: bool = False,
     sonos_session: bool = False,
+    heos_session: bool = False,
     sonos_own_streams: bool = False,
     service_history: bool = False,
 ) -> Action | None:
@@ -2434,7 +2490,7 @@ def _resolve_default(
     if canonical in {"Shift+C", "Shift+M"}:
         action = Action.CAST_SESSION if canonical == "Shift+C" else Action.MIRROR_SESSION
         return (action if not any((tidal_session, spotify_session,
-                apple_music_session, wiim_session, sonos_session,
+                apple_music_session, wiim_session, sonos_session, heos_session,
                 frontier_smart_session, radioarchiwista_session)) else None)
     if canonical in GLOBAL_VIEW_SHORTCUTS:
         action = GLOBAL_VIEW_SHORTCUTS[canonical]
@@ -2574,6 +2630,8 @@ def _resolve_default(
         return SONOS_OWN_STREAMS_VIEW[canonical] if sonos_own_streams else None
     if sonos_session and canonical in SONOS_SESSION_VIEW:
         return SONOS_SESSION_VIEW[canonical]
+    if heos_session and canonical in HEOS_SESSION_VIEW:
+        return HEOS_SESSION_VIEW[canonical]
     if sonos_session and canonical in {"Ctrl+[", "Ctrl+]"}:
         # Sonos nie używa lokalnych wyjść Windows. Jego celem jest grupa pod
         # Ctrl+F5; nie wysyłamy tych gestów do dialogu urządzeń komputera.
@@ -2609,7 +2667,8 @@ def _resolve_default(
     if (
         player_view
         and canonical == "R"
-        and (tidal_session or wiim_session or sonos_session or frontier_smart_session)
+        and (tidal_session or wiim_session or sonos_session or heos_session
+             or frontier_smart_session)
     ):
         return None
     return table.get(canonical)
@@ -2665,6 +2724,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.SESSION_FRONTIER_SMART: "Frontier Smart",
         Action.SESSION_RADIOARCHIWISTA: "Radio Archiwista",
         Action.SESSION_APPLE_MUSIC: "Apple Music",
+        Action.SESSION_HEOS: "HEOS",
         Action.SESSION_LIST: (
             "Menedżer sesji: Enter przełącza, Spacja włącza lub wyłącza, "
             "Alt+strzałka zmienia kolejność"
@@ -3078,6 +3138,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         FRONTIER_SMART_SESSION_VIEW,
         RADIOARCHIWISTA_SESSION_VIEW,
         SONOS_SESSION_VIEW,
+        HEOS_SESSION_VIEW,
         LIST_VIEW,
         RADIO_COLLECTION_LIST_VIEW,
         RADIO_LIST_VIEW,
@@ -3156,6 +3217,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.SESSION_FRONTIER_SMART,
         Action.SESSION_RADIOARCHIWISTA,
         Action.SESSION_APPLE_MUSIC,
+    Action.SESSION_HEOS,
         Action.APPLE_MUSIC_OPEN_ORIGINAL,
         Action.TIDAL_PLAY_NATIVE,
         Action.TIDAL_OPEN_ORIGINAL,
@@ -3237,6 +3299,23 @@ def describe_action(
     action: Action, session_label: str | None = None, *, downloaded_files: bool = False
 ) -> str:
     """Jedna użytkowa nazwa polecenia dla Pomocy klawiatury Ctrl+F1."""
+    if (session_label or "").casefold() == "heos":
+        heos_labels = {
+            Action.SESSION_CONFIGURE_CURRENT: "Wyszukaj głośniki i grupy HEOS albo podaj lokalny adres IP",
+            Action.VIEW_LIBRARY: "Otwórz Bibliotekę źródeł HEOS",
+            Action.VIEW_FAVORITES: "Otwórz Ulubione udostępnione przez HEOS",
+            Action.VIEW_PLAYLISTS: "Otwórz Playlisty udostępnione przez HEOS",
+            Action.VIEW_SAVED_QUEUE: "Pokaż kolejkę wybranego głośnika HEOS",
+            Action.ADD_TO_QUEUE: "Dodaj odtwarzalną pozycję na koniec kolejki HEOS",
+            Action.TOGGLE_PLAY_NEXT: "Dodaj odtwarzalną pozycję jako następną w kolejce HEOS",
+            Action.ACTIVATE: "Wybierz głośnik, otwórz katalog albo uruchom pozycję HEOS",
+            Action.PLAY_PAUSE: "Wstrzymaj lub wznów odtwarzanie na wybranym głośniku HEOS",
+            Action.TOGGLE_MUTE: "Wycisz lub włącz dźwięk wybranego głośnika HEOS",
+            Action.QUEUE_NEXT: "Przejdź do następnej pozycji na głośniku HEOS",
+            Action.QUEUE_PREVIOUS: "Przejdź do poprzedniej pozycji na głośniku HEOS",
+        }
+        if action in heos_labels:
+            return i18n.ui_text(heos_labels[action])
     if downloaded_files and action in DOWNLOAD_HISTORY_COPY_LABELS:
         return DOWNLOAD_HISTORY_COPY_LABELS[action]
     if (

@@ -25,6 +25,7 @@ SESSION_LABELS: dict[SessionId, str] = {
     SessionId.FRONTIER_SMART: "Frontier Smart",
     SessionId.RADIOARCHIWISTA: "Radio Archiwista",
     SessionId.APPLE_MUSIC: "Apple Music",
+    SessionId.HEOS: "HEOS",
 }
 
 

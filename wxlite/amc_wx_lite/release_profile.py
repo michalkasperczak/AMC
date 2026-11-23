@@ -101,6 +101,7 @@ TEST_PROFILE = ReleaseProfile(
         "frontierSmart",
         "radioarchiwista",
         "appleMusic",
+        "heos",
     ),
     capabilities=_COMMON_CAPABILITIES
     + (
@@ -115,6 +116,7 @@ TEST_PROFILE = ReleaseProfile(
         VIDEO_PREVIEW_CAPABILITY,
         "apple-music.experimental",
         "session.apple-music",
+        "session.heos",
     ),
 )
 
@@ -132,13 +134,14 @@ PUBLIC_PROFILE = ReleaseProfile(
     credential_namespace="AccessibleMediaController.Public",
     session_ids=tuple(
         session for session in TEST_PROFILE.session_ids
-        if session != "appleMusic"
+        if session not in {"appleMusic", "heos"}
     ),
     capabilities=tuple(
         capability for capability in TEST_PROFILE.capabilities
         if capability not in {
             "apple-music.experimental",
             "session.apple-music",
+            "session.heos",
             VIDEO_PREVIEW_CAPABILITY,
         }
     ),

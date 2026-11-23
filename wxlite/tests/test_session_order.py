@@ -58,7 +58,7 @@ def test_tenth_session_uses_ctrl_zero_without_dropping_apple_music() -> None:
     first_nine = [
         session.value
         for session in SessionId
-        if session is not SessionId.APPLE_MUSIC
+        if session not in (SessionId.APPLE_MUSIC, SessionId.HEOS)
     ]
 
     enabled, message = enable(SessionId.APPLE_MUSIC, first_nine)
@@ -73,6 +73,21 @@ def test_tenth_session_uses_ctrl_zero_without_dropping_apple_music() -> None:
     assert dict(manager_labels(enabled))[SessionId.APPLE_MUSIC].startswith(
         "Ctrl+0, Apple Music, włączona"
     )
+
+
+def test_heos_is_opt_in_without_renumbering_existing_sessions() -> None:
+    existing = [session.value for session in SessionId if session is not SessionId.HEOS]
+    assert len(normalize(existing)) == 10
+    unchanged, message = enable(SessionId.HEOS, existing)
+    assert unchanged == normalize(existing)
+    assert "dziesięć" in message
+    shorter, _current, _message = disable(
+        SessionId.APPLE_MUSIC, existing, current=SessionId.FILES,
+    )
+    enabled, message = enable(SessionId.HEOS, shorter)
+    assert enabled[-1] is SessionId.HEOS
+    assert action_for_slot(10, enabled) is Action.SESSION_HEOS
+    assert message == "Włączono sesję HEOS, Ctrl+0"
 
 
 def test_enable_disable_reenable_and_move_keep_compact_slots() -> None:

@@ -86,6 +86,7 @@ class HeosStatus:
     artist: str
     album: str
     state_label: str
+    play_state: str
     volume: int | None
     muted: bool | None
     media_type: str
@@ -131,6 +132,7 @@ def playback_status(play: object, media: object, volume: object, mute: object) -
         artist=_text(details.get("artist")),
         album=_text(details.get("album")),
         state_label={"play": "odtwarzanie", "pause": "wstrzymane", "stop": "zatrzymane"}.get(state, ""),
+        play_state=state if state in {"play", "pause", "stop"} else "",
         volume=level,
         muted=muted,
         media_type=_text(details.get("type")),

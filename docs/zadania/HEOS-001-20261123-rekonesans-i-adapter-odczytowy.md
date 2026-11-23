@@ -74,3 +74,22 @@ Wcześniejsze zdanie, że brak `payload` kończy się `HeosProtocolError`, opisu
 Dodano jawne polecenia dodania do kolejki w czterech różnych trybach; zastąpienie kolejki wymaga osobnego potwierdzenia wywołującego. Uruchomienie pozycji o przesuwającym się `qid` wymaga ponownego odczytu i zgodności odcisku pełnej kolejki. Radio korzysta z odrębnego polecenia stacji. Testy tych poleceń korzystały wyłącznie z atrap, więc nie dowodzą zgodności sterowania z fizycznym głośnikiem. Nowy model nawigacji odrzuca wyniki poprzedniej listy lub poprzedniego celu oraz przywraca identyfikator zaznaczonego kontenera po Backspace. Tekst dla NVDA pozostaje nazwą użytkową, bez technicznych identyfikatorów.
 
 Nie wykonano testów GUI/NVDA, kompilacji, instalacji ani publikacji. Następnym etapem jest podłączenie sesji AMC Test wraz ze wspólnym routingiem, menu, pomocą i paletą poleceń. Dopiero po gotowym interfejsie trzeba uzgodnić fizyczne próby zmieniające odtwarzanie i kolejkę.
+
+## Etap interfejsu — 23.11.2026
+
+Ta sekcja zastępuje wcześniejsze stwierdzenia w tym raporcie, że sesja HEOS nie jest podłączona do GUI. Kod sesji jest przygotowany na izolowanej gałęzi następnej wersji AMC Test; **nie ma go w zainstalowanej ani opublikowanej wersji**.
+
+- HEOS jest osobną sesją Test, domyślnie wyłączoną w Menedżerze sesji. Włączenie wymaga wolnego miejsca w limicie dziesięciu sesji i nie przenumerowuje dotychczasowych skrótów. Profil Public nie pokazuje HEOS.
+- Po wejściu do sesji AMC wyszukuje urządzenia i istniejące grupy. Ctrl+F5 daje wybór ponownego wykrycia albo ręcznego adresu IP. Enter wybiera cel bez zmiany odtwarzania i otwiera odtwarzacz. Ctrl+L pokazuje zmienną listę źródeł; Enter otwiera katalog lub odtwarza pozycję; Backspace wraca do rodzica. Ctrl+U otwiera Ulubione, Ctrl+P Playlisty, Ctrl+Q kolejkę. Ctrl+Shift+Q dodaje odtwarzalną pozycję na koniec kolejki, Ctrl+Shift+Enter jako następną; stacje nie są tak dodawane. Akcje kolejki wymagają odczytu przed i po zmianie. Spacja steruje play/pauzą, Page Up/Down poprzednią/następną pozycją, Ctrl+M wyciszeniem; suwak i istniejące skróty głośności sterują wybranym celem.
+- Każdy widok ma użytkową nazwę dostępną dla NVDA, a identyfikatory HEOS pozostają w modelu. Wyniki list z poprzedniego widoku lub celu są odrzucane. Dźwięk gra na urządzeniu; zamknięcie AMC nie wysyła Stop. Filtr dotyczy tylko aktualnie wczytanych pozycji, nie całego zdalnego katalogu.
+- Wspólny model poleceń zasila routing klawiatury, menu, paletę i pomoc. Test parytetu porównuje dla HEOS skrót, widoczność w menu i palecie, opis w pomocy oraz przekierowanie wykonania. Testy obejmują także jawny odczyt kolejki po dodaniu.
+
+Test bez otwierania okien: `cd wxlite; python -m pytest -q tests/test_heos_session_contract.py tests/test_menu_exposes_existing_actions.py tests/test_session_order.py tests/test_session_manager.py tests/test_release_profile.py tests/test_command_palette.py tests/test_shortcuts.py tests/test_shortcut_customization.py tests/test_heos_client.py tests/test_heos_source.py tests/test_heos_navigation.py tests/test_heos_service.py tests/test_heos_rows.py` — **195 passed w 5,39 s**. `py_compile` GUI, skrótów i menu oraz `git diff --check` przeszły. Próba sprzętowa pozostała wyłącznie odczytowa; nie sprawdzono jeszcze sterowania, dźwięku, fizycznego NVDA, instalacji ani budowy na GitHubie. Obowiązuje wcześniejsza decyzja o osobnym uzgodnieniu mutujących testów na głośniku.
+
+### Szkic instrukcji dla użytkownika — do korekty Michała
+
+W Menedżerze sesji włącz HEOS i przełącz się do niego. Wybierz głośnik Enterem. Jeśli go nie widać, użyj Ctrl+F5 do ponownego wyszukania lub wpisania adresu IP. Ctrl+L otwiera Bibliotekę źródeł, Ctrl+U Ulubione, Ctrl+P Playlisty, a Ctrl+Q kolejkę. Enter otwiera folder albo odtwarza pozycję; Backspace wraca. Ctrl+Shift+Q dodaje utwór na koniec kolejki, a Ctrl+Shift+Enter jako następny. Spacja wstrzymuje lub wznawia, Page Up/Down zmienia pozycję, Ctrl+M wycisza. Muzyka pozostaje na głośniku HEOS. Dostępne źródła zależą od jego konfiguracji.
+
+### Szkic changelogu — do korekty Michała
+
+AMC Test: dodano opcjonalną sesję HEOS z wykrywaniem urządzeń, ręcznym adresem IP, przeglądaniem dostępnych źródeł, podglądem i dodawaniem do kolejki oraz podstawowym sterowaniem odtwarzaniem i głośnością. AMC Public nie udostępnia sesji HEOS. Kompatybilność sterowania z Denon Home 200 i odbiór NVDA pozostają do potwierdzenia przed szerszym udostępnieniem.

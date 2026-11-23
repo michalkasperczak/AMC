@@ -104,7 +104,7 @@ def test_enabling_apple_music_as_tenth_session_is_saved_with_ctrl_zero() -> None
     first_nine = [
         session.value
         for session in SessionId
-        if session is not SessionId.APPLE_MUSIC
+        if session not in (SessionId.APPLE_MUSIC, SessionId.HEOS)
     ]
     frame = _frame(first_nine, SessionId.FILES)
 

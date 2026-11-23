@@ -255,6 +255,7 @@ from .shortcuts import (
     Chord,
     DOWNLOAD_HISTORY_COPY_LABELS,
     FRONTIER_SMART_SUPPORTED_ACTIONS,
+    HEOS_SUPPORTED_ACTIONS,
     RADIOARCHIWISTA_SUPPORTED_ACTIONS,
     GLOBAL_VIEW_SHORTCUTS,
     MUSIC_CATEGORY_SHORTCUTS,
@@ -351,6 +352,17 @@ if "session.sonos" in _RELEASE_PROFILE.capabilities:
     )
 if "sonos.local" in _RELEASE_PROFILE.capabilities:
     from .sonos_local import LocalSonosClient
+from .heos_client import (
+    HeosCommandError, HeosControlClient, HeosError, HeosListUnavailable,
+    discover_heos,
+)
+from .heos_navigation import HeosBrowseState
+from .heos_rows import catalog_rows as heos_catalog_rows
+from .heos_rows import queue_rows as heos_queue_rows
+from .heos_rows import source_rows as heos_source_rows
+from .heos_rows import target_rows as heos_target_rows
+from .heos_service import HeosService
+from .heos_source import HeosItem, HeosQueueItem, HeosSource, HeosTarget
 from .profile_layout import common_data_snapshot_path, resolve_layout
 from .full_backup import (
     ALL_SECTIONS,
@@ -11197,6 +11209,20 @@ class LiteFrame(wx.Frame):
         self._sonos_command_queue: list[
             tuple[str, str, str, int | None, float | None, int]
         ] = []
+        self._heos_state = HeosBrowseState()
+        self._heos_service: HeosService | None = None
+        self._heos_host = ""
+        self._heos_status = None
+        self._heos_catalog_cursor = 0
+        self._heos_catalog_more = False
+        self._heos_connection_version = 0
+        self._heos_control_pending = False
+        self._heos_list_pending = False
+        self._heos_status_pending = False
+        self._heos_status_due = 0.0
+        self._heos_status_error_reported = False
+        self._heos_pending_volume: int | None = None
+        self._heos_volume_call = None
         # Ostatni świadomie uruchomiony preset osobno dla każdej sesji. Jest
         # stanem bieżącego procesu, nie profilem ani tekstem dla NVDA.
         self._last_preset_slot_by_session: dict[SessionId, int] = {}
@@ -11308,6 +11334,12 @@ class LiteFrame(wx.Frame):
             "Grupy Sonos",
             self.navigator.sessions[SessionId.SONOS],
         )
+        self.heos_list = MediaListCtrl(
+            self.list_panel,
+            self.navigator.sessions[SessionId.HEOS].model,
+            "Urządzenia i grupy HEOS",
+            self.navigator.sessions[SessionId.HEOS],
+        )
         self.radio_list.Hide()
         self.podcasts_list.Hide()
         self.tidal_list.Hide()
@@ -11317,6 +11349,7 @@ class LiteFrame(wx.Frame):
         self.frontier_smart_list.Hide()
         self.radioarchiwista_list.Hide()
         self.sonos_list.Hide()
+        self.heos_list.Hide()
         list_sizer = wx.BoxSizer(wx.VERTICAL)
         list_sizer.Add(self.filter_label, 0, wx.BOTTOM, 3)
         list_sizer.Add(self.filter_box, 0, wx.EXPAND | wx.BOTTOM, 8)
@@ -11330,6 +11363,7 @@ class LiteFrame(wx.Frame):
         list_sizer.Add(self.frontier_smart_list, 1, wx.EXPAND)
         list_sizer.Add(self.radioarchiwista_list, 1, wx.EXPAND)
         list_sizer.Add(self.sonos_list, 1, wx.EXPAND)
+        list_sizer.Add(self.heos_list, 1, wx.EXPAND)
         self.list_panel.SetSizer(list_sizer)
 
         # --- widok odtwarzacza (zwykle kontrolki, nie wlasne rysowanie)
@@ -11625,6 +11659,8 @@ class LiteFrame(wx.Frame):
             playing = bool(getattr(self, "_wiim_active_device_id", ""))
         elif self.navigator.active is SessionId.SONOS:
             playing = bool(getattr(self, "_sonos_active_group_id", ""))
+        elif self.navigator.active is SessionId.HEOS:
+            playing = self._heos_state.selected_target is not None
         elif self.navigator.active is SessionId.FRONTIER_SMART:
             playing = bool(getattr(self, "_frontier_smart_active_device_id", ""))
         else:
@@ -12118,6 +12154,8 @@ class LiteFrame(wx.Frame):
                         or self.navigator.active is SessionId.RADIOARCHIWISTA
                         and selected_kind == "recording"
                         and bool(selected_row.url)
+                        or self.navigator.active is SessionId.HEOS
+                        and self._heos_selected_queue_candidate() is not None
                     )
                 )
                 if not queue_item:
@@ -12132,6 +12170,8 @@ class LiteFrame(wx.Frame):
                     or self.navigator.active is SessionId.RADIOARCHIWISTA
                     and selected_kind == "recording"
                     and bool(selected_row.url)
+                    or self.navigator.active is SessionId.HEOS
+                    and self._heos_selected_queue_candidate() is not None
                 )
             ):
                 enabled = False
@@ -12678,6 +12718,7 @@ class LiteFrame(wx.Frame):
             self.frontier_smart_list,
             self.radioarchiwista_list,
             self.sonos_list,
+            self.heos_list,
         ):
             self._bind_list(control)
         for control in (self.player_panel, self.play_button):
@@ -18105,6 +18146,7 @@ class LiteFrame(wx.Frame):
                 is LibraryView.WIIM_NETWORK_STREAMS
             ),
             sonos_session=self.navigator.active is SessionId.SONOS,
+            heos_session=self.navigator.active is SessionId.HEOS,
             frontier_smart_session=(
                 self.navigator.active is SessionId.FRONTIER_SMART
             ),
@@ -18243,6 +18285,23 @@ class LiteFrame(wx.Frame):
                     "Ta funkcja nie jest jeszcze dostępna w sesji Apple Music"
                 )
                 return
+        if self.navigator.active is SessionId.HEOS:
+            if action not in HEOS_SUPPORTED_ACTIONS:
+                self.announcer.say("To polecenie nie jest dostępne w sesji HEOS")
+                return
+            if action in {
+                Action.ACTIVATE, Action.PARENT_FOLDER, Action.CLOSE_LIST_PREVIEW,
+                Action.SHOW_PLAYER, Action.SHOW_LIST,
+                Action.VIEW_LIBRARY, Action.VIEW_FAVORITES,
+                Action.VIEW_PLAYLISTS, Action.VIEW_SAVED_QUEUE,
+                Action.PLAY_PAUSE, Action.TOGGLE_MUTE,
+                Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS,
+                Action.ADD_TO_QUEUE, Action.TOGGLE_PLAY_NEXT,
+                Action.VOLUME_UP_5, Action.VOLUME_DOWN_5,
+                Action.VOLUME_UP_1, Action.VOLUME_DOWN_1,
+            }:
+                self._dispatch_heos(action)
+                return
         if action is Action.SESSION_FILES:
             self._transient_preview_return = None
             self._switch_session(SessionId.FILES)
@@ -18273,6 +18332,9 @@ class LiteFrame(wx.Frame):
         elif action is Action.SESSION_APPLE_MUSIC:
             self._transient_preview_return = None
             self._switch_session(SessionId.APPLE_MUSIC)
+        elif action is Action.SESSION_HEOS:
+            self._transient_preview_return = None
+            self._switch_session(SessionId.HEOS)
         elif action is Action.SESSION_LIST:
             self._show_session_list()
         elif action is Action.SESSION_ENABLE:
@@ -19872,6 +19934,7 @@ class LiteFrame(wx.Frame):
             SessionId.FRONTIER_SMART: "Frontier Smart",
             SessionId.RADIOARCHIWISTA: "Radio Archiwista",
             SessionId.APPLE_MUSIC: "Apple Music",
+            SessionId.HEOS: "HEOS",
         }[self.navigator.active]))
 
         active_list = self._active_list()
@@ -19904,6 +19967,10 @@ class LiteFrame(wx.Frame):
             LibraryView.SONOS_FAVORITES: "Ulubione Sonos",
             LibraryView.SONOS_PLAYLISTS: "Playlisty Sonos",
             LibraryView.SONOS_OWN_STREAMS: "Moje stacje Sonos",
+            LibraryView.HEOS_TARGETS: "Urządzenia i grupy HEOS",
+            LibraryView.HEOS_SOURCES: "Biblioteka HEOS",
+            LibraryView.HEOS_CATALOG: self._heos_state.location.title,
+            LibraryView.HEOS_QUEUE: "Kolejka HEOS",
             LibraryView.SPOTIFY_LIBRARY: "Biblioteka Spotify",
             LibraryView.SPOTIFY_CONTAINER: session.spotify_heading,
             LibraryView.SPOTIFY_HISTORY: "Spotify — Historia odtwarzania",
@@ -19935,6 +20002,7 @@ class LiteFrame(wx.Frame):
                 getattr(self, "apple_music_list", None),
                 getattr(self, "wiim_list", None),
                 getattr(self, "sonos_list", None),
+                getattr(self, "heos_list", None),
                 getattr(self, "frontier_smart_list", None),
                 getattr(self, "radioarchiwista_list", None),
             )
@@ -20021,6 +20089,11 @@ class LiteFrame(wx.Frame):
                     self._update_native_playback_status(snapshot)
                 else:
                     bar.show(self._nvda_now_playing_message())
+        elif self.navigator.active is SessionId.HEOS:
+            self.status_bar.show(
+                self._heos_status.spoken_label() if self._heos_status is not None
+                else "Wybierz głośnik HEOS"
+            )
 
         if (
             previous_status_session is not self.navigator.active
@@ -20038,6 +20111,7 @@ class LiteFrame(wx.Frame):
         tidal_external = self.navigator.active is SessionId.TIDAL
         wiim_remote = self.navigator.active is SessionId.WIIM
         sonos_remote = self.navigator.active is SessionId.SONOS
+        heos_remote = self.navigator.active is SessionId.HEOS
         frontier_smart_remote = (
             self.navigator.active is SessionId.FRONTIER_SMART
         )
@@ -20074,6 +20148,10 @@ class LiteFrame(wx.Frame):
             # zostawiala w odtwarzaczu tylko przycisk Anuluj/Wstrzymaj.
             not tidal_external and wiim_ready
             and (not sonos_remote or sonos_volume)
+            and (not heos_remote or (
+                self._heos_status is not None
+                and self._heos_status.volume is not None
+            ))
             and (not frontier_smart_remote or frontier_smart_volume)
         )
         self.rate_choice.Enable(not (
@@ -20081,6 +20159,7 @@ class LiteFrame(wx.Frame):
             or self.navigator.active is SessionId.SPOTIFY
             or wiim_remote
             or sonos_remote
+            or heos_remote
             or frontier_smart_remote
         ))
 
@@ -20121,6 +20200,8 @@ class LiteFrame(wx.Frame):
             return self.wiim_list
         if self.navigator.active is SessionId.SONOS:
             return self.sonos_list
+        if self.navigator.active is SessionId.HEOS:
+            return self.heos_list
         if self.navigator.active is SessionId.FRONTIER_SMART:
             return self.frontier_smart_list
         if self.navigator.active is SessionId.RADIOARCHIWISTA:
@@ -22392,6 +22473,13 @@ class LiteFrame(wx.Frame):
             state = self.navigator.sessions[SessionId.SONOS]
             if not state.model.rows:
                 self._load_sonos_targets(preferred_id=state.list_anchor_id)
+        elif session_id is SessionId.HEOS:
+            if self._heos_service is None and initialize_if_empty:
+                self._load_heos_targets()
+            else:
+                self._heos_render()
+                if self._heos_service is not None:
+                    self._heos_refresh_status(force=True)
 
     def _session_readiness(self) -> dict[SessionId, str]:
         """Tylko lokalne, już znane stany; samo otwarcie niczego nie loguje."""
@@ -22417,6 +22505,10 @@ class LiteFrame(wx.Frame):
                 if getattr(self, "_sonos_active_group_id", "")
                 or self.navigator.sessions[SessionId.SONOS].sonos_target_rows
                 else "Wymaga wyszukania głośników"
+            ),
+            SessionId.HEOS: (
+                "Gotowa" if self._heos_state.selected_target is not None
+                else "Wymaga wybrania głośnika"
             ),
             SessionId.RADIOARCHIWISTA: (
                 "Gotowa"
@@ -23383,6 +23475,7 @@ class LiteFrame(wx.Frame):
             configure_frontier_if_empty=(
                 session_id is not SessionId.FRONTIER_SMART
             ),
+            initialize_if_empty=session_id is not SessionId.HEOS,
         )
         if session_id is SessionId.FILES:
             wx.CallAfter(self._show_library_folders)
@@ -23412,6 +23505,9 @@ class LiteFrame(wx.Frame):
             return
         if session_id is SessionId.SONOS:
             self._select_sonos_target()
+            return
+        if session_id is SessionId.HEOS:
+            self._configure_heos_target()
             return
 
     def _show_radio_browser(self) -> None:
@@ -25009,6 +25105,493 @@ class LiteFrame(wx.Frame):
             done,
             failed,
         )
+
+    # ---------------------------------------------------------------- HEOS
+
+    def _heos_failure(self, error: Exception) -> None:
+        if self.navigator.active is not SessionId.HEOS:
+            return
+        if isinstance(error, (ValueError, HeosListUnavailable)):
+            self.announcer.say(str(error))
+        else:
+            self.announcer.say("Urządzenie HEOS nie odpowiada lub odrzuciło polecenie")
+
+    def _configure_heos_target(self) -> None:
+        choices = ["Wyszukaj urządzenia HEOS", "Podaj adres IP urządzenia"]
+        with wx.SingleChoiceDialog(
+            self, "Wybierz sposób połączenia z HEOS",
+            "Urządzenia i grupy HEOS", choices,
+        ) as dialog:
+            dialog.SetName("Sposób połączenia z HEOS")
+            if dialog.ShowModal() != wx.ID_OK:
+                self._restore_focus_after_dialog()
+                return
+            manual = dialog.GetSelection() == 1
+        if not manual:
+            self._load_heos_targets()
+            return
+        with wx.TextEntryDialog(
+            self, "Podaj lokalny adres IP urządzenia HEOS",
+            "Adres urządzenia HEOS",
+        ) as dialog:
+            dialog.SetName("Adres IP urządzenia HEOS")
+            if dialog.ShowModal() != wx.ID_OK:
+                self._restore_focus_after_dialog()
+                return
+            address = dialog.GetValue().strip()
+        self._load_heos_targets(address)
+
+    def _load_heos_targets(self, manual_host: str = "") -> None:
+        self._heos_connection_version += 1
+        self._heos_pending_volume = None
+        version = self._heos_connection_version
+        self._heos_state.show_targets()
+        self.navigator.sessions[SessionId.HEOS].view = View.LIST
+        self._heos_render()
+        self.announcer.say("Wyszukuję głośniki i grupy HEOS")
+
+        def work():
+            hosts = (manual_host,) if manual_host else discover_heos()
+            for host in hosts:
+                client = HeosControlClient(host)
+                service = HeosService(client)
+                try:
+                    targets = service.targets()
+                except HeosError:
+                    service.close()
+                    continue
+                if targets:
+                    return host, service, targets
+                service.close()
+            return None
+
+        def done(result):
+            if version != self._heos_connection_version:
+                if result is not None:
+                    result[1].close()
+                return
+            if result is None:
+                self._heos_state.set_targets(())
+                self._heos_render()
+                self.announcer.say(
+                    "Nie znaleziono urządzenia HEOS. Ctrl+F5 pozwala podać adres IP"
+                )
+                return
+            host, service, targets = result
+            old_service = self._heos_service
+            if host != self._heos_host:
+                self._heos_state = HeosBrowseState()
+                self._heos_status = None
+            self._heos_host = host
+            self._heos_service = service
+            self._heos_state.set_targets(targets)
+            self._heos_state.show_targets()
+            self._heos_render()
+            if old_service is not None and old_service is not service:
+                self.runner.submit(
+                    "heos-close-previous", old_service.close,
+                    lambda _result: None, lambda _error: None,
+                )
+            if self.navigator.active is SessionId.HEOS:
+                self.announcer.say(f"Znaleziono {len(targets)} urządzeń lub grup HEOS")
+
+        self.runner.submit("heos-discovery", work, done, self._heos_failure)
+
+    def _heos_render(self) -> None:
+        state = self._heos_state
+        session = self.navigator.sessions[SessionId.HEOS]
+        session.library_view = {
+            "targets": LibraryView.HEOS_TARGETS,
+            "sources": LibraryView.HEOS_SOURCES,
+            "catalog": LibraryView.HEOS_CATALOG,
+            "queue": LibraryView.HEOS_QUEUE,
+        }[state.location.kind]
+        session.library_playlist_id = state.location.source_id or None
+        session.library_item_id = state.location.container_id or None
+        if state.location.kind == "targets":
+            rows = heos_target_rows(state.targets)
+        elif state.location.kind == "sources":
+            rows = heos_source_rows(state.items)
+        elif state.location.kind == "queue":
+            rows = heos_queue_rows(state.items)
+        else:
+            rows = heos_catalog_rows(state.items)
+            if self._heos_catalog_more:
+                rows += (Row("heos:load-more", "Wczytaj więcej pozycji", "loadMore"),)
+        model = self.navigator.sessions[SessionId.HEOS].model
+        model.replace(rows, preferred_id=state.selected_item_id or None)
+        state.selected_item_id = model.selected_id or ""
+        if self.navigator.active is SessionId.HEOS:
+            self._sync_views()
+            self.heos_list.set_accessible_label(state.location.title)
+
+    def _heos_load_location(self, *, announce: bool = True) -> None:
+        state = self._heos_state
+        service = self._heos_service
+        target = state.selected_target
+        if state.location.kind == "targets":
+            self._heos_render()
+            return
+        if service is None or target is None:
+            self.announcer.say("Najpierw wybierz głośnik HEOS")
+            return
+        location = state.location
+        ticket = state.begin_list_request()
+        self._heos_list_pending = True
+        self._heos_catalog_more = False
+        self._heos_render()
+        if self.navigator.active is SessionId.HEOS and announce:
+            self.announcer.say(f"Wczytuję {location.title}")
+
+        def work():
+            if location.kind == "sources":
+                return service.sources()
+            if location.kind == "queue":
+                return service.queue(target.player_id)
+            return service.catalog_page(location.source_id, location.container_id)
+
+        def done(result):
+            if not state.accepts(ticket):
+                return
+            self._heos_list_pending = False
+            if location.kind == "catalog":
+                items = result.items
+                more = result.has_more
+                cursor = result.next_start
+            else:
+                items = result
+                more = False
+                cursor = 0
+            if not state.apply_list(ticket, items):
+                return
+            self._heos_catalog_more = more
+            self._heos_catalog_cursor = cursor
+            self._heos_render()
+            if self.navigator.active is SessionId.HEOS and self.navigator.view is View.LIST and announce:
+                self.announcer.say(
+                    f"{location.title}, {len(items)} pozycji"
+                    if items else f"{location.title}, lista jest pusta"
+                )
+
+        def failed(error):
+            if not state.accepts(ticket):
+                return
+            self._heos_list_pending = False
+            if (location.kind == "queue"
+                    and isinstance(error, (HeosCommandError, HeosListUnavailable))):
+                self.announcer.say("To źródło nie udostępnia kolejki HEOS")
+            else:
+                self._heos_failure(error)
+
+        self.runner.submit("heos-list", work, done, failed)
+
+    def _heos_load_more(self) -> None:
+        state = self._heos_state
+        service = self._heos_service
+        location = state.location
+        if (self._heos_list_pending or not self._heos_catalog_more
+                or service is None or location.kind != "catalog"):
+            return
+        ticket = state.begin_list_request()
+        existing = tuple(state.items)
+        start = self._heos_catalog_cursor
+        self._heos_list_pending = True
+
+        def done(page):
+            if not state.accepts(ticket):
+                return
+            self._heos_list_pending = False
+            if not state.apply_list(ticket, existing + page.items):
+                return
+            self._heos_catalog_cursor = page.next_start
+            self._heos_catalog_more = page.has_more and bool(page.items)
+            self._heos_render()
+
+        def failed(error):
+            if not state.accepts(ticket):
+                return
+            self._heos_list_pending = False
+            self._heos_failure(error)
+
+        self.runner.submit(
+            "heos-list", lambda: service.catalog_page(
+                location.source_id, location.container_id, start=start,
+            ), done, failed,
+        )
+
+    def _heos_apply_status(self, status, target: HeosTarget) -> None:
+        if self._heos_state.selected_target != target:
+            return
+        self._heos_status = status
+        session = self.navigator.sessions[SessionId.HEOS]
+        session.now_playing_id = target.item_id
+        session.now_playing_title = status.title
+        if self.navigator.active is SessionId.HEOS:
+            self._sync_views()
+            self.now_playing.SetLabel(status.spoken_label())
+            self.time_label.SetLabel("Czas niedostępny w HEOS")
+            self._set_transport_label(playing=status.play_state == "play")
+            if status.volume is not None:
+                self.volume_slider.SetValue(status.volume)
+            self.status_bar.show(status.spoken_label())
+            self._update_window_title()
+
+    def _heos_refresh_status(self, *, force: bool = False) -> None:
+        if not force and self.navigator.active is not SessionId.HEOS:
+            return
+        service = self._heos_service
+        target = self._heos_state.selected_target
+        if (service is None or target is None or self._heos_status_pending
+                or self._heos_control_pending):
+            return
+        now = time.monotonic()
+        if not force and now < self._heos_status_due:
+            return
+        self._heos_status_due = now + 4.0
+        self._heos_status_pending = True
+
+        def done(status):
+            self._heos_status_pending = False
+            self._heos_status_error_reported = False
+            if self._heos_service is service:
+                self._heos_apply_status(status, target)
+
+        def failed(error):
+            self._heos_status_pending = False
+            if not self._heos_status_error_reported:
+                self._heos_status_error_reported = True
+                self._heos_failure(error)
+
+        self.runner.submit(
+            "heos-status", lambda: service.status(target.player_id), done, failed,
+        )
+
+    def _heos_control(self, operation, message: str) -> None:
+        service = self._heos_service
+        target = self._heos_state.selected_target
+        if service is None or target is None:
+            self.announcer.say("Najpierw wybierz głośnik HEOS")
+            return
+        if self._heos_control_pending:
+            self.announcer.say("Poczekaj na odpowiedź HEOS")
+            return
+        self._heos_control_pending = True
+
+        def work():
+            operation(service, target.player_id)
+            return service.status(target.player_id)
+
+        def done(status):
+            self._heos_control_pending = False
+            if self._heos_service is service and self._heos_state.selected_target == target:
+                self._heos_apply_status(status, target)
+                if self.navigator.active is SessionId.HEOS:
+                    self.announcer.say(message)
+
+        def failed(error):
+            self._heos_control_pending = False
+            if self.navigator.active is SessionId.HEOS:
+                self.announcer.say(
+                    "Nie można potwierdzić wyniku polecenia HEOS. Odczytuję stan"
+                )
+            self._heos_refresh_status(force=True)
+
+        self.runner.submit("heos-control", work, done, failed)
+
+    def _heos_activate(self) -> None:
+        state = self._heos_state
+        row = self.navigator.sessions[SessionId.HEOS].model.selected_row
+        if row is None:
+            self.announcer.say("Lista HEOS jest pusta")
+            return
+        if row.item_id == "heos:load-more":
+            self._heos_load_more()
+            return
+        state.selected_item_id = row.item_id
+        item = next((entry for entry in state.items
+                     if entry.item_id == row.item_id), None)
+        if state.location.kind == "targets":
+            item = next((entry for entry in state.targets
+                         if entry.item_id == row.item_id), None)
+        if isinstance(item, HeosTarget):
+            state.choose_target(item.item_id)
+            self._heos_pending_volume = None
+            self._heos_status = None
+            session = self.navigator.sessions[SessionId.HEOS]
+            session.now_playing_id = item.item_id
+            session.now_playing_title = item.title
+            session.view = View.PLAYER
+            self._sync_views()
+            self._heos_refresh_status(force=True)
+            self._heos_load_location(announce=False)
+            return
+        if isinstance(item, HeosSource):
+            state.open_source(item)
+            self._heos_load_location()
+            return
+        if isinstance(item, HeosItem):
+            if item.can_open:
+                state.open_item(item)
+                self._heos_load_location()
+            elif item.can_play:
+                self._heos_control(
+                    lambda service, pid: service.play_item(pid, item),
+                    f"HEOS przyjął polecenie dla {item.title}",
+                )
+            return
+        if isinstance(item, HeosQueueItem):
+            self._heos_control(
+                lambda service, pid: service.play_queue_item(pid, item),
+                f"HEOS przyjął polecenie dla {item.title}",
+            )
+
+    def _heos_selected_queue_candidate(self) -> HeosItem | None:
+        state = self._heos_state
+        if state.location.kind != "catalog":
+            return None
+        row = self.navigator.sessions[SessionId.HEOS].model.selected_row
+        if row is None:
+            return None
+        return next((item for item in state.items
+                     if isinstance(item, HeosItem)
+                     and item.item_id == row.item_id
+                     and item.can_play and item.media_type != "station"), None)
+
+    def _heos_enqueue(self, *, next_item: bool) -> None:
+        item = self._heos_selected_queue_candidate()
+        if item is None:
+            self.announcer.say("Wybierz odtwarzalną pozycję katalogu HEOS")
+            return
+
+        def add_and_verify(service, player_id):
+            before = service.queue(player_id)
+            service.play_item(
+                player_id, item, placement="next" if next_item else "end",
+            )
+            after = service.queue(player_id)
+            if len(after) <= len(before):
+                raise ValueError("Nie potwierdzono zmiany kolejki HEOS")
+
+        self._heos_control(
+            add_and_verify,
+            ("HEOS: dodano jako następne: " if next_item
+             else "HEOS: dodano na koniec kolejki: ") + item.title,
+        )
+
+    def _heos_open_named_source(self, kind: str) -> None:
+        service = self._heos_service
+        if service is None or self._heos_state.selected_target is None:
+            self.announcer.say("Najpierw wybierz głośnik HEOS")
+            return
+        state = self._heos_state
+        state.show_sources()
+        self.navigator.sessions[SessionId.HEOS].view = View.LIST
+        self._heos_render()
+        ticket = state.begin_list_request()
+        names = (
+            ("ulubione", "favorites", "favorite") if kind == "favorites"
+            else ("playlisty", "playlists", "playlist")
+        )
+
+        def done(sources):
+            if not state.apply_list(ticket, sources):
+                return
+            source = next((source for source in sources
+                           if any(name in source.title.casefold() for name in names)), None)
+            if source is None:
+                self._heos_render()
+                self.announcer.say(
+                    "HEOS nie udostępnia teraz Ulubionych" if kind == "favorites"
+                    else "HEOS nie udostępnia teraz Playlist"
+                )
+                return
+            state.open_source(source)
+            self._heos_load_location()
+
+        self.runner.submit("heos-list", service.sources, done, self._heos_failure)
+
+    def _dispatch_heos(self, action: Action) -> None:
+        state = self._heos_state
+        if action is Action.ACTIVATE:
+            self._heos_activate()
+        elif action is Action.PARENT_FOLDER:
+            if state.back():
+                self._heos_load_location()
+            elif state.location.kind != "targets":
+                state.show_targets()
+                self._heos_render()
+        elif action is Action.CLOSE_LIST_PREVIEW:
+            if state.location.kind == "queue" and state.back():
+                self._heos_load_location()
+        elif action in (Action.SHOW_PLAYER, Action.SHOW_LIST):
+            session = self.navigator.sessions[SessionId.HEOS]
+            if action is Action.SHOW_LIST or session.view is View.PLAYER:
+                session.view = View.LIST
+            elif state.selected_target is not None:
+                session.view = View.PLAYER
+                self._heos_refresh_status(force=True)
+            else:
+                self.announcer.say("Najpierw wybierz głośnik HEOS")
+                return
+            self._sync_views()
+        elif action is Action.VIEW_LIBRARY:
+            try:
+                state.show_sources()
+            except ValueError as error:
+                self.announcer.say(str(error))
+            else:
+                self.navigator.sessions[SessionId.HEOS].view = View.LIST
+                self._heos_load_location()
+        elif action is Action.VIEW_FAVORITES:
+            self._heos_open_named_source("favorites")
+        elif action is Action.VIEW_PLAYLISTS:
+            self._heos_open_named_source("playlists")
+        elif action is Action.VIEW_SAVED_QUEUE:
+            try:
+                state.show_queue()
+            except ValueError as error:
+                self.announcer.say(str(error))
+            else:
+                self.navigator.sessions[SessionId.HEOS].view = View.LIST
+                self._heos_load_location()
+        elif action in (Action.ADD_TO_QUEUE, Action.TOGGLE_PLAY_NEXT):
+            self._heos_enqueue(next_item=action is Action.TOGGLE_PLAY_NEXT)
+        elif action is Action.PLAY_PAUSE:
+            self._heos_control(
+                lambda service, pid: service.set_play_state(
+                    pid, "pause" if service.status(pid).play_state == "play" else "play"
+                ), "HEOS: zmieniono stan odtwarzania",
+            )
+        elif action is Action.TOGGLE_MUTE:
+            self._heos_control(
+                lambda service, pid: service.set_mute(
+                    pid, service.status(pid).muted is not True
+                ), "HEOS: zmieniono wyciszenie",
+            )
+        elif action in (Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS):
+            self._heos_control(
+                (lambda service, pid: service.next(pid))
+                if action is Action.QUEUE_NEXT
+                else (lambda service, pid: service.previous(pid)),
+                "HEOS: następny utwór" if action is Action.QUEUE_NEXT
+                else "HEOS: poprzedni utwór",
+            )
+        elif action in {
+            Action.VOLUME_UP_5, Action.VOLUME_DOWN_5,
+            Action.VOLUME_UP_1, Action.VOLUME_DOWN_1,
+        }:
+            change = {
+                Action.VOLUME_UP_5: 5, Action.VOLUME_DOWN_5: -5,
+                Action.VOLUME_UP_1: 1, Action.VOLUME_DOWN_1: -1,
+            }[action]
+
+            def volume(service, pid):
+                current = service.status(pid).volume
+                if current is None:
+                    raise ValueError("HEOS nie podał bieżącej głośności")
+                service.set_volume(pid, max(0, min(100, current + change)))
+
+            self._heos_control(volume, "HEOS: zmieniono głośność")
 
     # ---------------------------------------------------------------- Sonos
 
@@ -35288,6 +35871,7 @@ class LiteFrame(wx.Frame):
                 self.frontier_smart_list,
                 self.radioarchiwista_list,
                 self.sonos_list,
+                self.heos_list,
             ):
                 media_list.relocalize_interface()
             archive_state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
@@ -35660,6 +36244,9 @@ class LiteFrame(wx.Frame):
             target.SetFocus()
 
     def _play_pause(self) -> None:
+        if self.navigator.active is SessionId.HEOS:
+            self._dispatch_heos(Action.PLAY_PAUSE)
+            return
         client = self.client
         if client is None:
             return
@@ -35824,6 +36411,9 @@ class LiteFrame(wx.Frame):
         )
 
     def _toggle_mute(self) -> None:
+        if self.navigator.active is SessionId.HEOS:
+            self._dispatch_heos(Action.TOGGLE_MUTE)
+            return
         if self._youtube_playback_active():
             self._youtube_surface.toggle_mute()
             self.announcer.say("Włączono dźwięk" if self._youtube_status.get("muted") else "Wyciszono")
@@ -36414,8 +37004,32 @@ class LiteFrame(wx.Frame):
             )
 
     def _on_volume_slider(self, event: wx.CommandEvent) -> None:
+        if self.navigator.active is SessionId.HEOS:
+            self._heos_pending_volume = self.volume_slider.GetValue()
+            call = self._heos_volume_call
+            if call is not None and call.IsRunning():
+                call.Stop()
+            self._heos_volume_call = wx.CallLater(350, self._heos_flush_volume)
+            event.Skip()
+            return
         self._set_volume(self.volume_slider.GetValue())
         event.Skip()
+
+    def _heos_flush_volume(self) -> None:
+        level = self._heos_pending_volume
+        if level is None or not self._window_alive():
+            return
+        if self.navigator.active is not SessionId.HEOS:
+            self._heos_pending_volume = None
+            return
+        if self._heos_control_pending:
+            self._heos_volume_call = wx.CallLater(350, self._heos_flush_volume)
+            return
+        self._heos_pending_volume = None
+        self._heos_control(
+            lambda service, pid: service.set_volume(pid, level),
+            f"HEOS: głośność {level}",
+        )
 
     def _on_rate_choice(self, event: wx.CommandEvent) -> None:
         selection = self.rate_choice.GetSelection()
@@ -36646,6 +37260,7 @@ class LiteFrame(wx.Frame):
         self._refresh_wiim_status()
         self._refresh_frontier_smart_status()
         self._refresh_sonos_status()
+        self._heos_refresh_status()
         self._refresh_recording_status()
         self._checkpoint_podcast_if_due()
         self._checkpoint_local_if_due()
@@ -36879,6 +37494,7 @@ class LiteFrame(wx.Frame):
             remote_player = (
                 self.navigator.active is SessionId.WIIM
                 or self.navigator.active is SessionId.SONOS
+                or self.navigator.active is SessionId.HEOS
                 or self.navigator.active is SessionId.FRONTIER_SMART
                 or (
                     self.navigator.active is SessionId.TIDAL
@@ -36941,7 +37557,8 @@ class LiteFrame(wx.Frame):
             else active if active in playing_sessions else None
         )
         if session_id is None and active in (
-            SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART
+            SessionId.WIIM, SessionId.SONOS, SessionId.HEOS,
+            SessionId.FRONTIER_SMART
         ):
             session_id = active
         playing_title = ""
@@ -37403,6 +38020,9 @@ class LiteFrame(wx.Frame):
 
     def _activate_selected_if_ready(self) -> None:
         """Nie odtwarzaj pliku Enterem, który właśnie zatwierdził Shift+F2."""
+        if self.navigator.active is SessionId.HEOS:
+            self._heos_activate()
+            return
         if getattr(self, "_local_file_rename_pending", False):
             return
         if time.monotonic() < getattr(
@@ -40327,6 +40947,7 @@ class LiteFrame(wx.Frame):
                 and session.library_view is LibraryView.WIIM_NETWORK_STREAMS
             ),
             sonos_session=self.navigator.active is SessionId.SONOS,
+            heos_session=self.navigator.active is SessionId.HEOS,
             frontier_smart_session=(
                 self.navigator.active is SessionId.FRONTIER_SMART
             ),
@@ -40501,6 +41122,7 @@ class LiteFrame(wx.Frame):
             SessionId.FRONTIER_SMART: FRONTIER_SMART_SUPPORTED_ACTIONS,
             SessionId.RADIOARCHIWISTA: RADIOARCHIWISTA_SUPPORTED_ACTIONS,
             SessionId.APPLE_MUSIC: APPLE_MUSIC_SUPPORTED_ACTIONS,
+            SessionId.HEOS: HEOS_SUPPORTED_ACTIONS,
         }.get(self.navigator.active)
         return supported is None or action in supported
 

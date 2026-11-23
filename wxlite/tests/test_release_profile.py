@@ -74,7 +74,7 @@ def test_public_manifest_exposes_only_approved_sessions_and_test_has_all() -> No
     assert set(TEST_PROFILE.session_ids) == {session.value for session in SessionId}
     assert PUBLIC_PROFILE.session_ids == tuple(
         session for session in TEST_PROFILE.session_ids
-        if session != "appleMusic"
+        if session not in {"appleMusic", "heos"}
     )
     public_text = " ".join(PUBLIC_PROFILE.capabilities).casefold()
     assert "spotify" in public_text
@@ -86,12 +86,15 @@ def test_public_manifest_exposes_only_approved_sessions_and_test_has_all() -> No
     assert "frontier-smart" in public_text
     assert "radioarchiwista" in public_text
     assert "apple-music" not in public_text
+    assert "session.heos" not in PUBLIC_PROFILE.capabilities
+    assert "session.heos" in TEST_PROFILE.capabilities
     assert "apple-music.experimental" in TEST_PROFILE.capabilities
     assert set(PUBLIC_PROFILE.capabilities) == {
         capability for capability in TEST_PROFILE.capabilities
         if capability not in {
             "apple-music.experimental",
             "session.apple-music",
+            "session.heos",
             "local-video-preview",
         }
     }
@@ -130,8 +133,8 @@ def test_python_capabilities_match_closed_launcher_contract() -> None:
         "internal static readonly ReleaseProfileDescriptor Public", 1
     )[1].split("internal static ReleaseProfileDescriptor Validate", 1)[0]
     assert "PublicCapabilities," in public_contract
-    assert '"apple-music.experimental" or "session.apple-music" or "local-video-preview"' in source
-    assert 'session is not "appleMusic"' in source
+    assert '"apple-music.experimental" or "session.apple-music" or "session.heos" or "local-video-preview"' in source
+    assert 'session is not ("appleMusic" or "heos")' in source
     assert re.search(r'Test\.Capabilities\s*\.Where', source)
     assert 'Test.Sessions.Where' in source
     quoted = re.compile(r'"([^"]+)"')
@@ -142,6 +145,7 @@ def test_python_capabilities_match_closed_launcher_contract() -> None:
         if capability not in {
             "apple-music.experimental",
             "session.apple-music",
+            "session.heos",
             "local-video-preview",
         }
     ) == PUBLIC_PROFILE.capabilities

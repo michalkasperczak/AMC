@@ -93,8 +93,7 @@ class HeosBrowseState:
     def show_queue(self) -> None:
         if self.selected_target is None:
             raise ValueError("Najpierw wybierz głośnik HEOS.")
-        self.history.clear()
-        self._open(HeosLocation("queue", "Kolejka HEOS"), push=False)
+        self._open(HeosLocation("queue", "Kolejka HEOS"), push=True)
 
     def open_source(self, source: HeosSource) -> None:
         if self.location.kind != "sources" or source not in self.items:
@@ -133,9 +132,12 @@ class HeosBrowseState:
             self.location,
         )
 
+    def accepts(self, ticket: HeosListTicket) -> bool:
+        return ticket == self._current_ticket()
+
     def apply_targets(self, ticket: HeosListTicket,
                       targets: tuple[HeosTarget, ...]) -> bool:
-        if ticket != self._current_ticket():
+        if not self.accepts(ticket):
             return False
         self.set_targets(targets)
         return True
@@ -144,7 +146,7 @@ class HeosBrowseState:
         self, ticket: HeosListTicket,
         items: tuple[HeosTarget | HeosSource | HeosItem | HeosQueueItem, ...],
     ) -> bool:
-        if ticket != self._current_ticket():
+        if not self.accepts(ticket):
             return False
         expected = {"sources": HeosSource, "catalog": HeosItem,
                     "queue": HeosQueueItem}.get(self.location.kind)
