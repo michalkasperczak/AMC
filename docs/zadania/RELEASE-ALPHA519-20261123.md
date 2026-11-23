@@ -1,5 +1,7 @@
 # AMC alpha.519 — zgodny Test i Public po wydaniu alpha.518
 
+**Korekta z 23.11.2026, po przygotowaniu paczek:** Test `22:26` opublikowano i zweryfikowano na GitHubie, Public `22:28` zbudowano i przygotowano do publikacji. Równoległe zadanie opublikowało jednak Test `22:31` z Google Cast. Lista wydań GitHub i aktualizator nadal wskazują Test `22:31`, bo ma późniejszy czas utworzenia commitu. Oba profile będą więc ponownie zbudowane i wydane jako `alpha.520` z nowszą godziną. Ten wpis zachowuje historię prób; nie należy przedstawiać Test `22:26` jako najnowszej aktualizacji.
+
 - Data decyzji: 23.11.2026. Michał zlecił wydanie ukończonych dziś poprawek w obu kanałach: wideo, wyszukiwania, kolejki, lewej strzałki i czasu. Test może zawierać eksperymentalne Apple Music oraz odsłuch nagrania; Public pozostaje bez Apple Music, HEOS, Google Cast i odsłuchu nagrania.
 - Korekta nadrzędna wobec wcześniejszego ograniczenia wideo do Test w `VIDEO-002-YouTube-online-ocena-20261123.md`: wideo lokalne, pobrane i YouTube online są dostępne również w Public.
 - Stan wejściowy: Test `alpha.516` (`d998160c`) zawierał odsłuch trwającego nagrania. Wydane później Test `20:04` (`ff8eafd9`) oraz Test/Public `alpha.518` (`bb7c5e0a`) powstały z odrębnej linii. Test utracił możliwość `recording.monitor`. Instalator `20:04` zwrócił kod 0 i uruchomił AMC Test, lecz starszy aktualizator odrzucił manifest nowego pakietu komunikatem „profil wydania ma nieprawidłowe pole: lista możliwości”. Tego przebiegu nie zalicza się jako poprawnie zakończonej aktualizacji.
