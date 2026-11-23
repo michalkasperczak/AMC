@@ -223,6 +223,8 @@ internal sealed class LiteSpotifySoloistOutput : ILiteSpotifyOutput
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(20);
         var started = false;
         var missing = 0;
+        var lastPosition = TimeSpan.Zero;
+        var knownDuration = item.Duration;
         try
         {
             while (!cancellation.IsCancellationRequested && IsCurrent(item, playGeneration))
@@ -235,6 +237,8 @@ internal sealed class LiteSpotifySoloistOutput : ILiteSpotifyOutput
                     if (stateUri == uri && state is "playing" or "paused" or "buffering")
                     {
                         missing = 0;
+                        lastPosition = statePosition;
+                        if (duration > TimeSpan.Zero) knownDuration = duration;
                         lock (gate)
                         {
                             if (!IsCurrentLocked(item, playGeneration)) return;
@@ -259,7 +263,14 @@ internal sealed class LiteSpotifySoloistOutput : ILiteSpotifyOutput
                     }
                     else if (started && ++missing >= 2)
                     {
-                        End(item, playGeneration);
+                        // Soloist can skip a track after a playback error. A
+                        // changed URI alone does not prove natural completion.
+                        if (knownDuration > TimeSpan.Zero
+                            && lastPosition >= knownDuration - TimeSpan.FromSeconds(3))
+                            End(item, playGeneration);
+                        else
+                            Fail(item, playGeneration,
+                                "Soloist zmienił utwór przed jego końcem. Sprawdź odtwarzanie w Spotify.");
                         return;
                     }
                 }
