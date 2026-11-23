@@ -1,5 +1,7 @@
 """Podcast/YouTube session navigation stays separate and accessible."""
 
+from dataclasses import replace
+
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import (
     LibraryView,
@@ -30,7 +32,7 @@ def test_ctrl_3_selects_podcast_session_in_both_views() -> None:
     assert resolve(chord, player_view=True, radio_session=False) is Action.SESSION_PODCASTS
 
 
-def test_enter_opens_subscription_then_plays_episode_at_resume_position() -> None:
+def test_enter_opens_subscription_and_uses_current_saved_episode_position() -> None:
     nav = Navigator()
     nav.switch_session(SessionId.PODCASTS)
     nav.apply_podcast_library([
@@ -45,9 +47,26 @@ def test_enter_opens_subscription_then_plays_episode_at_resume_position() -> Non
     play_effects = nav.activate_selected()
     play = next(effect for effect in play_effects if isinstance(effect, PlayMedia))
     assert play.item_id == "episode-one"
-    assert play.position_seconds == 75.0
+    # Wiersz może już mieć nieaktualne 75 sekund. Host czyta świeży stan.
+    assert play.position_seconds is None
     assert nav.view is View.PLAYER
     assert nav.session.pending_material_id == "episode-one"
+
+
+def test_youtube_enter_uses_current_saved_position() -> None:
+    nav = Navigator()
+    nav.switch_session(SessionId.PODCASTS)
+    nav.apply_podcast_library([
+        Row("channel", "Kanał YouTube", "podcast", show_kind=False)
+    ])
+    nav.activate_selected()
+    video = replace(_episode("video", 240.0), service_kind="youtubeVideo")
+    nav.apply_podcast_episodes("channel", "Kanał YouTube", [video])
+
+    play = next(effect for effect in nav.activate_selected()
+                if isinstance(effect, PlayMedia))
+    assert play.item_id == "video"
+    assert play.position_seconds is None
 
 
 def test_backspace_from_episodes_returns_to_exact_subscription() -> None:

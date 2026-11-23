@@ -2656,8 +2656,11 @@ internal sealed class LiteEngineHandlers : IDisposable
         TrySaveCurrentLocalResume();
         RememberFilesSession();
 
-        var position = TimeSpan.FromSeconds(LiteArgs.ReadDouble(
-            args, "positionSeconds", 0d, 0d, 604_800d));
+        var hasExplicitPosition = args.TryGetProperty("positionSeconds", out _);
+        var position = hasExplicitPosition
+            ? TimeSpan.FromSeconds(LiteArgs.ReadDouble(
+                args, "positionSeconds", 0d, 0d, 604_800d))
+            : TimeSpan.Zero;
         var volume = LiteArgs.ReadInt(args, "volume", _filesVolume, 0, 100);
         var requestedRate = LiteArgs.ReadDouble(args, "rate", _filesRate, 0.5d, 2.0d);
         var item = new MediaItem
@@ -2678,7 +2681,8 @@ internal sealed class LiteEngineHandlers : IDisposable
                     PodcastPlaybackOptionsTarget.Episode,
                     item.Id);
             }
-            catch (LiteRequestException)
+            catch (LiteRequestException exception) when (
+                exception.Message == "Tego odcinka nie ma już w Bibliotece.")
             {
                 // Publiczny material moze byc odtwarzany przed dodaniem do
                 // Biblioteki. Brak rekordu oznacza wtedy zwykle ustawienia
@@ -2687,6 +2691,10 @@ internal sealed class LiteEngineHandlers : IDisposable
         }
         var resolvedResumeMode = playbackOptions?.ResolvedResumePositionMode
             ?? ResumePositionMode.Inherit;
+        // The visible row may predate the last saved checkpoint.
+        // An explicit seek, including zero, still takes precedence.
+        if (sessionId == "podcasts" && !hasExplicitPosition)
+            position = playbackOptions?.ResumePosition ?? TimeSpan.Zero;
         var shouldRememberPosition = resolvedResumeMode switch
         {
             ResumePositionMode.Remember => true,

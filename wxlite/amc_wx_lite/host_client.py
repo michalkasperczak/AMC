@@ -674,7 +674,7 @@ class LiteHostClient:
         title: str,
         volume: int,
         rate: float,
-        position_seconds: float = 0.0,
+        position_seconds: float | None = None,
         duration_seconds: float = 0.0,
         session_id: str = "podcasts",
     ) -> Any:
@@ -685,9 +685,10 @@ class LiteHostClient:
             "title": title,
             "volume": volume,
             "rate": rate,
-            "positionSeconds": max(0.0, float(position_seconds)),
             "sessionId": session_id,
         }
+        if position_seconds is not None:
+            args["positionSeconds"] = max(0.0, float(position_seconds))
         if duration_seconds > 0:
             args["durationSeconds"] = float(duration_seconds)
         return self.call(

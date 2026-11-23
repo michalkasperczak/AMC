@@ -84,6 +84,20 @@ internal static class PodcastTargetedRefreshStoreTests
             var database = new PodcastLibraryDatabase(path);
             database.Initialize(settings);
 
+            var positionStore = new PodcastLibraryMutationStore(path);
+            var originalResume = positionStore.GetPlaybackOptions(
+                PodcastPlaybackOptionsTarget.Episode, current.Id);
+            Assert(originalResume.ResumePosition == TimeSpan.FromMinutes(2),
+                "Opcje odcinka nie odczytały zapamiętanej pozycji.");
+            positionStore.SavePlaybackCheckpoint(
+                current.Id, TimeSpan.FromMinutes(3), TimeSpan.FromMinutes(10), completed: false);
+            var refreshedResume = positionStore.GetPlaybackOptions(
+                PodcastPlaybackOptionsTarget.Episode, current.Id);
+            Assert(refreshedResume.ResumePosition == TimeSpan.FromMinutes(3),
+                "Ponowny Enter użyłby starej pozycji zamiast ostatniego zapisu.");
+            positionStore.SavePlaybackCheckpoint(
+                current.Id, TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10), completed: false);
+
             const string unreadableSubscription = "{nie jest poprawnym JSON-em subskrypcji";
             const string unreadableEpisode = "{nie jest poprawnym JSON-em odcinka";
             const int offTargetSubscriptionOrdinal = 41;

@@ -701,7 +701,7 @@ class PlayMedia:
     source: str
     item_id: str
     title: str
-    position_seconds: float = 0.0
+    position_seconds: float | None = None
     duration_seconds: float = 0.0
 
 
@@ -1169,7 +1169,6 @@ class Navigator:
                     target.path or "",
                     target.item_id,
                     target.title,
-                    position_seconds=target.position_seconds,
                 ),
                 Announce(target.title),
             ]
@@ -1974,7 +1973,6 @@ class Navigator:
                     row.path,
                     row.item_id,
                     row.title,
-                    position_seconds=row.position_seconds,
                 ),
                 Announce(row.title),
             ]
@@ -4565,7 +4563,6 @@ class Navigator:
                     target.path or "",
                     target.item_id,
                     target.title,
-                    position_seconds=target.position_seconds,
                 ),
                 Announce(target.title),
             ]
