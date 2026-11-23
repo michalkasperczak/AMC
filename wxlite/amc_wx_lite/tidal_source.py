@@ -499,6 +499,14 @@ def _row(item: TidalCachedItem) -> Row:
     )
 
 
+def complete_album_duration_ticks(rows: Sequence[Row]) -> int:
+    """Sum an opened album only when every track has a known duration."""
+    tracks = [row for row in rows if row.kind == "track"]
+    if not tracks or len(tracks) != len(rows) or any(row.duration_ticks <= 0 for row in tracks):
+        return 0
+    return sum(row.duration_ticks for row in tracks)
+
+
 def _host_item_row(entry: object) -> Row | None:
     if not isinstance(entry, dict):
         return None

@@ -80,9 +80,17 @@ class YouTubeEmbeddedContracts(unittest.TestCase):
     def test_public_profile_exposes_online_video_with_separate_origin(self):
         self.assertNotEqual(virtual_host_for_profile("test"), virtual_host_for_profile("public"))
         self.assertIn("1e437448", virtual_host_for_profile("public"))
+        navigator = Navigator()
+        navigator.active = SessionId.PODCASTS
+        navigator.apply_podcast_aggregate(
+            LibraryView.PODCAST_HISTORY, "Historia podcastów",
+            [Row("film", "Film YouTube", "episode", url=URL,
+                 service_kind="youtubeVideo")],
+        )
         frame = SimpleNamespace(
-            navigator=Navigator(),
-            _local_video_target_path=lambda: "example.mp4",
+            navigator=navigator,
+            _local_video_target_path=lambda: None,
+            _online_youtube_target=lambda: LiteFrame._online_youtube_target(frame),
         )
         with patch("amc_wx_lite.gui.current_profile", return_value=PUBLIC_PROFILE):
             self.assertTrue(LiteFrame._action_available_in_active_session(

@@ -21,11 +21,20 @@ from amc_wx_lite.tidal_source import (
     VIEW_ARTISTS,
     artist_overview_rows,
     build_view,
+    complete_album_duration_ticks,
     queue_payload,
     queue_rows,
     container_result_from_host,
     items_from_amc_state,
 )
+
+
+def test_album_total_requires_every_track_duration() -> None:
+    first = Row("first", "Pierwszy", "track", duration_ticks=180 * 10_000_000)
+    second = Row("second", "Drugi", "track", duration_ticks=240 * 10_000_000)
+    assert complete_album_duration_ticks((first, second)) == 420 * 10_000_000
+    assert complete_album_duration_ticks((first, Row("missing", "Bez czasu", "track"))) == 0
+    assert complete_album_duration_ticks(()) == 0
 
 
 def _entry(item_id: str, title: str, kind: str, **changes) -> dict:

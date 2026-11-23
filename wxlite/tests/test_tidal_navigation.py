@@ -638,3 +638,55 @@ def test_tidal_queue_left_reads_saved_duration_after_reopening() -> None:
     )
     LiteFrame._announce_quick_information(frame)
     assert spoken == ["45:21, Piosenka"]
+
+
+def test_tidal_left_fetches_unknown_album_length_only_on_request() -> None:
+    album = Row("tidal:albums:9", "Album", "album", service_id="albums:9",
+                artist_name="Wykonawca")
+    spoken = []
+    calls = []
+    model = SimpleNamespace(selected_row=album)
+    client = SimpleNamespace(tidal_container_items=lambda **kwargs: (
+        calls.append(kwargs) or {"heading": "Album", "items": [
+            {"id": "tidal:tracks:1", "externalId": "tracks:1", "title": "A",
+             "kind": "track", "durationTicks": 180 * 10_000_000},
+            {"id": "tidal:tracks:2", "externalId": "tracks:2", "title": "B",
+             "kind": "track", "durationTicks": 240 * 10_000_000},
+        ]}
+    ))
+
+    def submit(_key, work, done, _failed):
+        done(work())
+
+    frame = SimpleNamespace(
+        client=client, runner=SimpleNamespace(submit=submit),
+        navigator=SimpleNamespace(active=SessionId.TIDAL,
+                                  sessions={SessionId.TIDAL: SimpleNamespace(model=model)}),
+        announcer=SimpleNamespace(say=spoken.append),
+    )
+    LiteFrame._announce_tidal_information(frame, album, ("duration", "artist"))
+    assert spoken == ["Sprawdzam czas albumu", "7:00, Wykonawca"]
+    assert len(calls) == 1
+    LiteFrame._announce_tidal_information(frame, album, ("duration", "artist"))
+    assert spoken[-1] == "7:00, Wykonawca"
+    assert len(calls) == 1
+
+
+def test_tidal_left_does_not_announce_late_album_result_on_another_row() -> None:
+    album = Row("tidal:albums:9", "Album", "album", service_id="albums:9")
+    model = SimpleNamespace(selected_row=album)
+    spoken = []
+    pending = []
+    frame = SimpleNamespace(
+        client=object(),
+        runner=SimpleNamespace(submit=lambda _key, work, done, failed:
+                               pending.append((work, done, failed))),
+        navigator=SimpleNamespace(active=SessionId.TIDAL,
+                                  sessions={SessionId.TIDAL: SimpleNamespace(model=model)}),
+        announcer=SimpleNamespace(say=spoken.append),
+    )
+    LiteFrame._announce_tidal_information(frame, album, ("duration",))
+    model.selected_row = Row("other", "Inny", "album")
+    pending[0][1](SimpleNamespace(rows=(Row("track", "Utwór", "track",
+                                          duration_ticks=90 * 10_000_000),)))
+    assert spoken == ["Sprawdzam czas albumu"]

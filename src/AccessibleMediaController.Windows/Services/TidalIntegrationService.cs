@@ -575,9 +575,11 @@ internal sealed class TidalIntegrationService(
         }
         foreach (var kind in synchronized.UpdatedKinds)
         {
-            synchronizedCollections[kind] = synchronized.Items
+            var fresh = synchronized.Items
                 .Where(item => item.Kind == kind)
                 .ToArray();
+            synchronizedCollections[kind] = TidalCollectionMetadata.PreserveKnownDetails(
+                fresh, synchronizedCollections.GetValueOrDefault(kind, []));
         }
         var mergedItems = MergeSynchronizedCollections();
         var accountName = accountIdentity?.DisplayName;

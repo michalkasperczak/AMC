@@ -87,6 +87,7 @@ def test_public_manifest_exposes_only_approved_sessions_and_test_has_all() -> No
     assert "frontier-smart" in public_text
     assert "radioarchiwista" in public_text
     assert "apple-music" not in public_text
+    assert "local-video-preview" in PUBLIC_PROFILE.capabilities
     assert "apple-music.experimental" in TEST_PROFILE.capabilities
     assert set(PUBLIC_PROFILE.capabilities) == {
         capability for capability in TEST_PROFILE.capabilities

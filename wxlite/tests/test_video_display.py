@@ -281,12 +281,12 @@ class VideoDisplayContracts(unittest.TestCase):
             self.assertFalse(LiteFrame._action_available_in_active_session(
                 frame, Action.OPEN_VIDEO_IN_BROWSER))
 
-    def test_video_commands_are_test_only_across_menu_palette_and_execution(self):
+    def test_video_commands_are_available_in_both_profiles(self):
         video_actions = {
             Action.PLAY_LOCAL_VIDEO, Action.PLAY_LOCAL_AUDIO,
             Action.OPEN_VIDEO_IN_BROWSER,
         }
-        for profile, expected in ((TEST_PROFILE, True), (PUBLIC_PROFILE, False)):
+        for profile in (TEST_PROFILE, PUBLIC_PROFILE):
             with self.subTest(profile=profile.profile_id), patch(
                 "amc_wx_lite.menu_model.current_profile", return_value=profile
             ), patch("amc_wx_lite.gui.current_profile", return_value=profile):
@@ -301,11 +301,11 @@ class VideoDisplayContracts(unittest.TestCase):
                     for session in (SessionId.FILES, SessionId.PODCASTS)
                     for item in entries_for_session(session)
                 }
-                self.assertEqual(video_actions <= actions, expected)
-                self.assertEqual(video_actions <= palette_actions, expected)
+                self.assertTrue(video_actions <= actions)
+                self.assertTrue(video_actions <= palette_actions)
                 frame = SimpleNamespace(_local_video_target_path=lambda: "film.mp4")
-                self.assertEqual(LiteFrame._action_available_in_active_session(
-                    frame, Action.PLAY_LOCAL_VIDEO), expected)
+                self.assertTrue(LiteFrame._action_available_in_active_session(
+                    frame, Action.PLAY_LOCAL_VIDEO))
 
     def test_new_video_messages_have_intentional_english_labels(self):
         for polish in (
