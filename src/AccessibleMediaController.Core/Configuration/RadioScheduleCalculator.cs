@@ -13,6 +13,12 @@ public sealed record RadioScheduleDueDecision(
 
 public static class RadioScheduleCalculator
 {
+    public static bool IsCurrentOccurrenceSuppressed(RadioRecordingScheduleSettings schedule)
+    {
+        ArgumentNullException.ThrowIfNull(schedule);
+        return schedule.SuppressedOccurrenceStartUtcTicks == schedule.NextStartUtcTicks;
+    }
+
     public static RadioScheduleDueDecision Evaluate(
         RadioRecordingScheduleSettings schedule,
         DateTime utcNow)

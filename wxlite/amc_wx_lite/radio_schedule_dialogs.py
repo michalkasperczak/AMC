@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import uuid
 from collections.abc import Callable, Mapping, Sequence
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import wx
 
@@ -23,6 +23,7 @@ from .radio_schedule_settings import (
     DEFAULT_FILE_NAME_TEMPLATE,
     ScheduleValidationError,
     clone_schedules,
+    DOTNET_UNIX_EPOCH_TICKS,
     duplicate_schedule,
     local_start_from_utc_ticks,
     output_folder_is_valid,
@@ -56,6 +57,22 @@ _FORMAT_CHOICES = (
     ("WAV", "Wav"),
 )
 _WAKE_INHERIT = object()
+
+# Jeden opis polecenia zasila menu listy, pomoc i cel wykonania klawisza.
+_LIST_ACTIONS = (
+    ("Insert", "Nowy plan", "dodaje plan", "_new", False),
+    ("Enter", "Edytuj plan", "edytuje wybrany plan", "_edit", True),
+    ("Ctrl+D", "Powiel plan", "tworzy wyłączoną kopię planu", "_duplicate", True),
+    ("Spacja", "Włącz lub wyłącz plan", "przełącza cały plan", "_toggle", True),
+    ("Shift+Spacja", "Pomiń najbliższy termin lub cofnij pominięcie",
+     "pomija najbliższy przyszły termin włączonego planu lub cofa pominięcie",
+     "_toggle_next_occurrence", True),
+    ("strzałka w lewo", "Krótka informacja", "powtarza stan i termin",
+     "_announce_short_information", True),
+    ("strzałka w prawo", "Ustawienia pliku", "czyta ustawienia pliku",
+     "_announce_full_information", True),
+    ("Delete", "Usuń plan", "usuwa plan po potwierdzeniu", "_delete", True),
+)
 
 
 class _SegmentedDateControl(wx.Panel):
@@ -319,6 +336,14 @@ def _short_schedule_information(schedule: Mapping) -> str:
         state = "enabled" if schedule.get("enabled") else "disabled"
     else:
         state = "włączony" if schedule.get("enabled") else "wyłączony"
+    skipped = (
+        schedule.get("enabled")
+        and schedule.get("suppressedOccurrenceStartUtcTicks")
+        == schedule.get("nextStartUtcTicks")
+    )
+    if skipped:
+        state += (", this occurrence skipped" if i18n.active_language() == i18n.ENGLISH
+                  else ", najbliższy termin pominięty")
     return f"{state}, {date_text}, {time_text}"
 
 
@@ -983,14 +1008,15 @@ class RadioSchedulesDialog(wx.Dialog):
 
         panel = wx.Panel(self)
         layout = wx.BoxSizer(wx.VERTICAL)
-        help_text = (
-            "Insert dodaje plan. Ctrl+D powiela wybrany plan jako wyłączoną kopię. "
-            "Enter edytuje. Spacja włącza lub wyłącza. Delete usuwa. "
-            "Strzałka w lewo powtarza stan i termin, a strzałka w prawo czyta "
-            "format, nazwę przygotowywanego pliku i folder docelowy. "
-            "Shift+F10 albo klawisz menu otwiera te same polecenia. "
-            "Każda zapisana zmiana jest stosowana od razu."
+        help_text = " ".join(
+            f"{shortcut} {description}."
+            for shortcut, _name, description, _handler, _needs_selection
+            in _LIST_ACTIONS
+        ) + (
+            " Shift+F10 lub Ctrl+Shift+K otwiera listę poleceń. "
+            "Ctrl+F1 powtarza tę pomoc. Zapisane zmiany działają od razu."
         )
+        self._help_text = help_text
         help_label = wx.StaticText(panel, label=help_text)
         help_label.SetName(help_text)
         layout.Add(help_label, 0, wx.ALL | wx.EXPAND, 12)
@@ -1000,7 +1026,8 @@ class RadioSchedulesDialog(wx.Dialog):
         self.schedule_list.SetToolTip(
             "Góra i dół wybierają plan. Lewo powtarza stan i termin, prawo "
             "czyta ustawienia pliku. "
-            "Enter edytuje, Spacja włącza lub wyłącza."
+            "Enter edytuje, Spacja włącza lub wyłącza cały plan, "
+            "Shift+Spacja pomija najbliższy termin lub cofa pominięcie."
         )
         layout.Add(self.schedule_list, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 12)
 
@@ -1024,6 +1051,7 @@ class RadioSchedulesDialog(wx.Dialog):
         self.edit_button = wx.Button(self, label="&Edytuj…")
         self.duplicate_button = wx.Button(self, label="&Powiel")
         self.toggle_button = wx.Button(self, label="Włącz lub w&yłącz")
+        self.skip_button = wx.Button(self, label="&Pomiń najbliższy termin")
         self.delete_button = wx.Button(self, label="&Usuń")
         close = wx.Button(self, wx.ID_CANCEL, label="&Zamknij")
         for button, name in (
@@ -1031,6 +1059,7 @@ class RadioSchedulesDialog(wx.Dialog):
             (self.edit_button, "Edytuj wybrany plan"),
             (self.duplicate_button, "Powiel wybrany plan"),
             (self.toggle_button, "Włącz lub wyłącz wybrany plan"),
+            (self.skip_button, "Pomiń najbliższy termin lub cofnij pominięcie"),
             (self.delete_button, "Usuń wybrany plan"),
             (close, "Zamknij harmonogram nagrywania"),
         ):
@@ -1056,6 +1085,7 @@ class RadioSchedulesDialog(wx.Dialog):
         self.edit_button.Bind(wx.EVT_BUTTON, self._edit)
         self.duplicate_button.Bind(wx.EVT_BUTTON, self._duplicate)
         self.toggle_button.Bind(wx.EVT_BUTTON, self._toggle)
+        self.skip_button.Bind(wx.EVT_BUTTON, self._toggle_next_occurrence)
         self.delete_button.Bind(wx.EVT_BUTTON, self._delete)
         self.global_wake.Bind(wx.EVT_CHECKBOX, self._change_global_wake)
         self._refresh(labels_payload)
@@ -1086,23 +1116,15 @@ class RadioSchedulesDialog(wx.Dialog):
         """Menu harmonogramu prowadzi do tych samych metod co klawiatura."""
 
         menu = wx.Menu()
-        selected = self._selected_schedule() is not None
-        commands = (
-            ("Nowy plan (Insert)", self._new, True),
-            ("Edytuj plan (Enter)", self._edit, selected),
-            ("Powiel plan (Ctrl+D)", self._duplicate, selected),
-            ("Włącz lub wyłącz plan (Spacja)", self._toggle, selected),
-            (
-                "Krótka informacja (strzałka w lewo)",
-                self._announce_short_information,
-                selected,
-            ),
-            (
-                "Ustawienia pliku (strzałka w prawo)",
-                self._announce_full_information,
-                selected,
-            ),
-            ("Usuń plan (Delete)", self._delete, selected),
+        schedule = self._selected_schedule()
+        selected = schedule is not None
+        can_skip = self._skip_unavailable_reason(schedule) is None
+        commands = tuple(
+            (f"{name} ({shortcut})", getattr(self, handler),
+             (selected or not needs_selection)
+             and (handler != "_toggle_next_occurrence" or can_skip))
+            for shortcut, name, _description, handler, needs_selection
+            in _LIST_ACTIONS
         )
         try:
             for index, (label, handler, enabled) in enumerate(commands):
@@ -1116,6 +1138,13 @@ class RadioSchedulesDialog(wx.Dialog):
         finally:
             menu.Destroy()
             wx.CallAfter(self.schedule_list.SetFocus)
+
+    def _invoke_list_action(self, shortcut: str, event: object) -> None:
+        for key, _name, _description, handler, _needs_selection in _LIST_ACTIONS:
+            if key == shortcut:
+                getattr(self, handler)(event)
+                return
+        raise ValueError(f"Nieznane polecenie listy: {shortcut}")
 
     def _refresh(self, payload: object, preferred_id: str | None = None) -> None:
         previous_id = preferred_id
@@ -1172,6 +1201,9 @@ class RadioSchedulesDialog(wx.Dialog):
             self.delete_button,
         ):
             button.Enable(selected)
+        self.skip_button.Enable(
+            self._skip_unavailable_reason(self._selected_schedule()) is None
+        )
 
     def _selected_schedule(self) -> dict | None:
         index = self.schedule_list.GetSelection()
@@ -1303,6 +1335,45 @@ class RadioSchedulesDialog(wx.Dialog):
             success_message=f"{_display_name(updated)}, {state}",
         )
 
+    def _skip_unavailable_reason(self, schedule: Mapping | None) -> str | None:
+        if schedule is None:
+            return "Nie wybrano planu nagrywania"
+        if not schedule.get("enabled"):
+            return "Plan jest wyłączony. Włącz go Spacją przed pominięciem terminu"
+        if schedule["id"] in self._active_ids:
+            return "Nagrywanie już trwa. Pominięcie dotyczy tylko przyszłego terminu"
+        now_ticks = (
+            int(datetime.now(timezone.utc).timestamp() * 10_000_000)
+            + DOTNET_UNIX_EPOCH_TICKS
+        )
+        if schedule["nextStartUtcTicks"] <= now_ticks:
+            return "Ten termin już się rozpoczął. Nie można go teraz pominąć"
+        return None
+
+    def _toggle_next_occurrence(self, _event) -> None:
+        selected = self._selected_schedule()
+        reason = self._skip_unavailable_reason(selected)
+        if reason is not None:
+            self._announce(reason)
+            return
+        ticks = selected["nextStartUtcTicks"]
+        updated = dict(selected)
+        skipped = updated.get("suppressedOccurrenceStartUtcTicks") == ticks
+        updated["suppressedOccurrenceStartUtcTicks"] = None if skipped else ticks
+        candidate = [
+            updated if item["id"] == selected["id"] else item
+            for item in self._schedules
+        ]
+        date_text, time_text = _schedule_when(updated)
+        result = "Przywrócono" if skipped else "Pominięto"
+        self._commit(
+            candidate, self._wake, preferred_id=updated["id"],
+            success_message=(
+                f"{result} termin {date_text}, {time_text} planu "
+                f"{_display_name(updated)}"
+            ),
+        )
+
     def _delete(self, _event) -> None:
         selected = self._selected_schedule()
         if selected is None:
@@ -1381,23 +1452,42 @@ class RadioSchedulesDialog(wx.Dialog):
             and not event.ShiftDown()
             and code in (ord("D"), ord("d"))
         ):
-            self._duplicate(event)
+            self._invoke_list_action("Ctrl+D", event)
+            return
+        if (
+            focus_on_list and code == wx.WXK_SPACE and event.ShiftDown()
+            and not event.ControlDown() and not event.AltDown()
+        ):
+            self._invoke_list_action("Shift+Spacja", event)
+            return
+        if (
+            focus_on_list and code == wx.WXK_F1 and event.ControlDown()
+            and not event.AltDown() and not event.ShiftDown()
+        ):
+            self._announce(self._help_text)
+            return
+        if (
+            focus_on_list and code in (ord("K"), ord("k"))
+            and event.ControlDown() and event.ShiftDown()
+            and not event.AltDown()
+        ):
+            self._show_context_menu(event)
             return
         if event.ControlDown() or event.AltDown() or event.ShiftDown():
             event.Skip()
             return
         insert_key = getattr(wx, "WXK_INSERT", 322)
         if code == insert_key:
-            self._new(event)
+            self._invoke_list_action("Insert", event)
         elif focus_on_list and code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
-            self._edit(event)
+            self._invoke_list_action("Enter", event)
         elif focus_on_list and code == wx.WXK_SPACE:
-            self._toggle(event)
+            self._invoke_list_action("Spacja", event)
         elif focus_on_list and code == wx.WXK_LEFT:
-            self._announce_short_information(event)
+            self._invoke_list_action("strzałka w lewo", event)
         elif focus_on_list and code == wx.WXK_RIGHT:
-            self._announce_full_information(event)
+            self._invoke_list_action("strzałka w prawo", event)
         elif focus_on_list and code == wx.WXK_DELETE:
-            self._delete(event)
+            self._invoke_list_action("Delete", event)
         else:
             event.Skip()

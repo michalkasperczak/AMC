@@ -399,6 +399,7 @@ from .search_catalog import (
     SearchEntry,
     SearchResultAction,
     normalize_search_text,
+    order_search_results,
     query_words,
     record_query as add_search_history,
     search as search_entries,
@@ -2570,6 +2571,7 @@ class SearchDialog(wx.Dialog):
             "lub playlistę; dla utworu pokazuje go na liście Apple Music. "
             "Prawa strzałka pokazuje powiązania, lewa odczytuje długość "
             "i dostępne warianty audio. "
+            "Ctrl+C kopiuje nazwę, Ctrl+Shift+C kopiuje dostępny link. "
             "Alt+Enter podaje informacje o wyniku. "
             "Ctrl+L otwiera Bibliotekę. Escape zamyka okno."
         )
@@ -2579,7 +2581,9 @@ class SearchDialog(wx.Dialog):
                 if not all_services and current_session_label == "Apple Music"
                 else "Strzałki wybierają wynik. Enter przechodzi do wyniku na "
                 "właściwej liście. Prawa strzałka pokazuje dostępne "
-                "relacje. Ctrl+Shift+L zmienia stan Biblioteki dla obsługiwanych "
+                "relacje, lewa podaje informacje o wyniku. Ctrl+C kopiuje "
+                "nazwę, Ctrl+Shift+C dostępny link. "
+                "Ctrl+Shift+L zmienia stan Biblioteki dla obsługiwanych "
                 "wyników. Ctrl+Shift+U zmienia stan Ulubionych tam, gdzie jest to "
                 "dostępne. Ctrl+C na zapisanym odcinku Podcastów kopiuje tytuł, "
                 "pełny opis i zapisane linki; Ctrl+Shift+C kopiuje sam adres. "
@@ -13460,7 +13464,8 @@ class LiteFrame(wx.Frame):
                     ):
                         warnings.append("Nie udało się przeszukać katalogu Spotify")
             return (
-                collected, results, tuple(dict.fromkeys(warnings)),
+                collected, order_search_results(results, query, sessions),
+                tuple(dict.fromkeys(warnings)),
                 apple_music_records,
             )
 
@@ -13476,7 +13481,9 @@ class LiteFrame(wx.Frame):
                         (record.row.item_id, record) for record in result[3]
                     )
                     self._apple_music_search_rows = tuple(
-                        record.row for record in result[3]
+                        entry.row for entry in result[1]
+                        if entry.session_id is SessionId.APPLE_MUSIC
+                        and entry.row.item_id in self._apple_music_records
                     )
                 # A source may recover while this dialog stays open.
                 # Do not pin an incomplete catalogue after a temporary

@@ -162,6 +162,16 @@ internal sealed partial class LiteRadioRecordingCoordinator
                         continue;
                     }
                     decision = RadioScheduleCalculator.Evaluate(managed.Effective, now);
+                    // Pominięty termin nie może wystartować nawet po restarcie
+                    // aplikacji w środku jego zwykłego okna nagrywania.
+                    if (RadioScheduleCalculator.IsCurrentOccurrenceSuppressed(
+                            managed.Effective)
+                        && decision.Kind != RadioScheduleDueKind.Future)
+                    {
+                        AdvanceScheduleLocked(managed, now);
+                        RearmWakeTimerLocked();
+                        continue;
+                    }
                     if (decision.Kind == RadioScheduleDueKind.Missed)
                     {
                         AdvanceScheduleLocked(managed, now);
@@ -196,7 +206,9 @@ internal sealed partial class LiteRadioRecordingCoordinator
         {
             if (_disposed || !_schedules.TryGetValue(snapshot.Id, out var current)
                 || !ReferenceEquals(current, managed)
-                || _active.Values.Any(item => item.ScheduleId == snapshot.Id))
+                || _active.Values.Any(item => item.ScheduleId == snapshot.Id)
+                || RadioScheduleCalculator.IsCurrentOccurrenceSuppressed(
+                    managed.Effective))
             {
                 cancellation.Dispose();
                 return;
@@ -369,6 +381,7 @@ internal sealed partial class LiteRadioRecordingCoordinator
             .Select(item => item.Effective)
             .Where(schedule => schedule.Enabled
                 && schedule.NextStartUtcTicks > now.Ticks
+                && !RadioScheduleCalculator.IsCurrentOccurrenceSuppressed(schedule)
                 && (schedule.WakeComputer ?? _scheduleDefaults.WakeByDefault))
             .OrderBy(schedule => schedule.NextStartUtcTicks)
             .FirstOrDefault();
@@ -392,6 +405,7 @@ internal sealed partial class LiteRadioRecordingCoordinator
         var next = RadioScheduleCalculator.FindNextStartUtc(schedule, now);
         if (next is null) schedule.Enabled = false;
         else schedule.NextStartUtcTicks = next.Value.Ticks;
+        schedule.SuppressedOccurrenceStartUtcTicks = null;
         return schedule;
     }
 
@@ -456,7 +470,9 @@ internal sealed partial class LiteRadioRecordingCoordinator
         && left.RecordingFormat == right.RecordingFormat
         && left.RecordingBitrateKbps == right.RecordingBitrateKbps
         && left.WakeComputer == right.WakeComputer
-        && left.Enabled == right.Enabled;
+        && left.Enabled == right.Enabled
+        && left.SuppressedOccurrenceStartUtcTicks
+            == right.SuppressedOccurrenceStartUtcTicks;
 
     private static RadioRecordingScheduleSettings CloneSchedule(
         RadioRecordingScheduleSettings schedule) => new()
