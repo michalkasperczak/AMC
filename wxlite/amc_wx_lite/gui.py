@@ -27952,10 +27952,10 @@ class LiteFrame(wx.Frame):
             and self.navigator.session.view is View.LIST else None
         )
         if address is None:
-            self.announcer.say("Wybierz film internetowy z poprawnym adresem")
+            self.announcer.say(i18n.ui_text("Wybierz film internetowy z poprawnym adresem"))
             return
         if not wx.LaunchDefaultBrowser(address):
-            self.announcer.say("Nie udało się otworzyć filmu w przeglądarce")
+            self.announcer.say(i18n.ui_text("Nie udało się otworzyć filmu w przeglądarce"))
 
     def _download_youtube_videos(self) -> None:
         """Ctrl+Shift+D: download selected public YouTube items as video."""
@@ -29165,13 +29165,13 @@ class LiteFrame(wx.Frame):
         if VIDEO_PREVIEW_CAPABILITY not in current_profile().capabilities:
             return
         if not self._local_video_target_path():
-            self.announcer.say("Wybierz dostępny lokalny plik wideo")
+            self.announcer.say(i18n.ui_text("Wybierz dostępny lokalny plik wideo"))
             return
         self._video_mode_requested = show_picture
         if self.navigator.session.view is View.PLAYER:
             self._sync_embedded_video()
             if not show_picture:
-                self.announcer.say("Odtwarzanie tylko dźwięku")
+                self.announcer.say(i18n.ui_text("Odtwarzanie tylko dźwięku"))
             return
         self._run(self.navigator.activate_selected(open_player_on_activation=True))
 
@@ -29180,9 +29180,9 @@ class LiteFrame(wx.Frame):
         if self._video_surface is not None:
             self._video_surface.hide()
             self.player_panel.Layout()
-        self.announcer.say(
+        self.announcer.say(i18n.ui_text(
             "Nie można wyświetlić obrazu tego pliku. Dźwięk pozostaje w AMC"
-        )
+        ))
 
     def _sync_embedded_video(self, status: dict | None = None) -> None:
         surface = self._video_surface
@@ -29209,7 +29209,7 @@ class LiteFrame(wx.Frame):
                 from .embedded_video import EmbeddedVideo
                 surface = EmbeddedVideo(
                     self.player_panel, self._video_unavailable,
-                    lambda: self.announcer.say("Wyświetlanie wideo"),
+                    lambda: self.announcer.say(i18n.ui_text("Wyświetlanie wideo")),
                     self.play_button,
                 )
             except (ImportError, RuntimeError, wx.PyAssertionError):

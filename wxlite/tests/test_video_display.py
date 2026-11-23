@@ -7,6 +7,7 @@ import unittest
 from unittest.mock import patch
 
 from amc_wx_lite.command_palette import entries_for_session
+from amc_wx_lite import i18n
 from amc_wx_lite.gui import LiteFrame
 from amc_wx_lite.local_video import local_video_file, local_video_target
 from amc_wx_lite.list_model import Row
@@ -240,6 +241,24 @@ class VideoDisplayContracts(unittest.TestCase):
                 frame = SimpleNamespace(_local_video_target_path=lambda: "film.mp4")
                 self.assertEqual(LiteFrame._action_available_in_active_session(
                     frame, Action.PLAY_LOCAL_VIDEO), expected)
+
+    def test_new_video_messages_have_intentional_english_labels(self):
+        for polish in (
+            "Obraz odtwarzanego wideo",
+            "Wybierz film internetowy z poprawnym adresem",
+            "Nie udało się otworzyć filmu w przeglądarce",
+            "Wybierz dostępny lokalny plik wideo",
+            "Odtwarzanie tylko dźwięku",
+            "Nie można wyświetlić obrazu tego pliku. Dźwięk pozostaje w AMC",
+            "Wyświetlanie wideo",
+        ):
+            with self.subTest(label=polish):
+                translated = i18n.translate_ui_text(
+                    polish, source_language=i18n.POLISH,
+                    target_language=i18n.ENGLISH,
+                )
+                self.assertNotEqual(translated, polish)
+                self.assertFalse(any(character in translated for character in "ąćęłńóśźż"))
 
 
 if __name__ == "__main__":

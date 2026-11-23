@@ -968,6 +968,14 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
 # Static labels and accessibility text which do not have a command/event ID.
 # Commands and messages deliberately use their stronger stable models above.
 _UI_TEXT_EN: dict[str, str] = {
+    "Obraz odtwarzanego wideo": "Playing video picture",
+    "Wybierz film internetowy z poprawnym adresem": "Select an online video with a valid address",
+    "Nie udało się otworzyć filmu w przeglądarce": "Could not open the video in your browser",
+    "Wybierz dostępny lokalny plik wideo": "Select an available local video file",
+    "Odtwarzanie tylko dźwięku": "Playing audio only",
+    "Nie można wyświetlić obrazu tego pliku. Dźwięk pozostaje w AMC":
+        "Cannot display this file's picture. Audio continues in AMC",
+    "Wyświetlanie wideo": "Displaying video",
     "Zmień nazwę stacji lub nagrania w AMC": "Rename station or recording in AMC",
     "&Nowa nazwa w AMC:": "&New name in AMC:",
     "Nowa nazwa w AMC": "New name in AMC",

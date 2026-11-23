@@ -11,6 +11,8 @@ from collections.abc import Callable
 import wx
 import wx.media
 
+from . import i18n
+
 
 class EmbeddedVideo:
     def __init__(
@@ -18,7 +20,7 @@ class EmbeddedVideo:
         on_ready: Callable[[], None], focus_control: wx.Window,
     ) -> None:
         self.control = wx.media.MediaCtrl(parent, style=wx.SIMPLE_BORDER)
-        self.control.SetName("Obraz odtwarzanego wideo")
+        self.control.SetName(i18n.ui_text("Obraz odtwarzanego wideo"))
         self.control.SetMinSize((480, 270))
         self.control.SetVolume(0.0)
         self.control.Hide()
