@@ -13,6 +13,7 @@ Wprowadzić HEOS do AMC Test według `D:\Projekty Codex\Hermes\Nowe\HEOS-2026112
 - `wxlite/tests/test_heos_client.py`: izolowane testy protokołu, wykrywania, stronicowania i braku ponowienia mutacji.
 - `wxlite/amc_wx_lite/heos_source.py` i `wxlite/tests/test_heos_source.py`: osobne tożsamości i etykiety urządzeń, grup, źródeł, pozycji katalogu i kolejki oraz stanu; testy duplikatów tytułów, zagnieżdżonego źródła i braku wycieku identyfikatorów do mowy.
 - `wxlite/amc_wx_lite/heos_navigation.py` i `wxlite/tests/test_heos_navigation.py`: stan poziomów katalogu, powrót do zaznaczenia oraz odrzucanie spóźnionych list po zmianie widoku lub urządzenia.
+- `wxlite/amc_wx_lite/heos_service.py` i `wxlite/tests/test_heos_service.py`: operacje wykonywane przez przyszły wątek roboczy; odczyt celu, katalogu, kolejki i stanu oraz osobne wywołania sterowania. Stacja korzysta z polecenia strumienia, utwór z kolejki z identyfikatorem katalogu nadrzędnego, a album z własnym kontenerem.
 - Adapter nie jest jeszcze wpięty w sesję, interfejs, pakiet ani instalację.
 
 ## Próba sieciowa
@@ -27,7 +28,7 @@ Pierwsze próby SSDP 23.11.2026 nie przyniosły odpowiedzi, ponieważ środowisk
 
 ## Testy i wynik
 
-- `D:\Projekty Codex\AMC - zależności\python-test-envs\wxpython-4.3.1-cp314\Scripts\python.exe -m pytest wxlite\tests\test_heos_client.py wxlite\tests\test_heos_source.py wxlite\tests\test_heos_navigation.py -q` z `PYTHONPATH=wxlite`: **36 passed in 0.82s** (ostatnia próba 23.11.2026).
+- `D:\Projekty Codex\AMC - zależności\python-test-envs\wxpython-4.3.1-cp314\Scripts\python.exe -m pytest wxlite\tests\test_heos_client.py wxlite\tests\test_heos_source.py wxlite\tests\test_heos_navigation.py wxlite\tests\test_heos_service.py -q` z `PYTHONPATH=wxlite`: **41 passed in 0.97s** (ostatnia próba 23.11.2026).
 - Testy automatyczne są bezokienkowe i używają atrap. Osobna próba odczytowa na Denon Home 200 potwierdziła wykrywanie, model celu, strukturę źródeł, stronicowanie i model stanu. Nie potwierdza sterowania, dźwięku, interfejsu ani NVDA.
 - Nie wykonano kompilacji, instalacji ani publikacji.
 
@@ -39,7 +40,7 @@ Pierwsze próby SSDP 23.11.2026 nie przyniosły odpowiedzi, ponieważ środowisk
 
 ## Wersja i commit
 
-Baza aktualizacji `eabaa0e8`; wcześniejszy klient odczytowy `99e602ec6532`, adapter i model `2c7cc6f086f8`, komendy kolejki `00b23968`, nawigacja `996a074e`. Żadna wersja AMC z HEOS nie powstała.
+Baza aktualizacji `eabaa0e8`; wcześniejszy klient odczytowy `99e602ec6532`, adapter i model `2c7cc6f086f8`, komendy kolejki `00b23968`, nawigacja `996a074e`, warstwa operacji `b6f42b1b`. Żadna wersja AMC z HEOS nie powstała.
 
 ## Materiał do dokumentacji użytkownika
 
