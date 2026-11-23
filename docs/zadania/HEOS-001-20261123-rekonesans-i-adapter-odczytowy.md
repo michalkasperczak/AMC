@@ -1,6 +1,6 @@
 # HEOS-001 — rozpoznanie urządzenia HEOS 200 i adapter odczytowy
 
-**Status: W trakcie; adapter LAN i model źródeł gotowe, sesja AMC Test jeszcze niepodłączona.**
+**Status: W trakcie; adapter LAN, model źródeł i nawigacji gotowe, sesja AMC Test jeszcze niepodłączona.**
 
 ## Cel i zakres
 
@@ -11,7 +11,8 @@ Wprowadzić HEOS do AMC Test według `D:\Projekty Codex\Hermes\Nowe\HEOS-2026112
 - Izolowana gałąź HEOS: `codex/heos-next-test-20261123`, oparta na commicie `eabaa0e8` trwającej aktualizacji, w worktree `D:\Projekty Codex\AMC - integracja wxPython\work\HEOS-001-next-test`. Główny checkout na D i worktree bieżącego wydania mają odrębne niezapisane zmiany; nie zostały naruszone.
 - `wxlite/amc_wx_lite/heos_client.py`: klient CLI, wykrywanie SSDP i ręczny adres IP, bezpieczny odczyt, stronicowanie, jawne polecenia transportu/głośności/wyciszenia. Odpowiedź spóźniona po limicie czasu nie trafia do następnego żądania; mutacji nie ponawia automatycznie. Klasa odczytowa nadal odrzuca polecenia zapisu.
 - `wxlite/tests/test_heos_client.py`: izolowane testy protokołu, wykrywania, stronicowania i braku ponowienia mutacji.
-- `wxlite/amc_wx_lite/heos_source.py` i `wxlite/tests/test_heos_source.py`: osobne tożsamości i etykiety urządzeń, grup, źródeł, pozycji i stanu; testy duplikatów tytułów, zagnieżdżonego źródła i braku wycieku identyfikatorów do mowy.
+- `wxlite/amc_wx_lite/heos_source.py` i `wxlite/tests/test_heos_source.py`: osobne tożsamości i etykiety urządzeń, grup, źródeł, pozycji katalogu i kolejki oraz stanu; testy duplikatów tytułów, zagnieżdżonego źródła i braku wycieku identyfikatorów do mowy.
+- `wxlite/amc_wx_lite/heos_navigation.py` i `wxlite/tests/test_heos_navigation.py`: stan poziomów katalogu, powrót do zaznaczenia oraz odrzucanie spóźnionych list po zmianie widoku lub urządzenia.
 - Adapter nie jest jeszcze wpięty w sesję, interfejs, pakiet ani instalację.
 
 ## Próba sieciowa
@@ -26,7 +27,7 @@ Pierwsze próby SSDP 23.11.2026 nie przyniosły odpowiedzi, ponieważ środowisk
 
 ## Testy i wynik
 
-- `D:\Projekty Codex\AMC - zależności\python-test-envs\wxpython-4.3.1-cp314\Scripts\python.exe -m pytest wxlite\tests\test_heos_client.py wxlite\tests\test_heos_source.py -q` z `PYTHONPATH=wxlite`: **26 passed in 0.58s**.
+- `D:\Projekty Codex\AMC - zależności\python-test-envs\wxpython-4.3.1-cp314\Scripts\python.exe -m pytest wxlite\tests\test_heos_client.py wxlite\tests\test_heos_source.py wxlite\tests\test_heos_navigation.py -q` z `PYTHONPATH=wxlite`: **36 passed in 0.82s** (ostatnia próba 23.11.2026).
 - Testy automatyczne są bezokienkowe i używają atrap. Osobna próba odczytowa na Denon Home 200 potwierdziła wykrywanie, model celu, strukturę źródeł, stronicowanie i model stanu. Nie potwierdza sterowania, dźwięku, interfejsu ani NVDA.
 - Nie wykonano kompilacji, instalacji ani publikacji.
 
@@ -34,11 +35,11 @@ Pierwsze próby SSDP 23.11.2026 nie przyniosły odpowiedzi, ponieważ środowisk
 
 - Odczyt CLI na Denon Home 200 działa; zgodność poleceń sterowania i zachowanie po utracie połączenia pozostają do próby.
 - Brak sesji HEOS i czynności użytkowych w GUI. Odczytowy adapter jest etapem wewnętrznym.
-- Paginacja i format odpowiedzi wymagają jeszcze sprawdzenia na obecnym firmware Denon Home 200.
+- Stronicowanie katalogu i format bieżącej odpowiedzi sprawdzono odczytowo na Denon Home 200; dalsza zgodność z innymi źródłami i firmware wymaga prób.
 
 ## Wersja i commit
 
-Baza aktualizacji `eabaa0e8`; wcześniejszy klient odczytowy `99e602ec6532`, nowy adapter i model `2c7cc6f086f8`. Żadna wersja AMC z HEOS nie powstała.
+Baza aktualizacji `eabaa0e8`; wcześniejszy klient odczytowy `99e602ec6532`, adapter i model `2c7cc6f086f8`, komendy kolejki `00b23968`, nawigacja `996a074e`. Żadna wersja AMC z HEOS nie powstała.
 
 ## Materiał do dokumentacji użytkownika
 
@@ -63,3 +64,11 @@ Próba była wyłącznie odczytowa. Kod klienta i 8 testów na atrapach pozostaj
 Michał zezwolił rozwijać HEOS równolegle do właśnie składanej aktualizacji AMC. HEOS ma trafić do testów dopiero w **następnej** wersji AMC Test, po zakończeniu bieżącego wydania. Ta decyzja zastępuje wcześniejsze prowadzenie HEOS na gałęzi kandydata do bieżącej aktualizacji. Prace Apple Music mogą zostać dołączone do następnego Test po osobnej weryfikacji; nie są częścią zadania HEOS. Kod HEOS jest izolowany na własnej gałęzi. Nie skompilowano ani nie opublikowano wersji z HEOS na GitHubie.
 
 Nowy adapter wykrył Denon Home 200 i odczytał jednego gracza. Model źródeł odczytał siedem dostępnych pozycji; źródło zagnieżdżone występujące na urządzeniu ma własny `sid` bez `cid` i otrzymało osobną tożsamość w modelu do przyszłej nawigacji. Źródła zwracające sukces bez listy pozostają stanem niedostępnej listy, a nie pustą kolekcją. W działającym radiu model stanu rozpoznał typ stacji oraz znaną głośność i stan wyciszenia. Nie wysłano mutacji do urządzenia.
+
+## Uzupełnienie z 23.11.2026 — kolejka i nawigacja
+
+Wcześniejsze zdanie, że brak `payload` kończy się `HeosProtocolError`, opisuje stan z pierwszej próby i zostało zastąpione: aktualny klient zgłasza `HeosListUnavailable`, odrębne od pustej listy. Odczyt stronicowany i model stanu sprawdzono też na rzeczywistym Denon Home 200. Nie odtworzono żadnej pozycji.
+
+Dodano jawne polecenia dodania do kolejki w czterech różnych trybach; zastąpienie kolejki wymaga osobnego potwierdzenia wywołującego. Uruchomienie pozycji o przesuwającym się `qid` wymaga ponownego odczytu i zgodności odcisku pełnej kolejki. Radio korzysta z odrębnego polecenia stacji. Testy tych poleceń korzystały wyłącznie z atrap, więc nie dowodzą zgodności sterowania z fizycznym głośnikiem. Nowy model nawigacji odrzuca wyniki poprzedniej listy lub poprzedniego celu oraz przywraca identyfikator zaznaczonego kontenera po Backspace. Tekst dla NVDA pozostaje nazwą użytkową, bez technicznych identyfikatorów.
+
+Nie wykonano testów GUI/NVDA, kompilacji, instalacji ani publikacji. Następnym etapem jest podłączenie sesji AMC Test wraz ze wspólnym routingiem, menu, pomocą i paletą poleceń. Dopiero po gotowym interfejsie trzeba uzgodnić fizyczne próby zmieniające odtwarzanie i kolejkę.
