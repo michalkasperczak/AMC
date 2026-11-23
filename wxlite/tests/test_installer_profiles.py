@@ -255,7 +255,8 @@ def test_installer_compiler_keeps_each_path_argument_atomic() -> None:
     assert "$start.ArgumentList.Add($argument)" in compat
     assert "$start.UseShellExecute = $false" in compat
     assert "$start.Arguments =" in compat
-    assert "$compile.WaitForExit()" in BUILD
+    assert "Invoke-ArgumentListSafeProcessWithEvidence" in BUILD
+    assert "$process.WaitForExit()" in compat
     assert "Start-Process -FilePath $IsccPath" not in BUILD
     assert "'/DZrodlo=\"{0}\"'" not in BUILD
     assert "$compileArguments += $installerScript" in BUILD

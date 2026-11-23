@@ -2001,6 +2001,28 @@ class Navigator:
         state.view = View.PLAYER if open_player_on_activation else View.LIST
         return [PlayTrack(row.path, row.item_id, row.title), Announce(row.title)]
 
+    def activate_selected_youtube_video(self) -> list[object]:
+        """Open an online film in the existing Podcast player without audio host URL."""
+        state = self.session
+        row = state.model.selected_row
+        if (
+            state.session_id is not SessionId.PODCASTS
+            or row is None or row.kind != "episode" or not row.url
+        ):
+            return [Announce("Wybierz film YouTube z poprawnym adresem")]
+        state.player_entry_anchor_id = row.item_id
+        state.list_anchor_id = row.item_id
+        state.now_playing_id = row.item_id
+        state.now_playing_title = row.title
+        state.pending_material_id = row.item_id
+        self._set_playback_source(
+            state,
+            tuple(candidate for candidate in state.model.rows
+                  if candidate.kind == "episode" and (candidate.path or candidate.url)),
+        )
+        state.view = View.PLAYER
+        return [PlayMedia(row.path or row.url, row.item_id, row.title), Announce(row.title)]
+
     def play_local_file(self, path: str, title: str) -> list[object]:
         """Plik spoza listy: okno „Otwórz plik” albo Eksplorator i Total Commander.
 

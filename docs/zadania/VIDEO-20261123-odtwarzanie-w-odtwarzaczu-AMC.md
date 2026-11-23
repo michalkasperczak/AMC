@@ -18,6 +18,8 @@ Późniejsza korekta z 23.11.2026: kolejna aktualizacja Test może zawierać wid
 
 Korekta wydania z 23.11.2026: Michał przeznaczył obraz wideo na razie do AMC Test. Polecenia obrazu i otwarcia filmu w przeglądarce są ukryte w Public przez wspólną możliwość profilu `local-video-preview`; Public zachowuje poprawki wyszukiwania i harmonogramu. Decyzja zastępuje wcześniejszy brak rozdzielenia profili dla tej funkcji.
 
+Późniejsza korekta z 23.11.2026: Michał polecił podłączyć także YouTube online w tym samym panelu Test. Zastępuje to powyższe zdanie o niedostępności obrazu strumieniowego. Implementację, testy i ograniczenia opisuje `VIDEO-002-YouTube-online-ocena-20261123.md`. Poniższe wyniki VIDEO-001 nadal odnoszą się do lokalnego i pobranego filmu.
+
 ## Polecenia, miejsca i komunikaty NVDA
 
 | Polecenie | Miejsce | Skrót | Opis w pomocy |
