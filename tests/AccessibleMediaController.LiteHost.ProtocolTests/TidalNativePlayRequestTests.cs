@@ -12,6 +12,7 @@ internal static class TidalNativePlayRequestTests
     {
         AcceptsOnlyKnownTidalProfiles();
         ParsesOneLocalTrackWithoutUpstreamData();
+        PreservesPositionWhenReturningFromNetworkAudio();
         RejectsUnsafeUrlsAndExtraData();
         RejectsBadIdentityTitleAndDuration();
         PreservesSourceRateAndLabelsPcmSeparately();
@@ -54,6 +55,19 @@ internal static class TidalNativePlayRequestTests
             """);
         Assert.True(withBitrate.BitrateKbps == 5000,
             "deklarowana przepływność skompresowanego strumienia");
+    }
+
+    private static void PreservesPositionWhenReturningFromNetworkAudio()
+    {
+        var resumed = Parse($$"""
+            {"id":"123","title":"Utwór","proxyUrl":"{{Url}}","durationSeconds":100,"positionSeconds":17.25}
+            """);
+        Assert.True(resumed.Position == TimeSpan.FromSeconds(17.25),
+            "Powrót z Cast zachowuje pozycję w tym samym strumieniu TIDAL.");
+        foreach (var position in new[] { "-1", "101", "\"secret\"" })
+            ExpectRejected($$"""
+                {"id":"123","title":"Utwór","proxyUrl":"{{Url}}","durationSeconds":100,"positionSeconds":{{position}}}
+                """, "nieprawidłowa pozycja powrotu");
     }
 
     private static void RejectsUnsafeUrlsAndExtraData()

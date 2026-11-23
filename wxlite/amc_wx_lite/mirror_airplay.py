@@ -12,8 +12,10 @@ import subprocess
 import threading
 from typing import Callable
 
-from .airplay_adapter import AirPlayDevice, close_airplay_receiver, discover_airplay_devices
+from .airplay_adapter import AirPlayDevice, AirPlayUnavailable, close_airplay_receiver, discover_airplay_devices
+from . import i18n
 from .mirror_core import MIRROR_SESSIONS, PLAY_OPERATIONS
+from .network_audio import play_session, source_for_session, retire_displaced_mirrors
 
 
 def ffmpeg_command(executable: str, source: str, position: float) -> list[str]:
@@ -51,11 +53,14 @@ class MirrorAirPlayRouter:
         self.event = event
         self.discover = discover
         self.routes: dict[str, AirPlayRoute] = {}
+        self._devices: tuple[AirPlayDevice, ...] | None = None
 
-    def devices(self) -> tuple[AirPlayDevice, ...]:
+    def devices(self, *, refresh: bool = False) -> tuple[AirPlayDevice, ...]:
         if not Path(self.ffmpeg).is_file():
             return ()
-        return asyncio.run(self.discover())
+        if self._devices is None or refresh:
+            self._devices = tuple(asyncio.run(self.discover()))
+        return self._devices
 
     def selected_device_id(self, session: str) -> str | None:
         route = self.routes.get(session)
@@ -122,7 +127,7 @@ class MirrorAirPlayRouter:
                 await asyncio.sleep(1)
 
     def _start(self, session: str, route: AirPlayRoute, status: dict) -> None:
-        route.source = str(status.get("source") or "")
+        route.source = source_for_session(session, status)
         route.stopped = False
         route.error = None
         route.ready.clear()
@@ -150,12 +155,9 @@ class MirrorAirPlayRouter:
             raise RuntimeError("Odbiornik AirPlay nie odpowiedział")
         if route.error is not None:
             route.stop()
-            if isinstance(route.error, RuntimeError):
+            if isinstance(route.error, AirPlayUnavailable):
                 raise route.error
-            raise RuntimeError(
-                f"{route.device.name} nie odpowiada przez AirPlay. "
-                "Sprawdź odbiornik i spróbuj ponownie."
-            ) from route.error
+            raise AirPlayUnavailable(i18n.tr("mirror.airplayPlaybackFailed", name=route.device.name)) from None
 
     def enable(self, session: str, device_id: str) -> dict:
         if session not in MIRROR_SESSIONS or not Path(self.ffmpeg).is_file():
@@ -163,7 +165,7 @@ class MirrorAirPlayRouter:
         previous = self.routes.get(session)
         if previous and previous.device.device_id == device_id:
             return {"name": previous.device.name, "synchronized": False}
-        device = next((item for item in self.devices() if item.device_id == device_id), None)
+        device = next((item for item in self.devices(refresh=True) if item.device_id == device_id), None)
         if device is None:
             raise RuntimeError("Nie znaleziono wybranego odbiornika AirPlay")
         if any(key != session and route.device.device_id == device_id
@@ -172,6 +174,7 @@ class MirrorAirPlayRouter:
         status = self.native("transport.status", {"sessionId": session})
         if not status.get("source") or not (status.get("playing") or status.get("paused")):
             raise RuntimeError("Najpierw uruchom materiał w AMC")
+        source_for_session(session, status)
         route = AirPlayRoute(device, self.ffmpeg)
         self.routes[session] = route
         try:
@@ -194,7 +197,8 @@ class MirrorAirPlayRouter:
         return {"active": False}
 
     def after_native(self, op: str, args: dict, result: dict | None) -> None:
-        session = PLAY_OPERATIONS.get(op, args.get("sessionId"))
+        retire_displaced_mirrors(self, op, args)
+        session = play_session(op, args) or args.get("sessionId")
         route = self.routes.get(session)
         if route is None:
             return
@@ -206,7 +210,8 @@ class MirrorAirPlayRouter:
         try:
             route.stop()
             status = self.native("transport.status", {"sessionId": session})
-            if status.get("playing") and not status.get("paused") and status.get("source"):
+            accepted_tidal = op == "tidal.nativePlay" and status.get("preparing")
+            if (status.get("playing") or accepted_tidal) and not status.get("paused") and status.get("source"):
                 replacement = AirPlayRoute(route.device, route.ffmpeg)
                 self.routes[session] = replacement
                 self._start(session, replacement, status)

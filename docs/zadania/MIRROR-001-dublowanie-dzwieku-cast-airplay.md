@@ -1,5 +1,7 @@
 # MIRROR-001 — dublowanie dźwięku AMC przez Google Cast
 
+**Korekta 23.11.2026:** [CAST-002](CAST-002-20261123-zakres-sesji-i-AirPlay.md) rozszerza zakres źródeł na Radio Archiwistę i odpowiedni natywny TIDAL oraz nadaje Shift+M nazwę „AirPlay i dodatkowe wyjście audio”. Nowy kod i testy nie stanowią odbioru sprzętowego AirPlay ani NVDA; stan kolejnego wydania zapisano w tej nowszej karcie.
+
 ## Status — 02.11.2026
 
 Kod i testy przeniesione do gałęzi wydania AMC Test `codex/amc-test-mirror-wiim-20261102` na bazie alpha.465. Wydanie na GitHubie, instalacja i ręczny odbiór NVDA wymagają osobnych potwierdzeń. Dokument zastępuje w publicznym repozytorium prywatny dziennik prób zawierający lokalizacje nagrań użytkownika.

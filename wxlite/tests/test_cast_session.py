@@ -103,6 +103,11 @@ class CastTests(unittest.TestCase):
                 self.assertIsNone(result.get('historyError'))
                 result=client.call('cast.notePlayback',{'sessionId':'radio','id':'cast-station-one'})
                 self.assertIsNone(result.get('historyError'))
+                # These sessions own history in the frontend; accept the notification
+                # without writing misleading local/radio playback rows.
+                for session in ('radioarchiwista', 'tidal'):
+                    result=client.call('cast.notePlayback',{'sessionId':session,'id':'frontend-owned'})
+                    self.assertIsNone(result.get('historyError'))
                 with self.assertRaises(HostError):
                     client.call('cast.notePlayback',{'sessionId':'spotify','id':'must-not-record'})
                 with closing(sqlite3.connect(profile/'library.db')) as database:
@@ -115,21 +120,24 @@ class CastTests(unittest.TestCase):
         self.assertEqual(shared.shortcut,'Shift+C')
         self.assertEqual(describe_action(Action.CAST_SESSION),shared.description)
         self.assertIn(('Shift+C',shared.description),describe())
-        for session in (SessionId.FILES,SessionId.RADIO,SessionId.PODCASTS):
+        for session in (SessionId.FILES,SessionId.RADIO,SessionId.PODCASTS,
+                        SessionId.RADIOARCHIWISTA,SessionId.TIDAL):
             entries=command_palette.entries_for_session(session)
             entry=next(e for e in entries if e.action is Action.CAST_SESSION)
             self.assertEqual((entry.name,entry.shortcut),(shared.name,shared.shortcut))
             menu=next(item for m in menu_model.menus_for_session(session) for item in m.items
                       if item.action is Action.CAST_SESSION)
             self.assertEqual(menu.shortcut,shared.shortcut)
-        for session in (SessionId.SPOTIFY,SessionId.TIDAL,SessionId.WIIM,SessionId.SONOS):
+        for session in (SessionId.SPOTIFY,SessionId.WIIM,SessionId.SONOS):
             self.assertFalse(any(e.action is Action.CAST_SESSION for e in command_palette.entries_for_session(session)))
 
     def test_shift_c_and_original_audio_shortcut_in_both_views(self):
         for player in (False,True):
             self.assertIs(resolve(Chord('C',shift=True),player_view=player,radio_session=True),Action.CAST_SESSION)
             self.assertIs(resolve(Chord('A',shift=True),player_view=player,radio_session=True),Action.SELECT_AUDIO_OUTPUT)
-            for context in ('wiim_session','sonos_session','spotify_session','tidal_session','frontier_smart_session'):
+            for context in ('radioarchiwista_session','tidal_session'):
+                self.assertIs(resolve(Chord('C',shift=True),player_view=player,radio_session=False,**{context:True}),Action.CAST_SESSION)
+            for context in ('wiim_session','sonos_session','spotify_session','frontier_smart_session'):
                 self.assertIsNone(resolve(Chord('C',shift=True),player_view=player,radio_session=False,**{context:True}))
 
     def test_cast_capabilities_block_native_only_commands(self):

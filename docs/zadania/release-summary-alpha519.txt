@@ -1,0 +1,1 @@
+Shift+C i Shift+M: Radio Archiwista oraz obsługiwane źródła natywnego TIDAL, bez TIDAL Connect. Czytelne AirPlay i powody braku urządzeń, poprawione kierowanie sesji i powrót z Cast. Cast TIDAL bez DASH/MPD. Odsłuch nowych wariantów i NVDA do potwierdzenia; AirPlay na WiiM nadal wymaga sprawdzenia. Apple Music tylko w Test; HEOS poza wydaniem.

@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Callable, Any
 
 from .mirror_core import MIRROR_SESSIONS, PLAY_OPERATIONS
+from .network_audio import play_session, tidal_request, retire_displaced_mirrors
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +59,11 @@ class MirrorLocalRouter:
                                       "rate": status.get("rate", 1.0)}
         elif session == "radio":
             op, args = "radio.play", {**common, "url": source}
+        elif session == "tidal":
+            op, args = "tidal.nativePlay", {**tidal_request(status),
+                "positionSeconds": common["positionSeconds"]}
+            route.client.call("transport.setVolume", {"sessionId": session,
+                                                       "volume": common["volume"]})
         else:
             op, args = "media.play", {**common, "source": source,
                                       "sessionId": session,
@@ -100,7 +106,8 @@ class MirrorLocalRouter:
         return {"active": False}
 
     def after_native(self, op: str, args: dict, result: dict | None) -> None:
-        session = PLAY_OPERATIONS.get(op, args.get("sessionId"))
+        retire_displaced_mirrors(self, op, args)
+        session = play_session(op, args) or args.get("sessionId")
         route = self.routes.get(session)
         if route is None:
             return

@@ -1,5 +1,12 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+## Google Cast i AirPlay — przygotowane do następnej wersji, 23.11.2026
+
+`Shift+C` wybiera Google Cast, a `Shift+M` otwiera „AirPlay i dodatkowe wyjście audio”. Przygotowany przyrost dodaje Radio Archiwistę i odpowiednie źródła natywnego TIDAL bez TIDAL Connect; Cast obsługuje nieszyfrowany BTS FLAC/AAC/MP3, bez DASH/MPD. AirPlay jest dodatkowym odsłuchem z możliwym opóźnieniem. Pozostałe sesje wymagające innego źródła dźwięku nie otrzymują pozornego działającego polecenia. `Shift+A` nadal wybiera lokalny tor audio.
+
+To stan źródeł do kolejnego wspólnego wydania, bez zmiany bieżącej instalacji. Odsłuch sprzętowy oraz odbiór nowych wariantów listy z NVDA są otwarte. Dzisiejsza karta zastępuje starsze ogólne opisy ograniczenia do trzech sesji i traktowania Shift+M wyłącznie jako pomysłu. [Szkic instrukcji i ograniczenia](docs/zadania/CAST-002-instrukcja-i-lista-zmian-szkic.md); [wyniki testów i stan wydania](docs/zadania/CAST-002-20261123-zakres-sesji-i-AirPlay.md).
+
+
 ## Wyszukiwanie Radio Archiwisty i wybór usług w źródłach — 18.11.2026
 
 `Ctrl+F` w Radio Archiwiście wyszukuje stacje z publicznego katalogu serwisu,

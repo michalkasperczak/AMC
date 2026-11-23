@@ -17,6 +17,7 @@ internal sealed record LiteTidalNativePlayRequest(
     int? SampleRateHz,
     string? SourceQualityLabel)
 {
+    internal TimeSpan Position { get; init; } = TimeSpan.Zero;
     internal const string Operation = "tidal.nativePlay";
     internal const string BitrateOperation = "tidal.nativeBitrate";
     internal const string DisabledMessage =
@@ -42,7 +43,7 @@ internal sealed record LiteTidalNativePlayRequest(
         foreach (var property in args.EnumerateObject())
         {
             if (property.Name is not ("proxyUrl" or "id" or "title" or "durationSeconds" or "bitrateKbps"
-                or "sampleRateHz" or "sourceQualityLabel"))
+                or "sampleRateHz" or "sourceQualityLabel" or "positionSeconds"))
                 throw new LiteRequestException("Polecenie odtwarzania TIDAL zawiera nieznane dane.");
         }
 
@@ -105,8 +106,15 @@ internal sealed record LiteTidalNativePlayRequest(
                 || sourceQualityLabel.Any(char.IsControl))
                 throw new LiteRequestException("Opis jakości TIDAL jest nieprawidłowy.");
         }
+        double positionSeconds = 0;
+        if (args.TryGetProperty("positionSeconds", out var positionProperty)
+            && (positionProperty.ValueKind != JsonValueKind.Number
+                || !positionProperty.TryGetDouble(out positionSeconds)
+                || !double.IsFinite(positionSeconds)
+                || positionSeconds < 0 || positionSeconds > durationSeconds))
+            throw new LiteRequestException("Pozycja utworu TIDAL jest nieprawidłowa.");
         return new(id, title, proxyUri, TimeSpan.FromSeconds(durationSeconds), bitrateKbps,
-            sampleRateHz, sourceQualityLabel);
+            sampleRateHz, sourceQualityLabel) { Position = TimeSpan.FromSeconds(positionSeconds) };
     }
 
     internal static string FormatPlaybackText(
