@@ -58,3 +58,40 @@ dane są kompletne. Poprawiono też przechodzenie kolejki Spotify po szybkim
 pominięciu utworu. W Test logowanie Apple Music korzysta z Edge.
 
 Szkic nie jest opublikowaną instrukcją użytkownika ani dowodem odbioru NVDA.
+
+## Wynik wydania, 23.11.2026 wieczorem
+
+- Commit źródeł: `bb7c5e0a8f5ba3626b17c62817d3bd708be474c0`, gałąź
+  `codex/amc-unified-release-20261123`, wypchnięta do GitHub i odczytowo
+  potwierdzona. Dokumentacyjny commit po publikacji nie zmienia kodu wydania.
+- Końcowy test poleceń, profili i instalatora: 60 zaliczonych, 49 podtestów.
+  Wcześniejszy przebieg 120 zaliczonych i 49 podtestów obejmował dodatkowo
+  pakowanie i TIDAL. LiteHost Release: 0 błędów i 0 ostrzeżeń.
+- Paczka Test: `publish/AMC-Test-2026-11-23-bb7c5e0a`, 3649 plików; Public:
+  `publish/AMC-Public-2026-11-23-bb7c5e0a`, 2922 pliki. Obie mają
+  `sourceDirty=false`, właściwy commit, pełną kontrolę plików i zaliczony
+  kontrolowany start GUI oraz hosta. Test zawiera wideo i Apple Music, Public
+  wideo bez Apple Music; obie nie zawierają HEOS.
+- Instalator Test `AMC-Test-2026-11-23-2136.exe`: 214456190 bajtów, SHA-256
+  `0b055bdeae984f287d38755579245380052c9abedf7c41407c201433c2c62c64`.
+  Instalator Public `AMC-Public-2026-11-23-2138.exe`: 133950153 bajty,
+  SHA-256 `3f5a018221be7d0560f0f4f7019f9233e89dc27e368923c8c44d407222c9e94a`.
+  Lokalne pliki `.integrity.json` potwierdzają `secretScan=passed`, wersję
+  `0.1.0-alpha.518`, profil i commit.
+- GitHub Test: https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.23.2136
+  — wydanie wstępne. GitHub Public:
+  https://github.com/michalkasperczak/AMC/releases/tag/public-2026.11.23.2138
+  — wydanie stabilnego kanału. W obu GitHub potwierdził 3 przesłane zasoby,
+  rozmiary, zdalny digest SHA-256 instalatora identyczny z lokalnym i ten sam
+  commit źródłowy. Manifesty gotowości mają `published=true`.
+- Odczytowy test z aktualnie zainstalowanych profili: Test
+  `23.11.2026, 20:04` widzi `available=True` i nowy tag `2136`; Public
+  `14.11.2026, 16:45` widzi `available=True` i nowy tag `2138`.
+  Nie pobrano instalatorów przez aktualizator, nie uruchomiono instalacji ani
+  nie zamknięto działającego AMC. Użytkownik wykona aktualizację ręcznie.
+- Kontrola zgłoszeń Huberta: 23.11.2026 nie było nowego zgłoszenia ani
+  komentarza w `michalkasperczak/AMC`; najnowsze zmiany widoczne w GitHub
+  pochodzą z 22.11.2026. Nie znaleziono też dzisiejszej poczty od Huberta.
+- Po instalacji użytkownik sprawdzi NVDA, wideo w Public, lewą strzałkę TIDAL
+  i wyszukiwanie. Dokładne odtwarzanie wskazanego utworu Apple Music nadal
+  pozostaje odrębnym, niepotwierdzonym zadaniem.
