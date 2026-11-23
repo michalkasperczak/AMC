@@ -122,6 +122,15 @@ jobs:
           }
           "AMC_ISCC=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
+      - name: Ustaw polską strefę czasu etykiety wersji
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & tzutil.exe /s 'Central European Standard Time'
+          if ($LASTEXITCODE -ne 0 -or (Get-TimeZone).Id -cne 'Central European Standard Time') {
+            throw 'Nie ustawiono polskiej strefy czasu dla wersji użytkowej.'
+          }
+
       - name: Zbuduj i sprawdź paczkę AMC Test
         shell: pwsh
         run: |
@@ -133,6 +142,15 @@ jobs:
             -AppleMusicSitePackages $env:AMC_SITE_PACKAGES `
             -OutputDirectory (Join-Path $env:RUNNER_TEMP 'amc-heos-bundle')
           if ($LASTEXITCODE -ne 0) { throw 'Budowa paczki AMC Test nie powiodła się.' }
+          $manifestPath = Join-Path $env:RUNNER_TEMP 'amc-heos-bundle\bundle-manifest.json'
+          $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+          $warsaw = [TimeZoneInfo]::FindSystemTimeZoneById('Central European Standard Time')
+          $created = [DateTimeOffset]::Parse([string]$manifest.created)
+          $expected = [TimeZoneInfo]::ConvertTime($created, $warsaw).ToString(
+            'dd.MM.yyyy, HH:mm', [cultureinfo]::InvariantCulture)
+          if ([string]$manifest.displayVersion -cne $expected) {
+            throw 'Etykieta wersji nie zgadza się z polskim czasem utworzenia paczki.'
+          }
 
       - name: Skompiluj i sprawdź instalator alpha.521
         shell: pwsh
