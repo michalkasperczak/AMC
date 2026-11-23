@@ -1,15 +1,18 @@
 # VIDEO-001 — obraz lokalnego filmu w odtwarzaczu AMC
 
 - Data: 23.11.2026.
-- Status: kod i testy celowane gotowe; widoczny odbiór obrazu, NVDA, build, instalacja i publikacja pozostają otwarte.
+- Status: kod i testy celowane gotowe w AMC Test; widoczny odbiór obrazu, NVDA, build, instalacja i publikacja pozostają otwarte.
 - Baza: wydana `0.1.0-alpha.513`; aktywna gałąź `codex/alpha512-update-candidate-20261122`.
-- Commit tego zadania: do uzupełnienia po zatwierdzeniu źródeł.
+- Commit bazowej funkcji: `4d0d775832006f264fc2a9e24e4f3833af454359`; późniejsza bramka Test/Public: do uzupełnienia.
+- Kanoniczny checkout D po scaleniu historii: `codex/amc-current-d-20261123`, commit scalający `faf67433`.
 
 ## Decyzja użytkownika i zachowanie
 
 23.11.2026 Michał zastąpił wstępny wariant osobnego okna wideo wyborem „Odtwarzaj wideo” / „Odtwarzaj tylko audio” w tym samym odtwarzaczu AMC. Obraz jest częścią istniejącego panelu. Przycisk odtwarzania, czas, głośność, prędkość, strzałki, kolejka, zakładki i nawigacja pozostają tymi samymi funkcjami AMC. Enter na pliku wideo zachowuje domyślne uruchomienie samego audio. W sesji Pliki polecenia są dostępne na istniejącym lokalnym pliku z rozszerzeniem wideo, także w Pobranych plikach. Wybranie „Odtwarzaj wideo” pokazuje obraz; „Odtwarzaj tylko audio” chowa obraz i zostawia odtwarzanie dźwięku.
 
 Osobne doprecyzowanie Michała z 23.11: najlepiej obsłużyć również YouTube online, ale przy trudności z osadzeniem wystarcza pobrany plik. Dlatego w sesji Podcasty i YouTube dodano „Otwórz w przeglądarce” dla zaznaczonego filmu z poprawnym publicznym adresem HTTPS. Polecenie przekazuje dokładny adres filmu do domyślnej przeglądarki systemowej po świadomym uruchomieniu polecenia. Dotyczy rozpoznanych pozycji YouTube, Facebooka i Instagrama. Nie dotyczy Spotify, TIDAL ani Apple Music. Odtwarzania YouTube online wewnątrz AMC w tym etapie nie dodano.
+
+Korekta wydania z 23.11.2026: Michał przeznaczył obraz wideo na razie do AMC Test. Polecenia obrazu i otwarcia filmu w przeglądarce są ukryte w Public przez wspólną możliwość profilu `local-video-preview`; Public zachowuje poprawki wyszukiwania i harmonogramu. Decyzja zastępuje wcześniejszy brak rozdzielenia profili dla tej funkcji.
 
 ## Polecenia, miejsca i komunikaty NVDA
 
@@ -29,8 +32,9 @@ Odtwarzanie YouTube osadzone w AMC wymagałoby osobnego odtwarzacza przeglądark
 
 ## Testy i rzeczywisty wynik
 
-- Dziesięć testów `wxlite/tests/test_video_display.py`: **10/10 PASS** w runtime AMC Python 3.14.7 / wxPython 4.3.1. Obejmują wybór pliku, walidację dokładnej strony wideo, zgodność nazw/opisów/skrótów, trasę dispatchera, dostępność według zaznaczenia, użycie tego samego nawigatora i `PlayTrack`, synchronizację widoczności z hostem, przekazanie adresu do przeglądarki oraz powrót do audio po błędzie.
+- Jedenaście testów `wxlite/tests/test_video_display.py`: **11/11 PASS** w runtime AMC Python 3.14.7 / wxPython 4.3.1. Obejmują wybór pliku, walidację dokładnej strony wideo, zgodność nazw/opisów/skrótów, trasę dispatchera, dostępność według zaznaczenia, użycie tego samego nawigatora i `PlayTrack`, synchronizację widoczności z hostem, przekazanie adresu do przeglądarki, powrót do audio po błędzie oraz izolację profilu Test/Public.
 - Syntetyczny MP4: `wx.media.MediaCtrl.Load` zwrócił sukces i długość 3000 ms w ukrytym oknie; obraz ani zachowanie w widocznym odtwarzaczu nie zostały przez tę próbę potwierdzone.
+- Po połączeniu źródeł na D: **159 testów i 12 podtestów zaliczonych** dla wideo, profili Test/Public, wyszukiwania i harmonogramu. Oddzielnie 86 testów i 10 podtestów profili, menu i palety zaliczonych.
 - Celowana regresja menu, palety, tłumaczeń, podcastów i plików: **142 zaliczone, 1 pominięty, 10 podtestów zaliczonych, 2 niezaliczone**. Dwa niezaliczone testy kompletności angielskich tłumaczeń zawodzą także na zastanym checkoutcie D, przed przeniesieniem tej poprawki. Nie są dowodem regresji wideo, ale nie wolno uznać całej regresji za zieloną.
 - `git diff --check` bez błędów; nie uruchomiono pełnej regresji, kompilacji, instalatora, instalacji ani publikacji.
 

@@ -33,7 +33,7 @@ from .list_model import Row
 from .navigation import SessionId
 from . import session_order as session_order_model
 from .profile_layout import common_data_commands_available
-from .release_profile import PUBLIC_PROFILE_ID, current_profile
+from .release_profile import PUBLIC_PROFILE_ID, VIDEO_PREVIEW_CAPABILITY, current_profile
 from .shortcuts import (
     Action,
     APPLE_MUSIC_SUPPORTED_ACTIONS,
@@ -317,6 +317,11 @@ def menus_for_session(
         items: list[MenuItem] = []
         for entry in described.items:
             if entry.visible_sessions and session_id not in entry.visible_sessions:
+                continue
+            if entry.action in {
+                Action.PLAY_LOCAL_VIDEO, Action.PLAY_LOCAL_AUDIO,
+                Action.OPEN_VIDEO_IN_BROWSER,
+            } and VIDEO_PREVIEW_CAPABILITY not in current_profile().capabilities:
                 continue
             if (session_id is SessionId.TIDAL
                     and "tidal.native-playback" not in current_profile().capabilities

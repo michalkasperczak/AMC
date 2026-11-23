@@ -13,6 +13,7 @@ from amc_wx_lite.list_model import Row
 from amc_wx_lite.menu_model import menus_for_session
 from amc_wx_lite.navigation import LibraryView, Navigator, PlayTrack, SessionId, View
 from amc_wx_lite.podcast_source import external_video_page_url
+from amc_wx_lite.release_profile import PUBLIC_PROFILE, TEST_PROFILE
 from amc_wx_lite.shortcuts import Action, _help_entries, command_presentation
 
 
@@ -213,6 +214,32 @@ class VideoDisplayContracts(unittest.TestCase):
                 url="https://www.youtube.com/@channel/videos", service_kind="youtubeVideo")
             self.assertFalse(LiteFrame._action_available_in_active_session(
                 frame, Action.OPEN_VIDEO_IN_BROWSER))
+
+    def test_video_commands_are_test_only_across_menu_palette_and_execution(self):
+        video_actions = {
+            Action.PLAY_LOCAL_VIDEO, Action.PLAY_LOCAL_AUDIO,
+            Action.OPEN_VIDEO_IN_BROWSER,
+        }
+        for profile, expected in ((TEST_PROFILE, True), (PUBLIC_PROFILE, False)):
+            with self.subTest(profile=profile.profile_id), patch(
+                "amc_wx_lite.menu_model.current_profile", return_value=profile
+            ), patch("amc_wx_lite.gui.current_profile", return_value=profile):
+                actions = {
+                    item.action
+                    for session in (SessionId.FILES, SessionId.PODCASTS)
+                    for menu in menus_for_session(session)
+                    for item in menu.items
+                }
+                palette_actions = {
+                    item.action
+                    for session in (SessionId.FILES, SessionId.PODCASTS)
+                    for item in entries_for_session(session)
+                }
+                self.assertEqual(video_actions <= actions, expected)
+                self.assertEqual(video_actions <= palette_actions, expected)
+                frame = SimpleNamespace(_local_video_target_path=lambda: "film.mp4")
+                self.assertEqual(LiteFrame._action_available_in_active_session(
+                    frame, Action.PLAY_LOCAL_VIDEO), expected)
 
 
 if __name__ == "__main__":

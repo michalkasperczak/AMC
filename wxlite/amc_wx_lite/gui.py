@@ -93,7 +93,7 @@ from .command_palette import (
     filter_entries as filter_command_entries,
 )
 from .host_client import HostError, HostUnavailable, LiteHostClient, default_host_path
-from .release_profile import current_profile
+from .release_profile import VIDEO_PREVIEW_CAPABILITY, current_profile
 from .spotify_soloist import SoloistManager, SoloistSetupError
 from .spotify_soloist_dialog import SpotifySoloistDialog
 STARTUP_PODCAST_CATCH_UP_DELAY_SECONDS = 30.0
@@ -27943,6 +27943,8 @@ class LiteFrame(wx.Frame):
         self.runner.submit("podcast-download", work, done, failed)
 
     def _open_video_in_browser(self) -> None:
+        if VIDEO_PREVIEW_CAPABILITY not in current_profile().capabilities:
+            return
         row = self.navigator.session.model.selected_row
         address = (
             external_video_page_url(row)
@@ -29160,6 +29162,8 @@ class LiteFrame(wx.Frame):
         ) else None
 
     def _play_local_video_mode(self, show_picture: bool) -> None:
+        if VIDEO_PREVIEW_CAPABILITY not in current_profile().capabilities:
+            return
         if not self._local_video_target_path():
             self.announcer.say("Wybierz dostępny lokalny plik wideo")
             return
@@ -29187,7 +29191,8 @@ class LiteFrame(wx.Frame):
         path = status.get("source")
         state = self.navigator.sessions[SessionId.FILES]
         should_show = bool(
-            self._video_mode_requested
+            VIDEO_PREVIEW_CAPABILITY in current_profile().capabilities
+            and self._video_mode_requested
             and self.navigator.active is SessionId.FILES
             and state.view is View.PLAYER
             and status.get("id") == state.now_playing_id
@@ -40007,6 +40012,11 @@ class LiteFrame(wx.Frame):
         )
 
     def _action_available_in_active_session(self, action: Action) -> bool:
+        if action in {
+            Action.PLAY_LOCAL_VIDEO, Action.PLAY_LOCAL_AUDIO,
+            Action.OPEN_VIDEO_IN_BROWSER,
+        } and VIDEO_PREVIEW_CAPABILITY not in current_profile().capabilities:
+            return False
         if action in {Action.PLAY_LOCAL_VIDEO, Action.PLAY_LOCAL_AUDIO}:
             return bool(self._local_video_target_path())
         if action is Action.OPEN_VIDEO_IN_BROWSER:

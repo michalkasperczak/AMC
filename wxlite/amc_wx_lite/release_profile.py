@@ -19,6 +19,7 @@ from typing import Mapping
 PROFILE_SCHEMA_VERSION = 1
 TEST_PROFILE_ID = "test"
 PUBLIC_PROFILE_ID = "public"
+VIDEO_PREVIEW_CAPABILITY = "local-video-preview"
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +112,7 @@ TEST_PROFILE = ReleaseProfile(
         "sonos.local",
         "spotify.playlists",
         "youtube.account.readonly",
+        VIDEO_PREVIEW_CAPABILITY,
         "apple-music.experimental",
         "session.apple-music",
     ),
@@ -137,6 +139,7 @@ PUBLIC_PROFILE = ReleaseProfile(
         if capability not in {
             "apple-music.experimental",
             "session.apple-music",
+            VIDEO_PREVIEW_CAPABILITY,
         }
     ),
 )
