@@ -14,6 +14,7 @@ import socket
 import threading
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlencode
 
@@ -25,7 +26,12 @@ _READ_COMMANDS = frozenset({
     "player/get_volume", "player/get_mute", "player/get_queue",
     "group/get_groups", "browse/get_music_sources", "browse/browse",
 })
+_CONTROL_COMMANDS = frozenset({
+    "player/set_play_state", "player/play_next", "player/play_previous",
+    "player/set_volume", "player/set_mute",
+})
 _MAX_LINE = 4 * 1024 * 1024
+_SSDP_TARGET = "urn:schemas-denon-com:device:ACT-Denon:1"
 
 
 class HeosError(RuntimeError):
@@ -44,11 +50,27 @@ class HeosProtocolError(HeosError):
     pass
 
 
+class HeosListUnavailable(HeosError):
+    """A source succeeded but supplied no list; this is not an empty list."""
+
+    def __init__(self, command: str) -> None:
+        super().__init__("To źródło nie udostępnia listy przez HEOS.")
+        self.command = command
+
+
 class HeosCommandError(HeosError):
     def __init__(self, command: str, message: str) -> None:
         super().__init__(f"HEOS command {command} failed")
         self.command = command
         self.message = message  # Diagnostic only; may contain account data.
+
+
+@dataclass(frozen=True, slots=True)
+class HeosPage:
+    items: tuple[dict[str, Any], ...]
+    next_start: int
+    has_more: bool
+    total: int | None
 
 
 def _local_address(host: str) -> str:
@@ -65,6 +87,8 @@ def _local_address(host: str) -> str:
 
 class HeosReadClient:
     """One blocking read-only CLI connection, intended for a worker thread."""
+
+    _allowed_commands = _READ_COMMANDS
 
     def __init__(
         self,
@@ -133,7 +157,7 @@ class HeosReadClient:
             self._buffer.extend(chunk)
 
     def request(self, command: str, **params: object) -> dict[str, Any]:
-        if command not in _READ_COMMANDS or not _COMMAND.fullmatch(command):
+        if command not in self._allowed_commands or not _COMMAND.fullmatch(command):
             raise ValueError("Ta próba HEOS dopuszcza tylko polecenia odczytowe.")
         query = urlencode({key: str(value) for key, value in params.items()}, safe=",")
         line = f"heos://{command}" + (f"?{query}" if query else "") + "\r\n"
@@ -210,6 +234,42 @@ class HeosReadClient:
             params["cid"] = cid
         return self._pages("browse/browse", params, page_size, max_items)
 
+    def browse_page(self, sid: str, cid: str | None = None, *, start: int = 0,
+                    limit: int = 100) -> HeosPage:
+        params = {"sid": sid}
+        if cid is not None:
+            params["cid"] = cid
+        return self._page("browse/browse", params, start, limit)
+
+    def queue_page(self, pid: str, *, start: int = 0, limit: int = 100) -> HeosPage:
+        return self._page("player/get_queue", {"pid": pid}, start, limit)
+
+    def _page(self, command: str, params: dict[str, str], start: int,
+              limit: int) -> HeosPage:
+        if isinstance(start, bool) or not isinstance(start, int) or start < 0:
+            raise ValueError("Nieprawidłowy początek strony HEOS.")
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
+            raise ValueError("Nieprawidłowy rozmiar strony HEOS.")
+        response = self.request(command, **params, range=f"{start},{start + limit - 1}")
+        payload = response.get("payload")
+        if payload is None:
+            raise HeosListUnavailable(command)
+        if not isinstance(payload, list) or len(payload) > limit or any(
+            not isinstance(item, dict) for item in payload
+        ):
+            raise HeosProtocolError("HEOS zwrócił uszkodzoną stronę listy.")
+        message = str(response["heos"].get("message", ""))
+        count_match = re.search(r"(?:^|&)count=['\"]?(\d+)", message)
+        reported = int(count_match.group(1)) if count_match else 0
+        total = reported or None  # HEOS uses zero for an unknown total.
+        next_start = start + len(payload)
+        return HeosPage(
+            items=tuple(payload),
+            next_start=next_start,
+            has_more=(next_start < total if total is not None else bool(payload)),
+            total=total,
+        )
+
     def _pages(self, command: str, params: dict[str, str], page_size: int,
                max_items: int) -> list[dict[str, Any]]:
         if not 1 <= page_size <= 100 or max_items < 1:
@@ -220,6 +280,8 @@ class HeosReadClient:
             end = min(start + page_size, max_items) - 1
             response = self.request(command, **params, range=f"{start},{end}")
             payload = response.get("payload")
+            if payload is None:
+                raise HeosListUnavailable(command)
             if not isinstance(payload, list):
                 raise HeosProtocolError("HEOS nie zwrócił listy.")
             page = [item for item in payload if isinstance(item, dict)]
@@ -236,3 +298,103 @@ class HeosReadClient:
             if total and len(result) >= total:
                 break
         return result
+
+
+class HeosControlClient(HeosReadClient):
+    """Explicit mutations. Timeouts never repeat a command automatically."""
+
+    _allowed_commands = _READ_COMMANDS | _CONTROL_COMMANDS
+
+    def set_play_state(self, pid: str, state: str) -> None:
+        if state not in {"play", "pause", "stop"}:
+            raise ValueError("Nieznany stan odtwarzania HEOS.")
+        self.request("player/set_play_state", pid=pid, state=state)
+
+    def next(self, pid: str) -> None:
+        self.request("player/play_next", pid=pid)
+
+    def previous(self, pid: str) -> None:
+        self.request("player/play_previous", pid=pid)
+
+    def set_volume(self, pid: str, level: int) -> None:
+        if isinstance(level, bool) or not isinstance(level, int) or not 0 <= level <= 100:
+            raise ValueError("Głośność HEOS musi być od 0 do 100.")
+        self.request("player/set_volume", pid=pid, level=level)
+
+    def set_mute(self, pid: str, muted: bool) -> None:
+        if not isinstance(muted, bool):
+            raise ValueError("Nieprawidłowy stan wyciszenia HEOS.")
+        self.request("player/set_mute", pid=pid, state="on" if muted else "off")
+
+
+def parse_ssdp_response(data: bytes, source_ip: str) -> str | None:
+    """Return a local HEOS host only for the documented SSDP device type."""
+
+    try:
+        lines = data.decode("utf-8", "replace").splitlines()
+        headers = {}
+        for line in lines[1:]:
+            if ":" in line:
+                key, value = line.split(":", 1)
+                headers[key.strip().lower()] = value.strip()
+        if headers.get("st", "").lower() != _SSDP_TARGET.lower():
+            return None
+        return _local_address(source_ip)
+    except ValueError:
+        return None
+
+
+def discover_heos(
+    *, timeout: float = 4.0, interface_ips: tuple[str, ...] | None = None,
+    socket_factory: Callable[..., socket.socket] = socket.socket,
+) -> tuple[str, ...]:
+    """Search local IPv4 interfaces without contacting HEOS accounts or media."""
+
+    if interface_ips is None:
+        try:
+            interface_ips = tuple(socket.gethostbyname_ex(socket.gethostname())[2])
+        except OSError as error:
+            raise HeosUnavailable("Nie można odczytać kart sieciowych.") from error
+    candidates = []
+    for value in interface_ips:
+        try:
+            address = ipaddress.IPv4Address(value)
+            if _local_address(value) == str(address):
+                candidates.append(str(address))
+        except ValueError:
+            continue
+    if not candidates:
+        raise HeosUnavailable("Brak dostępnego połączenia z siecią lokalną.")
+    request = (
+        "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\n"
+        'MAN: "ssdp:discover"\r\nMX: 2\r\nST: '
+        + _SSDP_TARGET + "\r\n\r\n"
+    ).encode("ascii")
+    found: set[str] = set()
+    accessible = False
+    for address in candidates:
+        sock = socket_factory(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        try:
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(address))
+            sock.bind((address, 0))
+            sock.settimeout(0.25)
+            for _ in range(2):
+                sock.sendto(request, ("239.255.255.250", 1900))
+            accessible = True
+            deadline = time.monotonic() + max(0.2, float(timeout))
+            while time.monotonic() < deadline:
+                try:
+                    packet, source = sock.recvfrom(16384)
+                except socket.timeout:
+                    continue
+                host = parse_ssdp_response(packet, source[0])
+                if host is not None:
+                    found.add(host)
+        except OSError:
+            continue
+        finally:
+            sock.close()
+    if not accessible:
+        raise HeosUnavailable("Nie można wyszukać HEOS w sieci lokalnej.")
+    return tuple(sorted(found))

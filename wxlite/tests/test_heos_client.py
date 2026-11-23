@@ -6,7 +6,9 @@ import socket
 import pytest
 
 from amc_wx_lite.heos_client import (
-    HeosCommandError, HeosProtocolError, HeosReadClient, HeosTimeout,
+    HeosCommandError, HeosControlClient, HeosListUnavailable,
+    HeosProtocolError, HeosReadClient, HeosTimeout, HeosUnavailable,
+    discover_heos, parse_ssdp_response,
 )
 
 
@@ -41,7 +43,7 @@ class FakeSocket:
         self.closed = True
 
 
-def client_for(*sockets):
+def client_for(*sockets, cls=HeosReadClient):
     pool = list(sockets)
     calls = []
 
@@ -49,7 +51,7 @@ def client_for(*sockets):
         calls.append(address)
         return pool.pop(0)
 
-    return HeosReadClient("192.168.0.22", connector=connect, timeout=0.5), calls
+    return cls("192.168.0.22", connector=connect, timeout=0.5), calls
 
 
 def test_fragmented_lines_events_and_interim_response():
@@ -136,3 +138,107 @@ def test_empty_page_is_empty_collection_not_error():
     fake = PagedSocket([], 0)
     client, _ = client_for(fake)
     assert client.browse("2") == []
+
+
+@pytest.mark.parametrize("count", [0, 125])
+def test_browse_page_exposes_real_cursor_and_unknown_total(count):
+    items = [{"name": "Song", "mid": str(i)} for i in range(125)]
+    fake = PagedSocket(items, count)
+    client, _ = client_for(fake)
+    first = client.browse_page("2", start=0, limit=100)
+    assert len(first.items) == 40
+    assert first.next_start == 40
+    assert first.has_more
+    assert first.total == (count or None)
+    last = client.browse_page("2", start=120, limit=100)
+    assert len(last.items) == 5
+    assert last.next_start == 125
+    assert last.has_more is (count == 0)
+
+
+def test_success_without_payload_is_unavailable_not_empty():
+    fake = FakeSocket([packet("browse/browse", message="sid=2")])
+    client, _ = client_for(fake)
+    with pytest.raises(HeosListUnavailable):
+        client.browse("2")
+
+
+def test_control_commands_are_explicit_and_never_retried_after_timeout():
+    first = FakeSocket([socket.timeout()])
+    second = FakeSocket([packet("player/get_play_state", message="pid=1&state=play")])
+    client, calls = client_for(first, second, cls=HeosControlClient)
+    with pytest.raises(HeosTimeout):
+        client.set_play_state("1", "pause")
+    assert first.sent == [b"heos://player/set_play_state?pid=1&state=pause\r\n"]
+    assert first.closed
+    assert client.request("player/get_play_state", pid="1")["heos"]["result"] == "success"
+    assert len(calls) == 2
+
+
+def test_control_validates_values_before_network():
+    client, calls = client_for(cls=HeosControlClient)
+    with pytest.raises(ValueError):
+        client.set_play_state("1", "invalid")
+    with pytest.raises(ValueError):
+        client.set_volume("1", 101)
+    with pytest.raises(ValueError):
+        client.set_volume("1", True)
+    with pytest.raises(ValueError):
+        client.set_mute("1", "on")
+    assert calls == []
+
+
+def test_ssdp_accepts_only_documented_local_heos_response():
+    data = (b"HTTP/1.1 200 OK\r\n"
+            b"ST: urn:schemas-denon-com:device:ACT-Denon:1\r\n"
+            b"LOCATION: http://192.168.0.22:60006/device.xml\r\n\r\n")
+    assert parse_ssdp_response(data, "192.168.0.22") == "192.168.0.22"
+    assert parse_ssdp_response(data, "8.8.8.8") is None
+    assert parse_ssdp_response(data.replace(b"ACT-Denon", b"Other"), "192.168.0.22") is None
+
+
+class FakeDiscoverySocket:
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.sent = []
+        self.closed = False
+
+    def setsockopt(self, *_):
+        pass
+
+    def bind(self, address):
+        assert address == ("192.168.0.183", 0)
+
+    def settimeout(self, value):
+        assert value > 0
+
+    def sendto(self, message, address):
+        self.sent.append((message, address))
+
+    def recvfrom(self, size):
+        if self.responses:
+            return self.responses.pop(0)
+        raise socket.timeout
+
+    def close(self):
+        self.closed = True
+
+
+def test_discovery_uses_specific_multicast_target_and_deduplicates():
+    packet = (b"HTTP/1.1 200 OK\r\n"
+              b"ST: urn:schemas-denon-com:device:ACT-Denon:1\r\n\r\n")
+    fake = FakeDiscoverySocket([(packet, ("192.168.0.22", 1900))] * 2)
+    assert discover_heos(timeout=.2, interface_ips=("192.168.0.183",),
+                         socket_factory=lambda *_: fake) == ("192.168.0.22",)
+    assert len(fake.sent) == 2
+    assert all(b"ACT-Denon" in message for message, _ in fake.sent)
+    assert fake.closed
+
+
+def test_discovery_reports_network_denial():
+    class Denied(FakeDiscoverySocket):
+        def bind(self, address):
+            raise PermissionError(13, "denied")
+    with pytest.raises(HeosUnavailable):
+        discover_heos(timeout=.2, interface_ips=("192.168.0.183",),
+                      socket_factory=lambda *_: Denied([]))
