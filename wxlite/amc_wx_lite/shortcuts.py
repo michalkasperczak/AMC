@@ -131,6 +131,7 @@ class Action(Enum):
     # przypadkowy Escape nie moze przeniesc fokusu do innego poziomu listy.
     CLOSE_LIST_PREVIEW = "view.closePreview"
     SHOW_PLAYER = "view.player"
+    SHOW_ACTIVE_PLAYBACK = "view.activePlayback"
     SHOW_LIST = "view.list"
     PLAY_PAUSE = "transport.playPause"
     TOGGLE_SHUFFLE = "transport.shuffle.toggle"
@@ -485,6 +486,13 @@ class CommandPresentation:
 
 
 _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
+    Action.SHOW_ACTIVE_PLAYBACK: CommandPresentation(
+        Action.SHOW_ACTIVE_PLAYBACK,
+        "Aktywne odtwarzanie…",
+        "Pokaż odtwarzane i wstrzymane materiały znanych sesji i urządzeń; Enter otwiera wybrany odtwarzacz, Spacja pauzuje lub wznawia wskazaną pozycję, Escape wraca bez zmiany sesji",
+        "Shift+F6",
+        "Aktywne od&twarzanie…",
+    ),
     Action.PLAY_LOCAL_VIDEO: CommandPresentation(
         Action.PLAY_LOCAL_VIDEO,
         "Odtwarzaj wideo",
@@ -760,6 +768,7 @@ def ctrl_f5_presentation(session_label: str | None) -> CommandPresentation | Non
 # aktualnie wybranego dostawcy. Kazda restrykcyjna lista sesji dziedziczy ten
 # jeden zbior, zeby skrot, menu, paleta, pomoc i dispatcher nie rozjechaly sie.
 SESSION_INDEPENDENT_ACTIONS = frozenset({
+    Action.SHOW_ACTIVE_PLAYBACK,
     Action.RECORD_STOP_ALL,
     Action.CHECK_APPLICATION_UPDATE,
     Action.REPORT_PROBLEM,
@@ -1605,10 +1614,6 @@ LIST_VIEW: dict[str, Action] = {
     # Backspace powyzej pozostaje jedynym gestem "folder nadrzedny".
     "Escape": Action.CLOSE_LIST_PREVIEW,
     "F6": Action.SHOW_PLAYER,
-    # Shift+F6 na LISCIE tez idzie do odtwarzacza: warunek oryginalu to
-    # ``_playerViewActive && Shift`` (MainWindow.xaml.cs:20780), a na liscie
-    # pierwszy czlon jest falszem, wiec wykonuje sie galaz ShowPlayerView.
-    "Shift+F6": Action.SHOW_PLAYER,
     "Space": Action.PLAY_PAUSE,
     "Ctrl+M": Action.TOGGLE_MUTE,
     # Czas: Ctrl+SHIFT+E/R/T (MainWindow.xaml.cs:21674-21676, 22190-22192).
@@ -1818,7 +1823,6 @@ PLAYER_VIEW: dict[str, Action] = {
     "Ctrl+6": Action.SESSION_SONOS,
     "Ctrl+7": Action.SESSION_SPOTIFY,
     "Escape": Action.SHOW_LIST,
-    "Shift+F6": Action.SHOW_LIST,
     "F6": Action.SHOW_LIST,
     "Space": Action.PLAY_PAUSE,
     # Losowanie jest kontekstowe: Radio rozstrzyga R wcześniej jako
@@ -1956,6 +1960,7 @@ LIST_VIEW["Ctrl+Alt+Shift+R"] = Action.RECORD_STOP_ALL
 # korzystaja z tego samego kontraktu, wiec WiiM, Sonos ani przyszly adapter nie
 # moga polknac gestu bez dzialania.
 GLOBAL_VIEW_SHORTCUTS: dict[str, Action] = {
+    "Shift+F6": Action.SHOW_ACTIVE_PLAYBACK,
     "Alt+R": Action.VIEW_ACTIVE_RECORDINGS,
     "Alt+Shift+R": Action.VIEW_RECORDED_RADIO_FILES,
     "Ctrl+J": Action.VIEW_DOWNLOADED_FILES,
@@ -2274,6 +2279,7 @@ _SHORTCUT_TABLES: tuple[dict[str, Action], ...] = (
 # obsługi natywnej. Pozostają stałe, żeby błędna konfiguracja nie odcięła
 # użytkownika od Pomocy klawiatury, listy, sesji lub nagrywania.
 _PROTECTED_SHORTCUT_ACTIONS = frozenset({
+    Action.SHOW_ACTIVE_PLAYBACK,
     Action.ACTIVATE,
     Action.PARENT_FOLDER,
     Action.CLOSE_LIST_PREVIEW,
@@ -2805,6 +2811,9 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.PARENT_FOLDER: "Folder nadrzedny",
         Action.CLOSE_LIST_PREVIEW: "Zamknij podglad lub podwidok",
         Action.SHOW_PLAYER: "Widok odtwarzacza",
+        Action.SHOW_ACTIVE_PLAYBACK: _STATIC_COMMAND_PRESENTATIONS[
+            Action.SHOW_ACTIVE_PLAYBACK
+        ].description,
         Action.SHOW_LIST: "Powrot na liste",
         Action.PLAY_PAUSE: "Pauza albo wznowienie",
         Action.TOGGLE_SHUFFLE: "Włącz lub wyłącz odtwarzanie losowe",

@@ -110,10 +110,12 @@ def test_search_shortcuts_match_full_amc_in_both_views() -> None:
         ) is Action.SEARCH_ALL
 
 
-def test_f6_and_escape_match_the_full_amc_behaviour() -> None:
-    # MainWindow.xaml.cs:20773-20792
+def test_f6_escape_and_global_active_playback() -> None:
     assert resolve(Chord("F6"), player_view=False, radio_session=False) is Action.SHOW_PLAYER
-    assert resolve(Chord("F6", shift=True), player_view=True, radio_session=False) is Action.SHOW_LIST
+    for player in (False, True):
+        assert resolve(Chord("F6", shift=True), player_view=player,
+                       radio_session=False) is Action.SHOW_ACTIVE_PLAYBACK
+    assert resolve(Chord("F6"), player_view=True, radio_session=False) is Action.SHOW_LIST
     assert resolve(Chord("Escape"), player_view=True, radio_session=False) is Action.SHOW_LIST
     # Escape na liscie zamyka podglad, ale nie jest drugim Backspace.
     assert resolve(Chord("Escape"), player_view=False, radio_session=False) is Action.CLOSE_LIST_PREVIEW

@@ -816,6 +816,7 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
     "podcasts.description": "Podcast or episode description",
     "youtube.account.manage": "YouTube account, subscriptions, and playlists",
     "view.player": "Player view",
+    "view.activePlayback": "Active playback",
     "view.list": "List view",
     "view.history": "Playback history",
     "view.queue": "Queue",
@@ -1019,6 +1020,23 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
 # Static labels and accessibility text which do not have a command/event ID.
 # Commands and messages deliberately use their stronger stable models above.
 _UI_TEXT_EN: dict[str, str] = {
+    "Aktywne odtwarzanie": "Active playback",
+    "Odtwarzane i wstrzymane materiały": "Playing and paused items",
+    "Enter otwiera odtwarzacz. Spacja pauzuje lub wznawia wybraną pozycję. Escape wraca bez zmiany sesji.":
+        "Enter opens the player. Space pauses or resumes the selected item. Escape returns without changing the session.",
+    "&Otwórz odtwarzacz": "&Open player",
+    "&Wróć": "&Back",
+    "Stan polecenia": "Command status",
+    "Sprawdzam aktywne odtwarzanie": "Checking active playback",
+    "Trwa sprawdzanie odtwarzania": "Playback check is already running",
+    "Wysyłam polecenie odtwarzania": "Sending playback command",
+    "Nie znaleziono aktywnego ani wstrzymanego odtwarzania":
+        "No playing or paused items were found",
+    "Nie udało się sprawdzić odtwarzania": "Could not check playback",
+    "pauza": "paused",
+    "odtwarzanie": "playing",
+    "stan w aplikacji zewnętrznej": "state in external application",
+    "Odtwarzany materiał": "Playing media",
     "Odtwarzacz filmu YouTube": "YouTube video player",
     "Odtwarzacz YouTube gotowy": "YouTube player ready",
     "Film YouTube nie pozwala na odtwarzanie w AMC": "This YouTube video cannot play in AMC",
@@ -1838,6 +1856,12 @@ def command_name(action_value: str, polish_text: str) -> str:
 def command_description(action_value: str, polish_text: str) -> str:
     if _active_language == POLISH:
         return polish_text
+    if action_value == "view.activePlayback":
+        return (
+            "List playing and paused items on known sessions and devices; "
+            "Enter opens the selected player, Space pauses or resumes it, "
+            "and Escape returns without changing sessions"
+        )
     if action_value == "settings.general":
         return (
             "Program Settings; choose automatic podcast and YouTube runs "

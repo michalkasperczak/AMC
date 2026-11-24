@@ -2054,7 +2054,9 @@ def build_menus(
             MenuItem("Widok &odtwarzacza", Action.SHOW_PLAYER, shortcut="F6",
                      accelerator=False, needs_playback=True,
                      visible_sessions=PLAYER_SESSIONS),
-            # Powrot na liste istnial tylko z klawiatury (Escape/Shift+F6).
+            MenuItem("Aktywne od&twarzanie…", Action.SHOW_ACTIVE_PLAYBACK,
+                     shortcut="Shift+F6", accelerator=False),
+            # Powrot na liste istnial tylko z klawiatury (Escape/F6).
             # Akcja SHOW_LIST byla juz obslugiwana w _dispatch -- brakowalo
             # samego wejscia w menu, wiec nie jest to martwa pozycja.
             #

@@ -30,6 +30,7 @@ import tempfile
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
@@ -79,6 +80,7 @@ from .audio_output import (
     read_output_overrides,
     read_profile_outputs,
 )
+from .active_playback import ActivePlaybackItem, host_item, remote_item
 from .post_update_playback import normalize_snapshot
 from .collation import HostCollation
 from .cast_dialog import CastDeviceDialog
@@ -7029,6 +7031,105 @@ class FrontierSmartDevicesDialog(wx.Dialog):
                 return
         self.set_busy("Usuwanie urządzenia z AMC")
         self._remove(device_id, self)
+
+
+class ActivePlaybackDialog(wx.Dialog):
+    """A native list whose text is entirely composed of spoken labels."""
+
+    def __init__(
+        self, parent: wx.Window, items: tuple[ActivePlaybackItem, ...],
+        current: SessionId,
+        toggle: Callable[
+            [ActivePlaybackItem, Callable[[ActivePlaybackItem | None, str], None]], None
+        ],
+    ) -> None:
+        super().__init__(parent, title=i18n.ui_text("Aktywne odtwarzanie"))
+        self.SetName(i18n.ui_text("Aktywne odtwarzanie"))
+        self.items = list(items)
+        self._toggle = toggle
+        self._toggle_pending = False
+        self._closed = False
+        shell = wx.BoxSizer(wx.VERTICAL)
+        hint = wx.StaticText(
+            self, label=i18n.ui_text(
+                "Enter otwiera odtwarzacz. Spacja pauzuje lub wznawia wybraną pozycję. "
+                "Escape wraca bez zmiany sesji."
+            ),
+        )
+        shell.Add(hint, 0, wx.ALL | wx.EXPAND, 12)
+        self.playback_list = wx.ListBox(
+            self, choices=[item.label for item in items], style=wx.LB_SINGLE,
+        )
+        self.playback_list.SetName(i18n.ui_text("Odtwarzane i wstrzymane materiały"))
+        self.playback_list.SetSelection(next(
+            (index for index, item in enumerate(items) if item.session is current), 0
+        ))
+        self.playback_list.Bind(
+            wx.EVT_LISTBOX_DCLICK, lambda _event: self.EndModal(wx.ID_OK)
+        )
+        self.playback_list.Bind(wx.EVT_CHAR_HOOK, self._on_key)
+        shell.Add(self.playback_list, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 12)
+        self.status = wx.StaticText(self, label=i18n.ui_text("Gotowe"))
+        self.status.SetName(i18n.ui_text("Stan polecenia"))
+        self._announcer = Announcer(self.status)
+        shell.Add(self.status, 0, wx.ALL | wx.EXPAND, 12)
+        buttons = wx.StdDialogButtonSizer()
+        open_button = wx.Button(self, wx.ID_OK, label=i18n.ui_text("&Otwórz odtwarzacz"))
+        open_button.SetDefault()
+        buttons.AddButton(open_button)
+        buttons.AddButton(wx.Button(self, wx.ID_CANCEL, label=i18n.ui_text("&Wróć")))
+        buttons.Realize()
+        shell.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 12)
+        self.SetSizer(shell)
+        self.SetMinSize((650, 330))
+        self.Fit()
+        wx.CallAfter(self.playback_list.SetFocus)
+
+    @property
+    def selected_item(self) -> ActivePlaybackItem | None:
+        index = self.playback_list.GetSelection()
+        return self.items[index] if 0 <= index < len(self.items) else None
+
+    def _on_key(self, event: wx.KeyEvent) -> None:
+        key = event.GetKeyCode()
+        if key in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
+            if self.selected_item is not None:
+                self.EndModal(wx.ID_OK)
+            return
+        if key == wx.WXK_ESCAPE:
+            self.EndModal(wx.ID_CANCEL)
+            return
+        if key != wx.WXK_SPACE:
+            event.Skip()
+            return
+        item = self.selected_item
+        if item is None or self._toggle_pending:
+            return
+        self._toggle_pending = True
+        self._announcer.say(i18n.ui_text("Wysyłam polecenie odtwarzania"))
+
+        def completed(updated: ActivePlaybackItem | None, message: str) -> None:
+            self._toggle_pending = False
+            if self._closed or self.IsBeingDeleted():
+                return
+            index = next(
+                (index for index, entry in enumerate(self.items)
+                 if entry.session is item.session), -1,
+            )
+            if index >= 0 and updated is not None:
+                self.items[index] = updated
+                self.playback_list.SetString(index, updated.label)
+                self.playback_list.SetSelection(index)
+            elif index >= 0 and updated is None:
+                self.items.pop(index)
+                self.playback_list.Delete(index)
+                if self.items:
+                    self.playback_list.SetSelection(min(index, len(self.items) - 1))
+                else:
+                    self.EndModal(wx.ID_CANCEL)
+            self._announcer.say(i18n.ui_text(message))
+
+        self._toggle(item, completed)
 
 
 class SessionSelectionDialog(wx.Dialog):
@@ -18651,6 +18752,8 @@ class LiteFrame(wx.Frame):
                 self._leave_player_to_list()
             else:
                 self._run(self.navigator.show_player())
+        elif action is Action.SHOW_ACTIVE_PLAYBACK:
+            self._show_active_playback()
         elif action is Action.SHOW_LIST:
             self._leave_player_to_list()
         elif action is Action.SESSION_OPTIONS:
@@ -24648,6 +24751,387 @@ class LiteFrame(wx.Frame):
         dialog.Show()
         dialog.Raise()
         dialog.focus_primary_action()
+
+    def _show_active_playback(self) -> None:
+        """Shift+F6: inspect known sessions without changing playback."""
+        if getattr(self, "_active_playback_pending", False):
+            self.announcer.say(i18n.ui_text("Trwa sprawdzanie odtwarzania"))
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say(i18n.ui_text("Silnik odsłuchu jest niedostępny"))
+            return
+        enabled = tuple(session_order.normalize(self.options.session_order))
+        current = self.navigator.active
+        output_ids = {
+            session: effective_output_device_id(
+                session, self.state.audio_output_device_ids_by_session,
+                self._profile_audio_outputs,
+                native_tidal=session is SessionId.TIDAL,
+            )
+            for session in enabled
+            if session in {
+                SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS,
+                SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA, SessionId.TIDAL,
+            }
+        }
+        wiim_id = self._wiim_active_device_id
+        sonos_household = self._sonos_active_household_id
+        sonos_group = self._sonos_active_group_id
+        frontier_id = self._frontier_smart_active_device_id
+        heos_service = self._heos_service
+        heos_target = self._heos_state.selected_target
+        sonos_client = LiteFrame._sonos_control_client(self)
+        tidal_native = bool(self._tidal_native_has_playback)
+        youtube_active = self._youtube_playback_active()
+        youtube_status = dict(self._youtube_status) if youtube_active else {}
+        youtube_item_id = self._youtube_active_item_id if youtube_active else ""
+        youtube_title = self._youtube_active_title if youtube_active else ""
+        self._active_playback_pending = True
+        self.announcer.say(i18n.ui_text("Sprawdzam aktywne odtwarzanie"))
+
+        def work() -> dict:
+            statuses: dict[SessionId, object] = {}
+            remote: dict[SessionId, object] = {}
+            external: dict[SessionId, object] = {}
+            errors: list[str] = []
+            local = {
+                SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS,
+                SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA, SessionId.TIDAL,
+            }
+            reads: list[tuple[str, SessionId | None, Callable[[], object]]] = []
+            for session in enabled:
+                if session in local and not (
+                    session is SessionId.PODCASTS and youtube_active
+                    or session is SessionId.TIDAL and not tidal_native
+                ):
+                    reads.append(("status", session,
+                                  lambda session=session: client.status(session.value)))
+            reads.append(("outputs", None,
+                          lambda: client.audio_outputs(None, SessionId.FILES.value)))
+            if SessionId.APPLE_MUSIC in enabled:
+                reads.append(("external", SessionId.APPLE_MUSIC,
+                              lambda: client.apple_music_external_transport("state")))
+            if SessionId.TIDAL in enabled and not tidal_native:
+                reads.append(("external", SessionId.TIDAL,
+                              client.tidal_external_state))
+            if SessionId.WIIM in enabled and wiim_id:
+                reads.append(("remote", SessionId.WIIM,
+                              lambda: client.wiim_snapshot(wiim_id)))
+            if (SessionId.SONOS in enabled and sonos_group and sonos_household
+                    and sonos_client is not None):
+                reads.append(("remote", SessionId.SONOS,
+                              lambda: sonos_client.sonos_snapshot(
+                                  sonos_household, sonos_group)))
+            if SessionId.FRONTIER_SMART in enabled and frontier_id:
+                reads.append(("remote", SessionId.FRONTIER_SMART,
+                              lambda: client.frontier_smart_snapshot(frontier_id)))
+            if SessionId.HEOS in enabled and heos_target and heos_service:
+                reads.append(("remote", SessionId.HEOS,
+                              lambda: heos_service.status(heos_target.player_id)))
+            outputs: object = {}
+            with ThreadPoolExecutor(max_workers=min(8, len(reads))) as pool:
+                pending = {
+                    pool.submit(read): (kind, session)
+                    for kind, session, read in reads
+                }
+                for future in as_completed(pending):
+                    kind, session = pending[future]
+                    try:
+                        value = future.result()
+                    except Exception:
+                        if session is not None:
+                            errors.append(session_order.session_name(session))
+                        continue
+                    if kind == "outputs":
+                        outputs = value
+                    elif kind == "status" and session is not None:
+                        statuses[session] = value
+                    elif kind == "remote" and session is not None:
+                        remote[session] = value
+                    elif kind == "external" and session is not None:
+                        external[session] = value
+            return {"statuses": statuses, "remote": remote,
+                    "external": external,
+                    "outputs": outputs, "errors": errors}
+
+        def done(payload: dict) -> None:
+            self._active_playback_pending = False
+            if not self._window_alive():
+                return
+            labels = {
+                choice.device_id: choice.label
+                for choice in choices_from_payload(payload["outputs"])
+            }
+            items: list[ActivePlaybackItem] = []
+            for session in enabled:
+                service = session_order.session_name(session)
+                if session in payload["statuses"]:
+                    status = payload["statuses"][session]
+                    device_id = output_ids.get(session)
+                    device = (
+                        labels.get(device_id, "Wyjście Windows")
+                        if device_id else "Komputer, urządzenie domyślne Windows"
+                    )
+                    context = client.cast_playback_context(session.value)
+                    if isinstance(status, dict) and status.get("airplay") and status.get("airplayDeviceName"):
+                        device = f"AirPlay: {status['airplayDeviceName']}"
+                    elif isinstance(status, dict) and status.get("cast") and status.get("castDeviceName"):
+                        device = f"Google Cast: {status['castDeviceName']}"
+                    elif context:
+                        selected = client.network_selected_target_id(session.value)
+                        kind = "AirPlay" if selected and selected.startswith("airplay:") else "Google Cast"
+                        device = f"{kind}: {context[1]}"
+                    item = host_item(
+                        session, status,
+                        service=service, device=device,
+                    )
+                    if item is not None:
+                        if context and context[0]:
+                            item = replace(item, title=context[0])
+                        items.append(item)
+                    continue
+                if session is SessionId.PODCASTS and youtube_active:
+                    state = youtube_status.get("state")
+                    if state in {1, 2, 5}:
+                        items.append(ActivePlaybackItem(
+                            session, youtube_title or "Film YouTube",
+                            "YouTube online", "Komputer",
+                            "odtwarzanie" if state == 1 else "pauza",
+                            youtube_item_id,
+                        ))
+                    continue
+                external_state = payload["external"].get(session)
+                if (session is SessionId.APPLE_MUSIC
+                        and isinstance(external_state, dict)
+                        and external_state.get("hasSession")):
+                    items.append(ActivePlaybackItem(
+                        session,
+                        str(external_state.get("title") or "Utwór Apple Music").strip(),
+                        service, "wyjście aplikacji Apple Music",
+                        "odtwarzanie" if external_state.get("isPlaying") else "pauza",
+                    ))
+                elif (session is SessionId.TIDAL
+                      and isinstance(external_state, dict)
+                      and external_state.get("hasSession")):
+                    items.append(ActivePlaybackItem(
+                        session,
+                        str(external_state.get("title") or "Materiał TIDAL").strip(),
+                        service, "wyjście aplikacji TIDAL",
+                        "odtwarzanie" if external_state.get("isPlaying") else "pauza",
+                        external=True,
+                    ))
+                elif session in payload["remote"]:
+                    raw = payload["remote"][session]
+                    try:
+                        if session is SessionId.WIIM:
+                            state = wiim_snapshot(raw)
+                            device = str(state.get("deviceTitle") or "Urządzenie WiiM")
+                        elif session is SessionId.SONOS:
+                            state = sonos_snapshot(raw)
+                            device = str(state.get("groupTitle") or "Grupa Sonos")
+                        elif session is SessionId.FRONTIER_SMART:
+                            state = frontier_smart_snapshot(raw)
+                            device = str(state.get("deviceTitle") or "Radio Frontier Smart")
+                        else:
+                            state = None
+                            device = heos_target.title
+                    except Exception:
+                        continue
+                    if session is SessionId.HEOS:
+                        if raw.play_state not in {"play", "pause"}:
+                            continue
+                        source = raw.source.strip()
+                        items.append(ActivePlaybackItem(
+                            session, raw.title.strip() or "Odtwarzany materiał",
+                            f"HEOS: {source}" if source else service,
+                            device, "pauza" if raw.play_state == "pause" else "odtwarzanie",
+                            heos_target.item_id,
+                        ))
+                    elif state is not None:
+                        source = str(state.get("source") or "").strip()
+                        item = remote_item(
+                            session, state,
+                            service=f"{service}: {source}" if source else service,
+                            device=device,
+                        )
+                        if item is not None:
+                            items.append(item)
+            if not items:
+                message = "Nie znaleziono aktywnego ani wstrzymanego odtwarzania"
+                if payload["errors"]:
+                    message += ". Nie udało się sprawdzić: " + ", ".join(payload["errors"])
+                self.announcer.say(i18n.ui_text(message))
+                return
+            with ActivePlaybackDialog(
+                self, tuple(items), current,
+                toggle=lambda item, complete: self._toggle_active_playback_item(
+                    item, complete, wiim_id=wiim_id,
+                    sonos_household=sonos_household, sonos_group=sonos_group,
+                    frontier_id=frontier_id, heos_target=heos_target,
+                ),
+            ) as dialog:
+                result = dialog.ShowModal()
+                selected = dialog.selected_item
+                dialog._closed = True
+            if result != wx.ID_OK or selected is None:
+                self._restore_focus_after_dialog()
+                return
+            self._switch_session(
+                selected.session, initialize_if_empty=False,
+                configure_frontier_if_empty=False,
+            )
+            state = self.navigator.sessions[selected.session]
+            state.now_playing_id = (
+                selected.item_id or state.now_playing_id
+                or f"active:{selected.session.value}"
+            )
+            state.now_playing_title = selected.title
+            if state.view is not View.PLAYER:
+                self._run(self.navigator.show_player())
+            else:
+                self._sync_views()
+            self._restore_focus_after_dialog()
+
+        def failed(_error: Exception) -> None:
+            self._active_playback_pending = False
+            if self._window_alive():
+                self.announcer.say(i18n.ui_text("Nie udało się sprawdzić odtwarzania"))
+
+        self.runner.submit("active-playback", work, done, failed)
+
+    def _toggle_active_playback_item(
+        self, item: ActivePlaybackItem,
+        completed: Callable[[ActivePlaybackItem | None, str], None],
+        *, wiim_id: str, sonos_household: str, sonos_group: str,
+        frontier_id: str, heos_target: HeosTarget | None,
+    ) -> None:
+        """Toggle only the row's owner; keep the current AMC session intact."""
+        client = self.client
+        if client is None:
+            completed(item, "Silnik odsłuchu jest niedostępny")
+            return
+        session = item.session
+        if (session is SessionId.PODCASTS
+                and item.item_id == self._youtube_active_item_id
+                and self._youtube_playback_active()):
+            if self._youtube_status.get("state") == 1:
+                self._youtube_surface.pause()
+                completed(replace(item, state="pauza"), "YouTube online, Komputer: pauza")
+            else:
+                self._youtube_surface.play()
+                completed(replace(item, state="odtwarzanie"),
+                          "YouTube online, Komputer: odtwarzanie")
+            return
+        service = self._heos_service
+        sonos_client = LiteFrame._sonos_control_client(self)
+        if (session is SessionId.HEOS
+                and (self._heos_control_pending or self._heos_status_pending)
+                or session is SessionId.SONOS
+                and (self._sonos_request_pending
+                     or bool(self._sonos_command_queue))):
+            completed(item, "Poprzednie polecenie urządzenia jeszcze trwa")
+            return
+        if (session is SessionId.WIIM and wiim_id != self._wiim_active_device_id
+                or session is SessionId.SONOS and (
+                    sonos_household != self._sonos_active_household_id
+                    or sonos_group != self._sonos_active_group_id)
+                or session is SessionId.FRONTIER_SMART
+                and frontier_id != self._frontier_smart_active_device_id
+                or session is SessionId.HEOS
+                and heos_target != self._heos_state.selected_target):
+            completed(item, "Urządzenie zmieniło się. Otwórz listę ponownie")
+            return
+
+        def work() -> object:
+            if session in {
+                SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS,
+                SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA,
+            } or session is SessionId.TIDAL and not item.external:
+                before = client.status(session.value) or {}
+                if item.item_id and str(before.get("id") or "") != item.item_id:
+                    raise ValueError("Odtwarzany materiał zmienił się")
+                client.pause_resume(session.value)
+                return client.status(session.value)
+            if session is SessionId.WIIM and wiim_id:
+                return client.wiim_transport(wiim_id, "toggle")
+            if session is SessionId.SONOS and sonos_client is not None:
+                return sonos_client.sonos_transport(
+                    sonos_household, sonos_group, "toggle"
+                )
+            if session is SessionId.FRONTIER_SMART and frontier_id:
+                return client.frontier_smart_transport(frontier_id, "toggle")
+            if session is SessionId.HEOS and service is not None and heos_target is not None:
+                service.client.set_play_state(
+                    heos_target.player_id, "play" if item.state == "pauza" else "pause"
+                )
+                return service.status(heos_target.player_id)
+            if session is SessionId.APPLE_MUSIC:
+                result = client.apple_music_external_transport("toggle")
+                if not isinstance(result, dict) or not result.get("handled"):
+                    raise ValueError("Apple Music nie przyjęło polecenia")
+                return result
+            if session is SessionId.TIDAL:
+                result = client.tidal_external_transport("toggle")
+                if not isinstance(result, dict) or not result.get("handled"):
+                    raise ValueError("TIDAL nie przyjął polecenia")
+                return result
+            raise ValueError("Ten odtwarzacz nie obsługuje pauzy")
+
+        def done(payload: object) -> None:
+            try:
+                if session in {
+                    SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS,
+                    SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA,
+                } or session is SessionId.TIDAL and not item.external:
+                    updated = host_item(
+                        session, payload, service=item.service, device=item.device
+                    )
+                    if isinstance(payload, dict):
+                        self._transport_status_by_session[session] = payload
+                elif session in {SessionId.WIIM, SessionId.SONOS, SessionId.FRONTIER_SMART}:
+                    if session is SessionId.WIIM:
+                        normalize = wiim_snapshot
+                    elif session is SessionId.SONOS:
+                        normalize = sonos_snapshot
+                    else:
+                        normalize = frontier_smart_snapshot
+                    updated = remote_item(
+                        session, normalize(payload), service=item.service,
+                        device=item.device, fallback_title=item.title,
+                    )
+                elif session is SessionId.HEOS:
+                    updated = (
+                        replace(item, state="pauza" if payload.play_state == "pause"
+                                else "odtwarzanie")
+                        if payload.play_state in {"play", "pause"} else None
+                    )
+                    if heos_target == self._heos_state.selected_target:
+                        self._heos_status = payload
+                else:
+                    if not isinstance(payload, dict) or "isPlaying" not in payload:
+                        completed(item, "Nie można potwierdzić stanu odtwarzania")
+                        return
+                    updated = replace(
+                        item, state="odtwarzanie" if payload["isPlaying"] else "pauza"
+                    )
+                    if session is SessionId.APPLE_MUSIC:
+                        self._apple_music_external_snapshot = {
+                            **self._apple_music_external_snapshot,
+                            "isPlaying": bool(payload["isPlaying"]),
+                        }
+                message = (
+                    f"{item.service}, {item.device}: "
+                    + ("zatrzymano" if updated is None else updated.state)
+                )
+                completed(updated, message)
+            except Exception:
+                completed(item, "Nie można potwierdzić stanu odtwarzania")
+
+        self.runner.submit(
+            "active-playback-toggle", work, done,
+            lambda _error: completed(item, "Nie udało się zmienić odtwarzania. Sprawdź urządzenie"),
+        )
 
     def _show_session_list(self, *, focus_inactive: bool = False) -> None:
         """Ctrl+Shift+S i dodatek NVDA: jeden Menedżer sesji."""

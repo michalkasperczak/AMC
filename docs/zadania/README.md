@@ -24,6 +24,8 @@ Apple Music, oba profile bez HEOS. [Zapis wydania](RELEASE-ALPHA518-20261123.md)
 
 **CAST-004 (24.11.2026): główne AirPlay wdrożone w źródłach następnego Test, bez wydania i odsłuchu sprzętowego.** `Shift+C` wybiera komputer, Cast lub AirPlay jako jedno główne wyjście; `Ctrl+Shift+[` / `Ctrl+Shift+]` używają tej samej listy i mówią cel. `Shift+A` pozostaje dla Windows, `Shift+M` dla dublowania. Osobny router AirPlay wycisza lokalny silnik, steruje RAOP i przywraca dźwięk przy powrocie lub błędzie. 223 celowane testy, 40 testów ukrytego wx, 4 testy językowe i 1 test izolowanego hosta zaliczone; kompilacja hosta bez błędów. Pełny inwentarz i18n ma 2 niezaliczone testy, fizyczny AirPlay/NVDA otwarte. [Kontrakt i wyniki](CAST-004-20261124-glowne-wyjscia-bezprzewodowe.md).
 
+**PLAY-004 (24.11.2026): Shift+F6 pokazuje aktywne odtwarzanie w znanych sesjach i na wybranych urządzeniach, kod gotowy do wspólnego Test.** Enter przenosi do wybranego odtwarzacza, Escape z niego wraca do listy wybranej sesji, a Spacja pauzuje lub wznawia zaznaczoną pozycję. Pomysł dołączenia komputera jako Mirror do zewnętrznego odbiornika wymaga osobnego toru i próby sprzętowej; nie ma jeszcze skrótu. Bez wydania i odbioru NVDA. [Kontrakt, testy i ograniczenia](PLAY-004-20261124-lista-aktywnego-odtwarzania.md).
+
 **QUEUE-003 (24.11.2026): osobne zadanie projektowe, bez implementacji.** Opcja wspólnej kolejki dla obsługiwanych plików, podcastów i innych materiałów, z zachowaniem osobnych kolejek jako dotychczasowego trybu. Zwykłe Radio na żywo nie należy do kolejki. [Kontrakt i następny krok](QUEUE-003-20261124-wspolna-kolejka.md).
 
 **Jedna aktywna gałąź i przekazanie 22.11.2026:** [bieżący stan oraz kolejność pracy](AMC-HANDOFF-20261122-jedna-galaz.md).
