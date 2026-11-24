@@ -1,6 +1,6 @@
 # CAST-002 — dostępność Google Cast i AirPlay w sesjach AMC
 
-Status: **Wydane w Test i Public alpha.519; instalacja użytkownika, odsłuch sprzętowy i nowy odbiór NVDA pozostają otwarte.**
+Status: **Wydane w spójnych Test/Public alpha.522; Test automatycznie zainstalowany i uruchomiony. Odsłuch nowych wariantów i NVDA pozostają otwarte.**
 
 ## Zlecenie i nadrzędna korekta — 23.11.2026
 
@@ -66,3 +66,7 @@ Następny krok wydania: przegląd wspólnego zakresu, domknięcie bramki tłumac
 ## Wydanie i następny krok
 
 Kod `dc000561d05ae7e0f2924c620e3d3f7599d943bd` opublikowano w obu profilach. Pełne wyniki, dokładne ścieżki instalatorów, SHA-256 i adresy wydań: [RELEASE-ALPHA519](RELEASE-ALPHA519-20261123-Cast-AirPlay.md). Aktualizatory obu instalacji widzą nową wersję. Nie wykonano lokalnej instalacji; odsłuch i NVDA pozostają do odbioru.
+
+## Wynik nadrzędnej decyzji z 24.11.2026
+
+Oba profile alpha.522 opublikowano z `f549090be998a718959ba7c587a33c05845cfee2` po połączeniu z całą alpha.520. Następnie automatycznie zainstalowano i uruchomiono Test; pełna integralność i jedna instancja potwierdzone. [Dokładne dowody, wersje i instalatory](RELEASE-ALPHA522-20261124-Cast-instalacja.md). To zastępuje wcześniejsze pozostawienie instalacji użytkownikowi; nie stanowi odbioru sprzętowego/NVDA.
