@@ -32,4 +32,4 @@ Michał zaproponował również klawisz w tym oknie, który dołącza komputer j
 
 ## Wersja i commit
 
-Gałąź `codex/heos-next-test-20261123`. Commit tej zmiany: do wpisania po commicie. Kod i testy nie oznaczają wydania. Wydana i zainstalowana wersja użytkownika pozostaje alpha.525; nowy instalator, instalacja i wydanie GitHub tej zmiany nie powstały. Następny krok: połączyć z innymi poprawkami, zbudować i opublikować wspólne wydanie Test na GitHub, a potem odebrać NVDA i urządzenia na żywo.
+Gałąź `codex/heos-next-test-20261123`. Commit kodu i testów: `9cef782a`. Kod i testy nie oznaczają wydania. Wydana i zainstalowana wersja użytkownika pozostaje alpha.525; nowy instalator, instalacja i wydanie GitHub tej zmiany nie powstały. Następny krok: połączyć z innymi poprawkami, zbudować i opublikować wspólne wydanie Test na GitHub, a potem odebrać NVDA i urządzenia na żywo.
