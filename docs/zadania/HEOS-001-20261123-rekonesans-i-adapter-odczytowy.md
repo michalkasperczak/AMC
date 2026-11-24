@@ -257,3 +257,27 @@ W AMC Test F11 sprawdza nowe wydanie. Jeśli trwa nagrywanie lub jego zaplanowan
 ### Znane ograniczenia oraz wersja i commit
 
 Zainstalowano i uruchomiono `AMC Test 0.1.0-alpha.525`, etykieta `24.11.2026, 16:18`, ze źródeł `e85854d47dd598a1aafa2f640e3fd655df1459d0`; wydanie GitHub i instalator są opisane w poprzedniej sekcji. Fizyczny odbiór NVDA, katalogów HEOS, Ulubionych, informacji pod lewą strzałką, powrotu Backspace/Escape oraz sterowania głośnikiem należy wykonać w tej zainstalowanej wersji. Dopiero po nim ustalić zachowanie presetów HEOS. Ten dopisek dokumentacyjny nie zmienia opublikowanego instalatora.
+
+## Korekta po próbie Michała na alpha.525 — 24.11.2026
+
+Michał potwierdził dużą poprawę odczytu Ulubionych HEOS. Zgłosił jednocześnie, że lewa strzałka nie podaje oczekiwanych parametrów strumienia, Ulubione nie mają przewidywalnego przenoszenia `Alt+strzałka w górę/w dół`, wycinania `Ctrl+X`, filtrowania i sortowania, a presety nie działają. Enter na pozycji nie daje słyszalnego odtwarzania i pada komunikat „Nie można potwierdzić wyniku polecenia HEOS. Odczytuję stan”. Strzałki w odtwarzaczu zgłaszają zmianę głośności bez liczby. To jest nadrzędny wynik próby użytkowej wobec wcześniejszych testów syntetycznych; nie uznajemy samego poprawnego odczytu list za ukończone sterowanie HEOS.
+
+### Uzasadnienie i decyzje
+
+Odczyt własnego Denon Home 200 bez zmian odtwarzania pokazał 23 pozycje Ulubionych, wszystkie typu stacja. Każda zawiera nazwę i identyfikator odtwarzania, ale nie bitrate, kodek ani częstotliwość próbkowania. Bieżące media odtwarzacza również nie zwróciły tych parametrów. Lewa strzałka powinna podać dostępne informacje i w tym przypadku wyraźnie zaznaczyć, że parametry strumienia są niedostępne w HEOS; nie wolno wymyślać wartości. Odczyt statusu głośnika wykazał stan „odtwarzanie”, typ „stacja” i poziom głośności **0**. To może wyjaśniać brak dźwięku, ale nie dowodzi, że ostatni Enter zadziałał. Głośności i odtwarzania nie zmieniano podczas diagnozy.
+
+Kod sterowania oddziela teraz przyjęcie mutującego polecenia przez HEOS od późniejszego odczytu statusu: błąd późniejszego odczytu nie będzie nazywany błędem samego polecenia. Odróżnia też jawną odmowę urządzenia od upływu czasu bez potwierdzenia, bez odczytywania prywatnej treści odpowiedzi. Po udanym odczycie zmiana głośności ma podać konkretny poziom, na przykład „HEOS: głośność 17”; potwierdzenie Enter przy odczytanej głośności 0 ostrzega, że dźwięk może być niesłyszalny. Nadal trzeba zbadać, czy natywne strzałki rzeczywiście wywołują informację w liście z NVDA oraz czy Enter z prawdziwą stacją zostaje przyjęty i odtwarzany przy bezpiecznej głośności. Nie wykonywano mutującej próby na głośniku.
+
+Porządek i wycinanie Ulubionych HEOS wymagają osobnej warstwy: opublikowany protokół HEOS udostępnia odtwarzanie presetów i usuwanie stacji z Ulubionych, ale nie udostępnia polecenia zmiany ich kolejności. Zmiana kolejności w AMC musi więc mieć jawnie lokalny zakres i trwałość, bez udawania synchronizacji z aplikacją HEOS. `Ctrl+X` nie może usuwać stacji z konta bez świadomego potwierdzenia. Szczegółowy kontrakt wspólnych list zapisano w `AM-003-sesja-i-dostepny-interfejs.md`.
+
+### Testy i wynik
+
+Na przypiętym Pythonie z wxPython 4.3.1: **157 testów** HEOS, menu, skrótów, palety i transportu przeszło po końcowej korekcie komunikatów; wcześniej **118** i potem **10** testów HEOS przeszło etapami. `py_compile` zmienionych modułów przeszedł. Pierwsza próba `python -m pytest` na systemowym Pythonie zakończyła się `No module named pytest`; powtórzono test we właściwym środowisku. Żaden z tych wyników nie potwierdza jeszcze fizycznego NVDA, słyszalnego odtwarzania, presetów ani lokalnego przenoszenia Ulubionych. Kod pozostaje w źródłach gałęzi roboczej; nowego buildu, instalacji i wydania nie wykonano.
+
+### Materiał do dokumentacji użytkownika — szkic
+
+W Ulubionych HEOS lewa strzałka ma podać informacje o zaznaczonej stacji. Jeżeli głośnik nie udostępnia parametrów strumienia, AMC powinien to powiedzieć wprost. W odtwarzaczu strzałka w górę lub w dół steruje głośnością; komunikat po zmianie powinien zawierać odczytany poziom. Przy głośności 0 odtwarzanie może być niesłyszalne. Presety oraz lokalne przenoszenie i sortowanie Ulubionych pozostają do kolejnej poprawki i nie należy reklamować ich jako działających w alpha.525.
+
+### Znane ograniczenia oraz wersja i commit
+
+Dotychczas zainstalowana i wydana pozostaje alpha.525 z commitu `e85854d47dd598a1aafa2f640e3fd655df1459d0`. Poprawki komunikatów po tej próbie są w źródłach commitu `3a5d2ceade84fedcd0cc274fd16acf787b4042ac`, nie w tej instalacji. Następny krok: poprawić kontrakt presetów i lokalnej kolejności Ulubionych, wykonać celowaną próbę NVDA oraz osobno uzgodnioną próbę mutującą Enter na głośniku, a następnie wydać zweryfikowaną wersję testową.

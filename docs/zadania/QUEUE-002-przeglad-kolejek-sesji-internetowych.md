@@ -144,3 +144,23 @@ nawigacji i komunikatów playlist.
   Początkowy fokus po uruchomieniu programu pozostawał na oknie, a nie na
   liście; wymaga to osobnego odbioru z NVDA. Nie przechwycono rzeczywistej
   wypowiedzi NVDA ani działania na kontach internetowych. Odbiór otwarty.
+
+## Korekta dostępności kolejki Radia — 24.11.2026
+
+Michał wskazał, że zwykła sesja Radio odtwarza strumień na żywo i nie powinna pokazywać kolejki. To zastępuje ogólne udostępnianie `Ctrl+Q` w każdej sesji. Nie dotyczy osobnej kolejki nagrań Radio Archiwisty.
+
+### Uzasadnienie i decyzje
+
+`Ctrl+Q` w zwykłym Radiu nie rozwiązuje się na polecenie. Pozycja Kolejka jest ukryta z menu, a więc także z palety i pomocy budowanych z aktualnego menu. Dyspozytor i most NVDA odmawiają uruchomienia kolejki w sesji Radio. Kolejki Plików, Podcastów, TIDAL, Spotify, Radio Archiwisty i HEOS zachowują własne znaczenia. Pomysł opcjonalnej wspólnej kolejki różnych materiałów jest osobnym zadaniem `QUEUE-003-20261124-wspolna-kolejka.md`.
+
+### Testy i wynik
+
+Na przypiętym Pythonie z wxPython 4.3.1: 118 testów HEOS, menu, skrótów i palety przeszło. Nowy test sprawdza brak `Ctrl+Q` w obu widokach Radia i brak polecenia w menu, palecie i pomocy oraz dalszą obecność kolejki w Plikach. `py_compile` zmienionych modułów przeszedł. Nie ma nowego buildu, instalacji, wydania ani fizycznego testu NVDA.
+
+### Materiał do dokumentacji użytkownika — szkic
+
+W zwykłym Radiu `Ctrl+Q` nie otwiera kolejki i menu jej nie pokazuje, ponieważ stacja gra na żywo. W Radio Archiwiście `Ctrl+Q` nadal otwiera kolejkę zapisanych nagrań. Pozostałe obsługiwane sesje zachowują własne kolejki.
+
+### Znane ograniczenia oraz wersja i commit
+
+Zmiana jest w źródłach commitu `3a5d2ceade84fedcd0cc274fd16acf787b4042ac` po wydaniu alpha.525, jeszcze bez nowej wersji użytkowej. Fizyczny odbiór NVDA pozostaje otwarty. Następny krok: sprawdzić, czy zainstalowana kolejna wersja nie pokazuje Kolejki w zwykłym Radiu, a pokazuje ją nadal w sesjach z realną kolejką.

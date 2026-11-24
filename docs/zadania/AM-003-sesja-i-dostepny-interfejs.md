@@ -325,3 +325,27 @@ osobnych etapów AM-001/AM-002. Profil Public nie otrzymał Apple Music.
 - Paczka: `2026.11.13-f38ea76803a01b095e06892866a31082613eca32-c992d212`.
 - Wydanie: `test-2026.11.13.0028`.
 - Adres: `https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.13.0028`.
+
+## Korekta kontraktu dostępnych Ulubionych — 24.11.2026
+
+Michał po teście HEOS alpha.525 potwierdził, że samo pokazanie Ulubionych nie wystarcza. Ten zapis zastępuje wszelkie wcześniejsze stwierdzenie, że odczyt listy oznacza ukończony interfejs Ulubionych. Obowiązuje dla każdej sesji, z uwzględnieniem rzeczywistych możliwości źródła.
+
+### Uzasadnienie i decyzje
+
+- Strzałka w lewo na pozycji podaje dostępne informacje o źródle i strumieniu, w tym bitrate, kodek i częstotliwość próbkowania, gdy pochodzą z wiarygodnego odczytu. Jeśli źródło nie daje tych danych, komunikat mówi, że są niedostępne. Nie wolno domyślać wartości ani odczytywać technicznych identyfikatorów.
+- Ulubione mają ten sam przewidywalny model listy co inne kolekcje AMC: filtr, sortowanie, `Alt+strzałka w górę/w dół` w ręcznym porządku, `Ctrl+X` i odpowiednie wklejenie lub przeniesienie. Fokus po operacji zostaje na właściwym widocznym elemencie także przy filtrze; paleta, menu i pomoc pokazują polecenie tylko tam, gdzie działa.
+- Zakres operacji jest jawny. Jeśli dostawca nie udostępnia zmiany kolejności, AMC może utrzymywać lokalny porządek, lecz nie opisuje go jako zsynchronizowanego. `Ctrl+X` nie usuwa zdalnych Ulubionych bez osobnego, zrozumiałego potwierdzenia. Źródłowe identyfikatory i zapisana kolejność muszą być oddzielone od etykiet NVDA.
+- Presety są częścią kontraktu Ulubionych: użytkownik przypisuje świadomie wybraną pozycję do jednego z 12 miejsc, widzi nazwę i skrót, uruchamia ją z listy i skrótu, a niedostępne źródło lub usunięta pozycja daje jasny komunikat bez pozorowanego startu. Preset nie może automatycznie wskazywać innej stacji tylko dlatego, że zmienił się indeks zdalnej listy.
+- Klawisze odtwarzacza sterujące głośnością muszą po potwierdzeniu podać konkretny odczytany poziom. Jeśli poziomu nie da się odczytać, komunikat mówi o tej niepewności. Gest NVDA z modyfikatorem czytnika nie może uruchamiać sterowania.
+
+### Testy i wynik
+
+Na HEOS alpha.525 Michał potwierdził widoczną listę Ulubionych, ale zgłosił brak informacji spod lewej strzałki, operacji listy i presetów oraz niejasny komunikat głośności. Odczyt CLI Denon Home 200 potwierdził brak parametrów strumienia w bieżącej liście i statusie. Kod pierwszej poprawki komunikatów przeszedł 157 testów celowanych po końcowej korekcie, lecz fizyczny odbiór NVDA i sterowanie głośnikiem pozostają niewykonane. Dalsze funkcje porządku i presetów są wymaganiem, a nie ukończonym kodem.
+
+### Materiał do dokumentacji użytkownika — szkic
+
+W Ulubionych strzałka w lewo podaje informacje o wybranej pozycji. `Ctrl+F` przenosi do filtra; w widoku z ręcznym porządkiem `Alt+strzałka w górę/w dół` zmienia kolejność. `Ctrl+X` przygotowuje przeniesienie, a wklejenie kończy operację. Menu i pomoc pokażą tylko te polecenia, które dana sesja rzeczywiście obsługuje. Presety przypisuje się do konkretnych pozycji, a puste albo nieaktualne miejsce jest jasno nazwane. Ten akapit jest szkicem kontraktu, nie instrukcją dla zainstalowanej alpha.525.
+
+### Znane ograniczenia oraz wersja i commit
+
+Szczegóły błędów i częściowej poprawki HEOS: `HEOS-001-20261123-rekonesans-i-adapter-odczytowy.md`. Wydana alpha.525 nie realizuje całego kontraktu. Kolejny krok: zintegrować operacje Ulubionych i presety w jednym modelu poleceń, po czym sprawdzić skróty, menu, paletę, pomoc, fokus i NVDA na prawdziwej liście.

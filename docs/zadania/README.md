@@ -14,7 +14,9 @@ Apple Music, oba profile bez HEOS. [Zapis wydania](RELEASE-ALPHA518-20261123.md)
 
 **VIDEO-001 (23.11.2026): kod i 10 testów celowanych gotowe; widoczny odbiór, build i wydanie otwarte.** Obraz lokalnego filmu w obecnym odtwarzaczu AMC, wybór samego audio i otwieranie strony filmu internetowego w zwykłej przeglądarce. [Zadanie](VIDEO-20261123-odtwarzanie-w-odtwarzaczu-AMC.md).
 
-**HEOS-001 (24.11.2026): AMC Test alpha.525 wydany na GitHubie, zainstalowany i uruchomiony lokalnie.** Poprawiono odczyt opóźnionych list HEOS, wejście w katalogi TIDAL oraz skróty jedenastej i dwunastej aktywnej sesji. `Ctrl+U` otwiera Ulubione, lewa strzałka podaje informacje, Backspace lub Escape cofa katalog. Odbiór NVDA i fizyczne sterowanie głośnikiem pozostają otwarte; presety HEOS po próbie nawigacji. [Wynik wydania, instalacji i ścieżka instalatora](HEOS-001-20261123-rekonesans-i-adapter-odczytowy.md).
+**HEOS-001 (24.11.2026): alpha.525 zainstalowana; próba Michała ujawniła dalsze błędy sterowania i kontraktu Ulubionych.** Lista Ulubionych działa lepiej, lecz Enter nie dał słyszalnego odtwarzania, lewa strzałka i presety wymagają poprawy, a komunikat głośności nie podawał wartości. Odczyt głośnika wykazał poziom 0. Pierwsza poprawka komunikatów jest tylko w źródłach i testach, bez nowego wydania; przenoszenie/sortowanie Ulubionych oraz próba NVDA i sterowania pozostają otwarte. [Wynik wydania, instalacji i korekta po próbie](HEOS-001-20261123-rekonesans-i-adapter-odczytowy.md).
+
+**QUEUE-003 (24.11.2026): osobne zadanie projektowe, bez implementacji.** Opcja wspólnej kolejki dla obsługiwanych plików, podcastów i innych materiałów, z zachowaniem osobnych kolejek jako dotychczasowego trybu. Zwykłe Radio na żywo nie należy do kolejki. [Kontrakt i następny krok](QUEUE-003-20261124-wspolna-kolejka.md).
 
 **Jedna aktywna gałąź i przekazanie 22.11.2026:** [bieżący stan oraz kolejność pracy](AMC-HANDOFF-20261122-jedna-galaz.md).
 
@@ -264,7 +266,7 @@ Aktualny punkt wejścia dla Hermesa (16.11.2026): [pełne przekazanie](../../HER
 
 - `POD-PERF-20261114` — **alpha.507 opublikowana i zainstalowana w Test i Public; użytkownik 16.11 zgłasza poprawę szybkości; pomiary i odbiór NVDA otwarte** — `0` wyłącza automatyczne sprawdzanie podcastów i YouTube, dodatnia liczba ustala takt; F5 i Ctrl+F5 działają na żądanie. Pozostaje koszt pełnego wczytania i przeliczenia około 92 tys. odcinków przy zapisie porcji odświeżenia; czasu natywnej listy i NVDA jeszcze nie zmierzono. [Pomiary, porównanie i ograniczenia](POD-PERF-20261114-odswiezanie-duzej-biblioteki.md).
 
-- `QUEUE-002` — **14.11.2026: alpha.504 wydane i zainstalowane; odbiór NVDA otwarty** — przenoszenie i Delete w kolejkach, czas trwania w `Ctrl+Q` i playlistach. Zastępuje wcześniejszy wpis „oczekuje na osobny przegląd”. [Opis i wyniki](QUEUE-002-przeglad-kolejek-sesji-internetowych.md).
+- `QUEUE-002` — **alpha.504 wydane; korekta z 24.11 wyłącza kolejkę w zwykłym Radiu tylko w źródłach, bez nowego wydania** — przenoszenie i Delete w rzeczywistych kolejkach, czas trwania w `Ctrl+Q` i playlistach. Radio Archiwista zachowuje kolejkę nagrań. Odbiór NVDA otwarty. [Opis i wyniki](QUEUE-002-przeglad-kolejek-sesji-internetowych.md).
 
 - `AM-006` — **jawne otwieranie w oryginalnym Apple Music jest w zainstalowanym AMC Test alpha.507; odbiór NVDA otwarty** — menu kontekstowe otwiera oryginalną aplikację; Enter na utworze wskazuje to polecenie bez uruchamiania ukrytego odtwarzacza. [Szczegóły](AM-006-przekazanie-utworu-do-apple-music-windows.md).
 - `A11Y-COLLECTIONS-20261113` — **Ctrl+F Apple Music i dalsze strony po 100
