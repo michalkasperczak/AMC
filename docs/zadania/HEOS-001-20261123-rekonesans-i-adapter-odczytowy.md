@@ -1,6 +1,6 @@
 # HEOS-001 — rozpoznanie urządzenia HEOS 200 i adapter odczytowy
 
-**Status 24.11.2026: AMC Test alpha.524 z poprawką Menedżera sesji jest opublikowanym wydaniem GitHub i jest widoczny w aktualizatorze zainstalowanej alpha.523. Instalacji alpha.524, sterowania głośnikiem ani odbioru NVDA nie wykonywano. Wcześniejsze sekcje opisują etapy historyczne; stan bieżący znajduje się na końcu raportu.**
+**Status 24.11.2026: AMC Test alpha.525 z poprawkami HEOS i skrótów sesji jest opublikowanym wydaniem GitHub, widocznym w aktualizatorze zainstalowanej alpha.524. Instalacji alpha.525, sterowania głośnikiem ani odbioru NVDA nie wykonywano. Wcześniejsze sekcje opisują etapy historyczne; stan bieżący znajduje się na końcu raportu.**
 
 ## Cel i zakres
 
@@ -227,3 +227,17 @@ Testy po korekcie: **192 zaliczone** dla kontraktu HEOS, stanu nawigacji, tłuma
 Szkic instrukcji: wybierz głośnik, naciśnij `Ctrl+L`, Enterem otwórz źródło i kolejne katalogi. Strzałka w lewo podaje informacje o wybranej pozycji. Backspace lub Escape cofa o jeden poziom i zaznacza poprzednio otwierany katalog. `Ctrl+U` otwiera Ulubione HEOS również z odtwarzacza. Gesty nawigacji nie powinny zmieniać odtwarzania; Enter na stacji lub utworze może je uruchomić.
 
 Szkic changelogu: AMC Test zapewnia informacyjny gest lewej strzałki w HEOS, powrót Backspace i Escape oraz przejście `Ctrl+U` przez natywną listę Windows. Presety HEOS pozostają do osobnego ustalenia po teście nawigacji.
+
+## Wydanie AMC Test alpha.525 — 24.11.2026
+
+Poprawiony commit źródeł `e85854d47dd598a1aafa2f640e3fd655df1459d0` został zbudowany na GitHubie: run `45423510885`, artefakt `14936363006`, wynik `success`. Wcześniejsze udane runy `45419305965` i `45421656545` nie są podstawą wydania, ponieważ drugi zawierał błędne znaczenie lewej strzałki. [Wynik kompilacji alpha.525](https://github.com/michalkasperczak/AMC/actions/runs/45423510885).
+https://github.com/michalkasperczak/AMC/actions/runs/45423510885
+
+Instalator z tej kompilacji zapisano w `D:\Projekty Codex\AMC - integracja wxPython\publish\installers-alpha525-heos-browse-github-e85854d4\AMC-Test-2026-11-24-1618.exe`. Manifest integralności potwierdza profil Test, wersję `0.1.0-alpha.525`, etykietę `24.11.2026, 16:18`, ten sam commit źródeł i instalatora oraz `secretScan=passed`. Lokalny plik ma **214627181 bajtów** i SHA-256 **`f3f677db38502687714bfd43ea256acbbd43bf34c32947b2029d28ab0cbc396c`**, zgodne z manifestem. Zapis kompilatora Inno Setup ma kod wyjścia 0.
+
+Po odczytowej walidacji opublikowano [AMC Test — 24.11.2026, 16:18](https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.24.1618) jako prerelease kanału Test.
+https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.24.1618
+
+Zdalny tag wskazuje dokładnie `e85854d47dd598a1aafa2f640e3fd655df1459d0`. GitHub potwierdził trzy pliki w stanie `uploaded`: instalator **214627181 bajtów** z powyższym SHA-256, manifest integralności **973 bajty** z digest `sha256:e60be83bf0ca6d4a384e9c9ed0541e79c8099f82371c73f62dccc7bef61ea0e4` oraz `amc-update-test.json` **992 bajty** z digest `sha256:81c3d59abeb34039942a7365b9bb1d752a69ed88bc2e87dfa3dc48cc08454aea`. Lokalny manifest gotowości ma `published=true`.
+
+Odczytowy `check_for_application_update` z runtime bieżącej instalacji `D:\Projekty Codex\AMC Python` zwrócił `available=true`, bieżącą wersję `24.11.2026, 15:02`, tag `test-2026.11.24.1618` i nową wersję `24.11.2026, 16:18`. Nie uruchamiano instalatora ani nie zamykano AMC. Funkcjonalny odbiór katalogów, Ulubionych, informacji pod lewą strzałką, powrotu Escape/Backspace i NVDA w zainstalowanej alpha.525 oraz sterowanie fizycznym głośnikiem pozostają do wykonania. Presety HEOS są odłożone do wyniku tej próby.

@@ -1,6 +1,6 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
-## HEOS w AMC Test — poprawka przygotowywana 24.11.2026
+## HEOS w AMC Test — poprawka wydana 24.11.2026
 
 `Ctrl+U` otwiera Ulubione wybranego głośnika HEOS także z odtwarzacza. Na
 liście HEOS Backspace lub Escape wraca do nadrzędnego katalogu i przywraca
@@ -10,6 +10,8 @@ opóźnionych odpowiedzi HEOS umożliwia przeglądanie Ulubionych, Playlist i
 katalogów TIDAL. Jedenasta i dwunasta aktywna sesja używają odpowiednio
 `Ctrl+-` oraz `Ctrl+=`. Presety HEOS będą ocenione po próbie nawigacji z NVDA.
 [Stan, testy i szkic instrukcji](docs/zadania/HEOS-001-20261123-rekonesans-i-adapter-odczytowy.md).
+Wydanie Test: [AMC Test — 24.11.2026, 16:18](https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.24.1618).
+https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.24.1618
 
 ## Aktualizacja Cast i zgodność profili — 24.11.2026
 
