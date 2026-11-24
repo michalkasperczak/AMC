@@ -241,3 +241,19 @@ https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.24.1618
 Zdalny tag wskazuje dokładnie `e85854d47dd598a1aafa2f640e3fd655df1459d0`. GitHub potwierdził trzy pliki w stanie `uploaded`: instalator **214627181 bajtów** z powyższym SHA-256, manifest integralności **973 bajty** z digest `sha256:e60be83bf0ca6d4a384e9c9ed0541e79c8099f82371c73f62dccc7bef61ea0e4` oraz `amc-update-test.json` **992 bajty** z digest `sha256:81c3d59abeb34039942a7365b9bb1d752a69ed88bc2e87dfa3dc48cc08454aea`. Lokalny manifest gotowości ma `published=true`.
 
 Odczytowy `check_for_application_update` z runtime bieżącej instalacji `D:\Projekty Codex\AMC Python` zwrócił `available=true`, bieżącą wersję `24.11.2026, 15:02`, tag `test-2026.11.24.1618` i nową wersję `24.11.2026, 16:18`. Nie uruchamiano instalatora ani nie zamykano AMC. Funkcjonalny odbiór katalogów, Ulubionych, informacji pod lewą strzałką, powrotu Escape/Backspace i NVDA w zainstalowanej alpha.525 oraz sterowanie fizycznym głośnikiem pozostają do wykonania. Presety HEOS są odłożone do wyniku tej próby.
+
+## Lokalna aktualizacja na wyraźne polecenie Michała — 24.11.2026
+
+Michał osobno polecił automatycznie zaktualizować AMC Test, ponieważ poprzednia próba sprawiała wrażenie zawieszonej. Ta decyzja zastępuje pozostawienie lokalnej instalacji do samodzielnego wykonania w opisie wydania powyżej. W otwartym programie znaleziono komunikat aktualizatora: „Trwa nagrywanie lub jego zaplanowane okno. Aktualizacja nie została uruchomiona. Spróbuj ponownie po zakończeniu.” Program odpowiadał. Lista „Nagrywane” była pusta, lecz zapisany harmonogram zawierał chronione okno zaplanowanego nagrania do 17:26 czasu polskiego. Po jego upływie ponownie sprawdzono listę „Nagrywane” i harmonogram; nie wskazywały już blokady.
+
+### Testy i wynik
+
+Przez F11 otwarto aktualizator zainstalowanej alpha.524. Pokazał wydanie `AMC Test — 24.11.2026, 16:18` i opis zmian HEOS. Po wybraniu „Aktualizuj” program pobrał instalator o oczekiwanej sumie SHA-256 `f3f677db38502687714bfd43ea256acbbd43bf34c32947b2029d28ab0cbc396c`, uruchomił własny `AMC-Python-Updater.exe` z kontrolą tej sumy i docelową ścieżką `D:\Projekty Codex\AMC Python`, po czym bezpiecznie zamknął starą instancję. Obserwowano proces instalatora `AMC-Test-2026-11-24-1618.exe`, zapis nowych plików i automatyczny restart. Po zakończeniu działała jedna instancja AMC: `AMC.exe`, proces wxPython i host multimedialny z kanonicznej instalacji na D. Okno programu miało tytuł `Radio Poznan — AMC Test — 24.11.2026, 16:18`, odpowiadało na odczyt interfejsu i pokazywało status tej stacji. Nie przeprowadzono jeszcze odsłuchowego testu NVDA ani komend zmieniających odtwarzanie na Denon Home 200.
+
+### Materiał do dokumentacji użytkownika — szkic
+
+W AMC Test F11 sprawdza nowe wydanie. Jeśli trwa nagrywanie lub jego zaplanowane okno, program informuje, że aktualizacja nie została uruchomiona; można spróbować ponownie po zakończeniu tego okna. Po wybraniu „Aktualizuj” program sam pobiera i sprawdza pakiet, zamyka starą wersję, instaluje nową i uruchamia AMC ponownie. Kontrola instalacji: w tytule okna widać `AMC Test — 24.11.2026, 16:18`.
+
+### Znane ograniczenia oraz wersja i commit
+
+Zainstalowano i uruchomiono `AMC Test 0.1.0-alpha.525`, etykieta `24.11.2026, 16:18`, ze źródeł `e85854d47dd598a1aafa2f640e3fd655df1459d0`; wydanie GitHub i instalator są opisane w poprzedniej sekcji. Fizyczny odbiór NVDA, katalogów HEOS, Ulubionych, informacji pod lewą strzałką, powrotu Backspace/Escape oraz sterowania głośnikiem należy wykonać w tej zainstalowanej wersji. Dopiero po nim ustalić zachowanie presetów HEOS. Ten dopisek dokumentacyjny nie zmienia opublikowanego instalatora.
