@@ -294,7 +294,7 @@ Oficjalna specyfikacja HEOS udostępnia `browse/play_preset?pid=...&preset=...` 
 
 ### Testy, ograniczenia, wersja i commit
 
-Na przypiętym Pythonie i wxPython 4.3.1 przeszło **191 celowanych testów** klienta i sesji HEOS, presetów, profilu, skrótów, menu i palety. Testy obejmują numer pozycji na kolejnej stronie, trasę komendy, walidację indeksu, odnalezienie zapisanej stacji po przestawieniu oraz brak przekierowania po jej usunięciu. Wynik jest źródłowy; `play_preset` nie został jeszcze wysłany do fizycznego głośnika, więc skuteczność odtwarzania, słyszalność i odbiór NVDA pozostają niepotwierdzone. Lokalny porządek, sortowanie i wycinanie Ulubionych również pozostają otwarte. Następne wspólne wydanie Test wymaga osobnej weryfikacji, kompilacji GitHub i opublikowania instalatora; alpha.525 nie zawiera tej zmiany. Commit tej poprawki: do uzupełnienia po zapisaniu gałęzi.
+Na przypiętym Pythonie i wxPython 4.3.1 przeszło **191 celowanych testów** klienta i sesji HEOS, presetów, profilu, skrótów, menu i palety. Testy obejmują numer pozycji na kolejnej stronie, trasę komendy, walidację indeksu, odnalezienie zapisanej stacji po przestawieniu oraz brak przekierowania po jej usunięciu. Wynik jest źródłowy; `play_preset` nie został jeszcze wysłany do fizycznego głośnika, więc skuteczność odtwarzania, słyszalność i odbiór NVDA pozostają niepotwierdzone. Lokalny porządek, sortowanie i wycinanie Ulubionych również pozostają otwarte. Następne wspólne wydanie Test wymaga osobnej weryfikacji, kompilacji GitHub i opublikowania instalatora; alpha.525 nie zawiera tej zmiany. Commit źródeł: `ce8e335cba62a5212e3290b42749a3050306ba57`.
 
 ### Materiał do instrukcji użytkownika — szkic
 
