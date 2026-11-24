@@ -7042,6 +7042,7 @@ class ActivePlaybackDialog(wx.Dialog):
         toggle: Callable[
             [ActivePlaybackItem, Callable[[ActivePlaybackItem | None, str], None]], None
         ],
+        *, status_message: str = "",
     ) -> None:
         super().__init__(parent, title=i18n.ui_text("Aktywne odtwarzanie"))
         self.SetName(i18n.ui_text("Aktywne odtwarzanie"))
@@ -7069,7 +7070,9 @@ class ActivePlaybackDialog(wx.Dialog):
         )
         self.playback_list.Bind(wx.EVT_CHAR_HOOK, self._on_key)
         shell.Add(self.playback_list, 1, wx.LEFT | wx.RIGHT | wx.EXPAND, 12)
-        self.status = wx.StaticText(self, label=i18n.ui_text("Gotowe"))
+        self.status = wx.StaticText(
+            self, label=i18n.ui_text(status_message or "Gotowe")
+        )
         self.status.SetName(i18n.ui_text("Stan polecenia"))
         self._announcer = Announcer(self.status)
         shell.Add(self.status, 0, wx.ALL | wx.EXPAND, 12)
@@ -7084,6 +7087,12 @@ class ActivePlaybackDialog(wx.Dialog):
         self.SetMinSize((650, 330))
         self.Fit()
         wx.CallAfter(self.playback_list.SetFocus)
+        if status_message:
+            wx.CallAfter(self._announce_initial_status, status_message)
+
+    def _announce_initial_status(self, message: str) -> None:
+        if not self._closed and not self.IsBeingDeleted():
+            self._announcer.say(i18n.ui_text(message))
 
     @property
     def selected_item(self) -> ActivePlaybackItem | None:
@@ -24969,6 +24978,11 @@ class LiteFrame(wx.Frame):
                     item, complete, wiim_id=wiim_id,
                     sonos_household=sonos_household, sonos_group=sonos_group,
                     frontier_id=frontier_id, heos_target=heos_target,
+                ),
+                status_message=(
+                    i18n.ui_text("Nie udało się sprawdzić") + ": "
+                    + ", ".join(payload["errors"])
+                    if payload["errors"] else ""
                 ),
             ) as dialog:
                 result = dialog.ShowModal()

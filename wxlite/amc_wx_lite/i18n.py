@@ -1033,6 +1033,7 @@ _UI_TEXT_EN: dict[str, str] = {
     "Nie znaleziono aktywnego ani wstrzymanego odtwarzania":
         "No playing or paused items were found",
     "Nie udało się sprawdzić odtwarzania": "Could not check playback",
+    "Nie udało się sprawdzić": "Could not check",
     "pauza": "paused",
     "odtwarzanie": "playing",
     "stan w aplikacji zewnętrznej": "state in external application",

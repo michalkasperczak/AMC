@@ -183,11 +183,16 @@ def test_space_targets_the_selected_wiim_device() -> None:
 
 
 @pytest.mark.parametrize("accept", [True, False])
-def test_shift_f6_collects_radio_and_enter_opens_its_player(monkeypatch, accept) -> None:
+@pytest.mark.parametrize("partial_error", [True, False])
+def test_shift_f6_collects_radio_and_enter_opens_its_player(
+    monkeypatch, accept, partial_error,
+) -> None:
     from amc_wx_lite import gui
 
     class Client:
         def status(self, session_id):
+            if session_id == "files" and partial_error:
+                raise OSError("Host unavailable")
             if session_id == "radio":
                 return {"sessionId": "radio", "id": "radio-357",
                         "title": "Radio 357", "playing": True, "paused": False}
@@ -210,8 +215,10 @@ def test_shift_f6_collects_radio_and_enter_opens_its_player(monkeypatch, accept)
     captured = []
 
     class Dialog:
-        def __init__(self, _parent, items, _current, *, toggle):
+        def __init__(self, _parent, items, _current, *, toggle,
+                     status_message=""):
             captured.extend(items)
+            captured.append(status_message)
             self.selected_item = items[0]
             self._closed = False
 
@@ -245,9 +252,10 @@ def test_shift_f6_collects_radio_and_enter_opens_its_player(monkeypatch, accept)
         _restore_focus_after_dialog=lambda: focus_returns.append(navigator.active),
     )
     gui.LiteFrame._show_active_playback(frame)
-    assert [item.label for item in captured] == [
+    assert [item.label for item in captured[:-1]] == [
         "Radio 357, Radio, Komputer, urządzenie domyślne Windows, odtwarzanie"
     ]
+    assert bool(captured[-1]) is partial_error
     assert navigator.active is (SessionId.RADIO if accept else SessionId.FILES)
     assert navigator.session.view is (View.PLAYER if accept else View.LIST)
     assert focus_returns == [navigator.active]
@@ -278,9 +286,11 @@ def test_native_active_playback_list_selection_space_and_reopen() -> None:
                         item.session, item.title, item.service, item.device, "pauza"
                     ), "WiiM, Salon: pauza"),
                 ),
+                status_message="Nie udało się sprawdzić: HEOS",
             )
             try:
                 assert dialog.playback_list.GetName() == "Odtwarzane i wstrzymane materiały"
+                assert dialog.status.GetLabel() == "Nie udało się sprawdzić: HEOS"
                 assert dialog.playback_list.GetSelection() == 1
                 assert dialog.selected_item.session is SessionId.WIIM
                 dialog.playback_list.SetSelection(0)

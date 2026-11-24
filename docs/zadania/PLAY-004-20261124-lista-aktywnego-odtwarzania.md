@@ -20,7 +20,7 @@ Michał zaproponował również klawisz w tym oknie, który dołącza komputer j
 
 - Testy modelu odrzucają obcy status sesji, stan bez odtwarzania i puste urządzenie; etykieta nie zawiera ID. Test sprawdza, że Spacja kieruje polecenie do sesji zaznaczonego wiersza, a nie do sesji aktywnej w oknie głównym.
 - Testy parytetu porównują `Shift+F6`, nazwę, opis i wykonanie z menu, paletą i pomocą we wszystkich sesjach oraz w obu widokach. Osobny test sprawdza język angielski. Test natywnej listy wx sprawdza początkowy wybór, zmianę wiersza, Spację i ponowne otwarcie.
-- **142 testy celowane zaliczone** w izolowanym interpreterze Python z prawdziwym wx; obejmują model, sesje, skróty, menu, paletę, 4 kontrole językowe, początkowy wybór i ponowne otwarcie listy, Enter/Anuluj i Spację kierowaną do Radia lub WiiM. `py_compile` i `git diff --check` zaliczone. Próby używały atrap i nie uruchamiały dźwięku ani poleceń na głośniku. Nie wykonano ręcznej próby NVDA.
+- **144 testy celowane zaliczone** w izolowanym interpreterze Python z prawdziwym wx; obejmują model, sesje, skróty, menu, paletę, 4 kontrole językowe, początkowy wybór i ponowne otwarcie listy, Enter/Anuluj, Spację kierowaną do Radia lub WiiM oraz komunikat o częściowym błędzie odczytu. `py_compile` i `git diff --check` zaliczone. Próby używały atrap i nie uruchamiały dźwięku ani poleceń na głośniku. Nie wykonano ręcznej próby NVDA.
 - Pełne `test_i18n.py`: **14 zaliczonych, 1 pominięty, 2 niezaliczone** testy szerokiego inwentarza istniejących tłumaczeń. Parytet nowego polecenia w językach polskim i angielskim przeszedł.
 
 ## Znane ograniczenia
@@ -32,4 +32,4 @@ Michał zaproponował również klawisz w tym oknie, który dołącza komputer j
 
 ## Wersja i commit
 
-Gałąź `codex/heos-next-test-20261123`. Commit kodu i testów: `9cef782a`. Kod i testy nie oznaczają wydania. Wydana i zainstalowana wersja użytkownika pozostaje alpha.525; nowy instalator, instalacja i wydanie GitHub tej zmiany nie powstały. Następny krok: połączyć z innymi poprawkami, zbudować i opublikować wspólne wydanie Test na GitHub, a potem odebrać NVDA i urządzenia na żywo.
+Gałąź `codex/heos-next-test-20261123`. Commit kodu i testów: `9cef782a`; korekta komunikatu o częściowym odczycie z 25.11.2026 w kolejnym commicie. Kod i testy nie oznaczają wydania. Wydana i zainstalowana wersja użytkownika pozostaje alpha.525; nowy instalator, instalacja i wydanie GitHub tej zmiany nie powstały. Następny krok: połączyć z innymi poprawkami, zbudować i opublikować wspólne wydanie Test na GitHub, a potem odebrać NVDA i urządzenia na żywo.
