@@ -18,7 +18,8 @@ UNHANDLED = object()
 
 
 def cast_session_available(session: str, status: dict | None = None, *, active: bool = False,
-                           source_available: bool = False) -> bool:
+                           source_available: bool = False,
+                           allow_airplay: bool = False) -> bool:
     if session not in CAST_SESSIONS:
         return False
     if active:
@@ -26,7 +27,8 @@ def cast_session_available(session: str, status: dict | None = None, *, active: 
     if session == "tidal":
         return source_available
     status = status or {}
-    if status.get("source") and (status.get("playing") or status.get("paused")):
+    if (not allow_airplay and status.get("source")
+            and (status.get("playing") or status.get("paused"))):
         try:
             cast_source(status["source"])
         except (CastError, OSError, ValueError):

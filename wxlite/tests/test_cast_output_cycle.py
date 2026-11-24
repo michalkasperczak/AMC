@@ -14,6 +14,7 @@ from amc_wx_lite.gui import LiteFrame, chord_from_event
 from amc_wx_lite.menu_model import menus_for_session
 from amc_wx_lite.navigation import SessionId
 from amc_wx_lite.network_output_cycle import adjacent_target_id
+from amc_wx_lite.network_output_cycle import NetworkOutputChoice
 from amc_wx_lite.shortcuts import Action, Chord, describe, resolve
 
 
@@ -23,17 +24,17 @@ class Client:
         self.selected = None
         self.calls = []
 
-    def cast_devices(self):
-        return self.devices
+    def network_output_snapshot(self, _session):
+        return {"devices": self.devices, "information": ""}
 
-    def cast_selected_device_id(self, _session):
+    def network_selected_target_id(self, _session):
         return self.selected
 
-    def select_cast(self, session, target_id):
+    def select_network_output(self, session, target_id):
         self.calls.append((session, target_id))
         self.selected = target_id
         device = next((item for item in self.devices if item.device_id == target_id), None)
-        return {"name": device.name if device else "Ten komputer"}
+        return {"name": getattr(device, "name", device.label) if device else "Ten komputer"}
 
 
 def frame_for(client, *, deferred=False):
@@ -87,9 +88,30 @@ def test_cycle_says_when_no_other_target_and_never_sends_selection():
     client = Client()
     frame, spoken, _queued, _refreshed = frame_for(client)
     LiteFrame._cycle_cast_output(frame, 1)
-    assert spoken == ["Brak innego dostępnego wyjścia Google Cast"]
+    assert spoken == ["Brak innego dostępnego wyjścia bezprzewodowego"]
     assert client.calls == []
     assert frame._network_output_cycle_pending is False
+
+
+def test_cycle_uses_cast_and_airplay_in_the_same_order():
+    client = Client((
+        NetworkOutputChoice("cast:private-cast", "Google Cast: Salon"),
+        NetworkOutputChoice("airplay:private-air", "AirPlay: Gabinet"),
+    ))
+    frame, spoken, _queued, _refreshed = frame_for(client)
+    LiteFrame._cycle_cast_output(frame, 1)
+    LiteFrame._cycle_cast_output(frame, 1)
+    LiteFrame._cycle_cast_output(frame, 1)
+    assert client.calls == [
+        ("radio", "cast:private-cast"),
+        ("radio", "airplay:private-air"),
+        ("radio", None),
+    ]
+    assert spoken == [
+        "Wyjście bieżącej sesji: Google Cast: Salon",
+        "Wyjście bieżącej sesji: AirPlay: Gabinet",
+        "Wyjście bieżącej sesji: Ten komputer",
+    ]
 
 
 def test_stale_discovery_after_session_change_does_not_switch_output():
@@ -105,7 +127,7 @@ def test_stale_discovery_after_session_change_does_not_switch_output():
 
 def test_rejected_switch_keeps_previous_target_and_releases_busy_state():
     class RejectingClient(Client):
-        def select_cast(self, _session, _target_id):
+        def select_network_output(self, _session, _target_id):
             raise ValueError("Odbiornik jest niedostępny")
 
     client = RejectingClient((CastDevice("private-a", "WiiM Sound", "192.0.2.1"),))
@@ -114,7 +136,7 @@ def test_rejected_switch_keeps_previous_target_and_releases_busy_state():
     assert client.selected is None
     assert frame._network_output_cycle_pending is False
     assert spoken == [
-        "Nie udało się przełączyć wyjścia Google Cast: Odbiornik jest niedostępny"
+        "Nie udało się przełączyć wyjścia bezprzewodowego: Odbiornik jest niedostępny"
     ]
 
 

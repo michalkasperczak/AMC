@@ -35818,14 +35818,20 @@ class LiteFrame(wx.Frame):
         def failed(error: Exception) -> None:
             if not is_current():
                 return
-            message = str(error) if isinstance(error, CastError) else i18n.tr("cast.empty")
+            from .airplay_adapter import AirPlayUnavailable
+            message = (str(error) if isinstance(error, (CastError, AirPlayUnavailable, ValueError))
+                       else i18n.tr("cast.empty"))
             self.announcer.say(i18n.tr("cast.failed", error=message))
 
-        def prepared(devices) -> None:
+        def prepared(snapshot) -> None:
             if not is_current():
                 return
-            selected = client.cast_selected_device_id(session.value)
+            devices = snapshot["devices"]
+            information = snapshot["information"]
+            selected = client.network_selected_target_id(session.value)
             with CastDeviceDialog(self, session_options.session_display_name(session), devices, selected) as dialog:
+                if information:
+                    wx.CallAfter(self.announcer.say, information)
                 result = dialog.ShowModal()
                 device_id = dialog.selected_device_id
             self._restore_focus_after_dialog()
@@ -35844,15 +35850,15 @@ class LiteFrame(wx.Frame):
                 if not is_current():
                     return
                 self.announcer.say(i18n.tr("cast.selected", name=(
-                    i18n.tr("cast.local") if device_id is None else payload.get("name", "Google Cast"))))
+                    i18n.tr("cast.local") if device_id is None else payload.get("name", i18n.tr("cast.devices")))))
                 if payload.get("warning"):
                     self.announcer.say(str(payload["warning"]))
                 self._refresh_status()
                 self._refresh_menu_state()
 
-            self.runner.submit("cast-select", lambda: client.select_cast(session.value, device_id), applied, failed)
+            self.runner.submit("cast-select", lambda: client.select_network_output(session.value, device_id), applied, failed)
 
-        self.runner.submit("cast-list", lambda: client.cast_devices(refresh=refresh), prepared, failed)
+        self.runner.submit("cast-list", lambda: client.network_output_snapshot(session.value, refresh=refresh), prepared, failed)
 
     def _choose_cast_mirror(self, *, refresh: bool = False) -> None:
         if getattr(self, "_network_output_cycle_pending", False):
@@ -35960,12 +35966,15 @@ class LiteFrame(wx.Frame):
         def failed(error: Exception) -> None:
             release()
             if is_current():
-                reason = str(error) if isinstance(error, (CastError, ValueError)) else i18n.tr("cast.error.timeout")
+                from .airplay_adapter import AirPlayUnavailable
+                reason = (str(error) if isinstance(error, (CastError, AirPlayUnavailable, ValueError))
+                          else i18n.tr("cast.error.timeout"))
                 self.announcer.say(i18n.tr("cast.cycleFailed", error=reason))
 
         def work():
-            devices = tuple(client.cast_devices())
-            selected = client.cast_selected_device_id(session.value)
+            snapshot = client.network_output_snapshot(session.value)
+            devices = tuple(snapshot["devices"])
+            selected = client.network_selected_target_id(session.value)
             return devices, selected
 
         def prepared(snapshot) -> None:
@@ -35983,7 +35992,7 @@ class LiteFrame(wx.Frame):
             label = i18n.tr("cast.local") if choice is None else choice.label
 
             def apply():
-                return client.select_cast(session.value, target_id)
+                return client.select_network_output(session.value, target_id)
 
             def applied(payload: dict) -> None:
                 release()
@@ -41701,12 +41710,16 @@ class LiteFrame(wx.Frame):
             source_available = bool(self.navigator.active is SessionId.TIDAL
                 and getattr(self, "_tidal_native_has_playback", False)
                 and not getattr(self, "_tidal_desktop_has_playback", False) and client
-                and getattr(client, "network_source_available", lambda *_a, **_k: False)("tidal", status, cast=True))
+                and getattr(client, "network_source_available", lambda *_a, **_k: False)("tidal", status, cast=False))
             return cast_session_available(self.navigator.active.value,
                 status, source_available=source_available,
-                active=bool(client and getattr(client, "cast_active", lambda _: False)(self.navigator.active.value)))
+                allow_airplay=True,
+                active=bool(client and (
+                    getattr(client, "cast_active", lambda _: False)(self.navigator.active.value)
+                    or getattr(getattr(client, "_airplay_primary", None), "selected_device_id", lambda _: None)(self.navigator.active.value))))
         client = getattr(self, "client", None)
-        if client is not None and getattr(client, "cast_active", lambda _: False)(self.navigator.active.value):
+        if client is not None and getattr(client, "network_primary_active",
+                                         getattr(client, "cast_active", lambda _: False))(self.navigator.active.value):
             if not cast_action_available(action, True, self.navigator.active.value,
                     self.navigator.session.library_view in (LibraryView.SAVED_QUEUE, LibraryView.LIVE_QUEUE)):
                 return False

@@ -186,6 +186,7 @@ class LiteHostClient:
         self._mirror = None
         self._local_mirror = None
         self._airplay_mirror = None
+        self._airplay_primary = None
         self._tidal_network_request = None
 
     # ------------------------------------------------------------ start/stop
@@ -267,6 +268,8 @@ class LiteHostClient:
 
     def close(self) -> None:
         """Zamknij stdin: host konczy sie SAM na EOF (tak go napisalismy)."""
+        if getattr(self, "_airplay_primary", None) is not None:
+            self._airplay_primary.close()
         if getattr(self, "_airplay_mirror", None) is not None:
             self._airplay_mirror.close()
         if getattr(self, "_local_mirror", None) is not None:
@@ -364,6 +367,8 @@ class LiteHostClient:
     # ------------------------------------------------------------ wywolania
 
     def call(self, op: str, args: dict | None = None, *, timeout: float = 20.0) -> Any:
+        if getattr(self, "_airplay_primary", None) is not None:
+            self._airplay_primary.retire_displaced(op, args or {})
         if self._cast is not None:
             from .cast_session import UNHANDLED
             from .network_audio import play_session
@@ -375,8 +380,19 @@ class LiteHostClient:
                 if not was_cast:
                     self._notify_mirrors(op, args or {}, result)
                 return result
+        if getattr(self, "_airplay_primary", None) is not None:
+            from .cast_session import UNHANDLED
+            result = self._airplay_primary.call(op, args or {})
+            if result is not UNHANDLED:
+                self._remember_network_source(op, args, result)
+                if op == "tidal.nativePlay":
+                    self._airplay_primary.after_native(op, args or {}, result)
+                self._notify_mirrors(op, args or {}, result)
+                return result
         result = self._call_native(op, args, timeout=timeout)
         self._remember_network_source(op, args, result)
+        if getattr(self, "_airplay_primary", None) is not None:
+            self._airplay_primary.after_native(op, args or {}, result)
         self._notify_mirrors(op, args or {}, result)
         return result
 
@@ -428,12 +444,175 @@ class LiteHostClient:
     def cast_active(self, session_id: str) -> bool:
         return self._cast is not None and self._cast.active(session_id)
 
+    def network_primary_active(self, session_id: str) -> bool:
+        airplay = getattr(self, "_airplay_primary", None)
+        return (self.cast_active(session_id)
+                or bool(airplay and airplay.selected_device_id(session_id)))
+
     def cast_selected_device_id(self, session_id: str) -> str | None:
         route = self._cast.routes.get(session_id) if self._cast else None
         return route.device.device_id if route else None
 
     def cast_playback_context(self, session_id: str) -> tuple[str, str] | None:
+        airplay = getattr(self, "_airplay_primary", None)
+        if airplay is not None:
+            context = airplay.playback_context(session_id)
+            if context is not None:
+                return context
         return self._cast.playback_context(session_id) if self._cast else None
+
+    def _primary_airplay_router(self):
+        if getattr(self, "_airplay_primary", None) is None:
+            import shutil
+            from . import i18n
+            from .airplay_adapter import _library
+            from .airplay_primary import PrimaryAirPlayRouter
+            _library(None)
+            ffmpeg = shutil.which("ffmpeg")
+            if not ffmpeg:
+                raise ValueError(i18n.tr("mirror.airplayNoEncoder"))
+            self._airplay_primary = PrimaryAirPlayRouter(
+                self._network_native, ffmpeg, self._on_event)
+        return self._airplay_primary
+
+    def network_output_snapshot(self, session_id: str, *, refresh: bool = False) -> dict:
+        """One set of typed choices for Shift+C and the bracket shortcuts."""
+        from .airplay_adapter import AirPlayUnavailable
+        from .cast_session import cast_session_available
+        from .network_output_cycle import NetworkOutputChoice
+        from . import i18n
+        choices = []
+        notes = []
+        mirrored_cast = ({route.device.device_id for route in self._mirror.routes.values()}
+                         if self._mirror else set())
+        mirrored_airplay = ({route.device.device_id
+                             for route in self._airplay_mirror.routes.values()}
+                            if getattr(self, "_airplay_mirror", None) else set())
+        cast_allowed = True
+        try:
+            status = (self._cast.status(session_id) if self.cast_active(session_id)
+                      else self._network_native("transport.status", {"sessionId": session_id}))
+            if session_id == "tidal":
+                cast_allowed = self.network_source_available(session_id, status, cast=True)
+            else:
+                cast_allowed = cast_session_available(session_id, status,
+                    active=self.cast_active(session_id))
+        except Exception:
+            cast_allowed = False
+        try:
+            if cast_allowed:
+                choices.extend(NetworkOutputChoice("cast:" + item.device_id,
+                             "Google Cast: " + item.label, item.available)
+                             for item in self.cast_devices(refresh=refresh)
+                             if item.device_id not in mirrored_cast)
+        except Exception:
+            notes.append(i18n.tr("cast.discoveryFailed"))
+        cast_route = self._cast.routes.get(session_id) if self._cast else None
+        if cast_route is not None and not any(
+                item.device_id == "cast:" + cast_route.device.device_id
+                for item in choices):
+            choices.append(NetworkOutputChoice(
+                "cast:" + cast_route.device.device_id,
+                "Google Cast: " + i18n.tr("cast.unavailableDevice",
+                                           name=cast_route.device.name), False))
+        try:
+            choices.extend(NetworkOutputChoice("airplay:" + item.device_id,
+                         "AirPlay: " + item.label)
+                         for item in self._primary_airplay_router().devices(refresh=refresh)
+                         if item.device_id not in mirrored_airplay)
+        except ValueError:
+            notes.append(i18n.tr("mirror.airplayNoEncoder"))
+        except AirPlayUnavailable:
+            notes.append(i18n.tr("mirror.airplayNotInstalled"))
+        except Exception:
+            notes.append(i18n.tr("mirror.airplayDiscoveryFailed"))
+        primary = getattr(self, "_airplay_primary", None)
+        active = primary.routes.get(session_id) if primary is not None else None
+        if active is not None and not any(
+                item.device_id == "airplay:" + active.device.device_id
+                for item in choices):
+            choices.append(NetworkOutputChoice(
+                "airplay:" + active.device.device_id,
+                "AirPlay: " + i18n.tr("cast.unavailableDevice", name=active.device.name),
+                False))
+        return {"devices": tuple(choices), "information": " ".join(notes)}
+
+    def network_selected_target_id(self, session_id: str) -> str | None:
+        airplay = getattr(self, "_airplay_primary", None)
+        selected = airplay.selected_device_id(session_id) if airplay else None
+        if selected:
+            return "airplay:" + selected
+        cast = self.cast_selected_device_id(session_id)
+        return "cast:" + cast if cast else None
+
+    def select_network_output(self, session_id: str, target_id: str | None) -> dict:
+        from . import i18n
+        if target_id is None:
+            airplay = getattr(self, "_airplay_primary", None)
+            if airplay and airplay.selected_device_id(session_id):
+                return airplay.select(session_id, None)
+            return self.select_cast(session_id, None)
+        kind, separator, device_id = target_id.partition(":")
+        if not separator or not device_id:
+            raise ValueError(i18n.tr("networkOutput.invalid"))
+        if kind == "cast":
+            airplay = getattr(self, "_airplay_primary", None)
+            previous = airplay.selected_device_id(session_id) if airplay else None
+            previous_volume = airplay.routes[session_id].volume if previous else None
+            if previous:
+                airplay.select(session_id, None)
+            try:
+                return self.select_cast(session_id, device_id)
+            except Exception:
+                if previous:
+                    try:
+                        airplay.select(session_id, previous,
+                                       volume_override=previous_volume)
+                    except Exception:
+                        pass
+                raise
+        if kind == "airplay":
+            if self.mirror_selected_target_id(session_id) is not None:
+                raise ValueError("Najpierw wyłącz dublowanie dźwięku przez Shift+M")
+            if (getattr(self, "_airplay_mirror", None) is not None
+                    and any(route.device.device_id == device_id
+                            for route in self._airplay_mirror.routes.values())):
+                raise ValueError(i18n.tr("airplay.primary.mirrored"))
+            router = self._primary_airplay_router()
+            if self.cast_active(session_id):
+                cast_id = self.cast_selected_device_id(session_id)
+                cast_route = self._cast.routes[session_id]
+                original_volume = cast_route.native_volume
+                cast_route.native_volume = 0
+                try:
+                    self.select_cast(session_id, None)
+                finally:
+                    cast_route.native_volume = original_volume
+                try:
+                    result = router.select(session_id, device_id,
+                                           volume_override=original_volume)
+                    self._network_native("transport.setVolume", {
+                        "sessionId": session_id, "volume": original_volume})
+                    return result
+                except Exception:
+                    if router.selected_device_id(session_id) == device_id:
+                        try:
+                            router.select(session_id, None)
+                        except Exception:
+                            pass
+                    try:
+                        self._network_native("transport.setVolume", {
+                            "sessionId": session_id, "volume": original_volume})
+                    except Exception:
+                        pass
+                    if cast_id:
+                        try:
+                            self.select_cast(session_id, cast_id)
+                        except Exception:
+                            pass
+                    raise
+            return router.select(session_id, device_id)
+        raise ValueError(i18n.tr("networkOutput.invalid"))
 
     def select_cast(self, session_id: str, device_id: str | None) -> dict:
         if self.mirror_selected_target_id(session_id) is not None:
@@ -494,7 +673,10 @@ class LiteHostClient:
                         ffmpeg, self._on_event)
                 airplay = [MirrorChoice("airplay:" + item.device_id,
                                         "AirPlay: " + item.label)
-                           for item in self._airplay_mirror.devices(refresh=refresh)]
+                           for item in self._airplay_mirror.devices(refresh=refresh)
+                           if not (getattr(self, "_airplay_primary", None)
+                                   and any(state.device.device_id == item.device_id
+                                           for state in self._airplay_primary.routes.values()))]
                 if not airplay:
                     notes.append(i18n.tr("mirror.airplayNotFound"))
             else:
@@ -559,6 +741,11 @@ class LiteHostClient:
         if kind == "airplay":
             if self.cast_active(session_id):
                 raise ValueError("Najpierw wybierz Ten komputer przez Shift+C")
+            if (getattr(self, "_airplay_primary", None) is not None
+                    and any(state.device.device_id == device_id
+                            for state in self._airplay_primary.routes.values())):
+                from . import i18n
+                raise ValueError(i18n.tr("airplay.primary.alreadyMain"))
             if getattr(self, "_airplay_mirror", None) is None:
                 import shutil
                 from .mirror_airplay import MirrorAirPlayRouter

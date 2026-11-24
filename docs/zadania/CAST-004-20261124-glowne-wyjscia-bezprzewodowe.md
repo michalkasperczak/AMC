@@ -1,6 +1,6 @@
 # CAST-004 — główne wyjścia bezprzewodowe Cast i AirPlay
 
-**Decyzja Michała, 24.11.2026. Status:** kontrakt zatwierdzony; implementacja głównej trasy AirPlay, testy i wydanie otwarte. Ten zapis nie opisuje działania obecnej alpha.525 ani nie twierdzi, że AirPlay już przeniesiono.
+**Decyzja Michała, 24.11.2026. Stan 24.11.2026:** kontrakt zatwierdzony i wdrożony w źródłach gałęzi następnego AMC Test; testy kodu i odizolowanego hosta zaliczone. Nie ma instalacji ani wydania GitHub tej zmiany. Odsłuch na prawdziwym AirPlay i odbiór NVDA są otwarte; zainstalowana alpha.525 nie zawiera tego przyrostu.
 
 ## Decyzja zastępująca wcześniejsze warianty
 
@@ -12,17 +12,25 @@
 
 To rozstrzygnięcie zastępuje sugestię `Shift+P`, rozważanie umieszczenia AirPlay pod `Shift+A` oraz wcześniejszy zapis CAST-003, że miejsce głównego AirPlay pozostaje otwarte. Nie zastępuje znaczenia `Shift+M`: Mirror nadal oznacza dwa jednoczesne wyjścia.
 
-## Stan kodu i warunek wdrożenia
+## Zachowanie w źródłach i miejsca poleceń
 
-W gałęzi `codex/heos-next-test-20261123` `Shift+C` i skróty nawiasów obsługują obecnie „Ten komputer” oraz Google Cast. Istniejący `MirrorAirPlayRouter` pod `Shift+M` uruchamia RAOP z FFmpeg jako **dodatkowy** strumień, pozostawiając lokalny odtwarzacz włączony. Przeniesienie go bez zmiany sterowania spowodowałoby dublowanie, sprzeczne z powyższą decyzją.
+`Shift+C` oraz `Ctrl+Shift+[` / `Ctrl+Shift+]` używają jednej typowanej migawki celu: komputer, dostępne Google Cast i dostępne AirPlay. Etykieta zawiera protokół, np. „AirPlay: Gabinet, wybrane”, bez prywatnego identyfikatora. Wybrany odbiornik, który zniknął z wykrywania, pozostaje widoczny jako „niedostępne, wybrane”; skróty go pomijają. Lista jest otwierana poza wątkiem wx, ignoruje spóźnione wyniki po zmianie sesji i przywraca fokus po zamknięciu. `Shift+M` zachowuje oddzielną listę **dodatkowego** wyjścia i nie pozwala użyć tego samego odbiornika AirPlay w obu trasach.
 
-Główna trasa AirPlay musi posiadać osobny stan sesji i obsłużyć co najmniej: bezpieczne przejęcie odtwarzania lokalnego, zachowanie lub odtworzenie stanu po błędzie, odtwarzanie/pauzę/stop, następny materiał, seek, status i pozycję, zmianę głośności i wyciszenie odbiornika, powrót na komputer, przejście między AirPlay i Cast, utratę odbiornika oraz kolizje z Mirror. Odbiornik RAOP może wymagać sparowania; aktualny kod nie zapewnia dla głównego AirPlay tych gwarancji. Nie wolno oznaczyć celu jako „wybrane” przed potwierdzeniem przełączenia.
+Nowy `PrimaryAirPlayRouter` zachowuje kolejkę, metadane i pozycję w natywnym silniku AMC, wyciszając jego lokalne wyjście na czas transmisji RAOP przez FFmpeg. Przed pierwszym strumieniem ustawia głośność AirPlay najwyżej na 30%; późniejsze jawne polecenia głośności sterują odbiornikiem. Obsługuje pauzę/wznowienie, Stop, seek, następny materiał wykryty przez zmianę źródła w statusie, wyciszenie, powrót do komputera i awarię odbiornika. Po awarii oddaje dźwięk komputerowi zgodnie z ostatnim stanem wyciszenia użytkownika. Przełączenie Cast–AirPlay przechodzi przez lokalny silnik z wyciszeniem; po niepowodzeniu próbuje odtworzyć poprzedni cel. Dla natywnego TIDAL poprawiono status i zmianę wyciszenia po Stop, gdy materiał nie ma już właściciela dekodera. Gdy inna sesja zaczyna używać współdzielonego dekodera, stara trasa AirPlay zostaje wyłączona przed jej startem.
 
-Wspólny model poleceń musi jednocześnie zmienić nazwę/opis `Shift+C` i pary nawiasów w menu Dźwięk, palecie `Ctrl+Shift+K`, pomocy `Ctrl+F1`, pełnej pomocy i dokumentacji. Lista musi używać etykiet zamierzonych dla NVDA, a skróty tej samej migawki urządzeń i tego samego stanu sesji. `Shift+M` musi pokazywać tylko stan dodatkowego wyjścia. Wskazanie aktualnie odtwarzanego tytułu ma podawać rzeczywistą trasę AirPlay tak samo jak Cast.
+W sesji TIDAL format DASH nie pojawia się wśród wyborów Cast, ale główne AirPlay pozostaje możliwe przez lokalny adres proxy. Dla źródeł, których Cast nie może odtworzyć bezpośrednio, lista zachowuje AirPlay bez reklamowania nieobsługiwanego odbiornika Cast. Warunki dostępności dla natywnego TIDAL i aktywnej trasy są używane również przez menu, paletę i pomoc.
+
+Wspólny `CommandPresentation` nadaje nowe nazwy i opisy `Shift+C` oraz skrótom nawiasów. Korzystają z niego menu Dźwięk, paleta `Ctrl+Shift+K`, pomoc `Ctrl+F1` i pełna pomoc. Po potwierdzeniu wyboru komunikat mówi „Wyjście bieżącej sesji: AirPlay: {nazwa}” albo nazwę Cast/komputera. Odczyt bieżącego materiału dołącza faktyczny cel AirPlay tylko przy aktywnej trasie z tytułem. Błędy i utrata RAOP mają osobne komunikaty polskie i angielskie; nie wypowiadają identyfikatorów urządzeń.
 
 ## Weryfikacja i ograniczenia
 
-Na etapie tego zapisu sprawdzono kod `host_client.py`, `cast_session.py`, `mirror_airplay.py`, `gui.py` i kontrakty CAST-002/003. Nie zmieniono kodu, nie uruchomiono testów dla nowej trasy, nie wykonano odsłuchu AirPlay ani testu NVDA. Nie było kompilacji, instalacji ani wydania GitHub. Wydana alpha.525 i nieopublikowana poprawka Cast z CAST-003 pozostają odrębnymi stanami. Późniejsza implementacja musi otrzymać własne wyniki testów oraz odbiór na sprzęcie przed opisaniem AirPlay jako działającego wyjścia głównego.
+- Celowane testy tras, klienta hosta, skrótów, menu i palety: **223 zaliczone, 1 pominięty**; pominięty test wymaga osobno wskazanego hosta Cast. Testy sprawdzają m.in. bezpieczny początkowy poziom AirPlay, rollback, sesje współdzielące dekoder, zmianę źródła, TIDAL DASH, wybrany odbiornik offline oraz brak ujawnienia ID.
+- Osobny proces z prawdziwym ukrytym wx: **40 zaliczonych**, w tym ponowne otwarcie listy z wybranym AirPlay i czytelne etykiety. To nie jest test mowy NVDA.
+- Celowane testy katalogów PL/EN, szablonu języka oraz parytetu menu/palety/pomocy: **4 zaliczone**. Pełne `test_i18n.py` dało 160 zaliczonych, 1 pominięty i 2 niezaliczone szerokie testy inwentarza istniejących tłumaczeń; ich pełny zakres nie był naprawiany w CAST-004.
+- `py_compile` zmienionych modułów Python: zaliczone. Host .NET Release w tym worktree: kompilacja zaliczona, **0 ostrzeżeń i 0 błędów**. Odizolowany host z pustymi danymi i bez odtwarzania potwierdził `transport.toggleMute` oraz status wyciszenia zatrzymanego TIDAL: **1 zaliczony**. Pierwsze trzy próby uruchomienia tego testu wykryły wymagania magazynu kolejki (nie wolno wskazywać dwóch magazynów i profil wymaga własnej bazy); dopiero konfiguracja z jednym tymczasowym magazynem przeszła. Nie zmieniono zainstalowanego AMC.
+- Nie wykonano odtwarzania na prawdziwym odbiorniku AirPlay, parowania RAOP ani ręcznego odbioru NVDA. Historyczny timeout AirPlay na WiiM pozostaje niepotwierdzony sprzętowo. Strumień AirPlay może mieć opóźnienie, a `Shift+M` nie obiecuje synchronizacji dwóch wyjść. Wydanie GitHub, instalacja i numer nowej wersji pozostają otwarte do wspólnej aktualizacji.
+
+Zmiana nie wymaga migracji ustawień: wybór głównego AirPlay żyje tylko w bieżącej sesji aplikacji. Historyczny workflow budujący alpha.525 przy każdym pushu tej gałęzi przełączono na ręczne uruchomienie, aby nie tworzył nowej paczki pod starym numerem. Kod jest na gałęzi `codex/heos-next-test-20261123`; hash commitu tej implementacji uzupełnić po zatwierdzeniu. Zainstalowana i wydana wersja pozostaje alpha.525.
 
 ## Szkic do instrukcji po wdrożeniu
 

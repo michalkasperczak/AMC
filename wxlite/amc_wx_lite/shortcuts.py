@@ -554,10 +554,10 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
     ),
     Action.CAST_SESSION: CommandPresentation(
         Action.CAST_SESSION,
-        "Google Cast bieżącej sesji…",
-        "Wybierz Google Cast dla Plików, Radia, Podcastów, Radio Archiwisty lub natywnego TIDAL albo wróć do komputera; lista oznacza wybrane wyjście, dostępność zależy od strumienia, radio jest na żywo",
+        "Wyjście bezprzewodowe (Cast lub AirPlay)…",
+        "Wybierz jedno główne wyjście bieżącej sesji: komputer, Google Cast lub AirPlay; lista oznacza wybrany cel, a dostępność zależy od źródła i odbiornika",
         "Shift+C",
-        "G&oogle Cast bieżącej sesji…",
+        "Wyjście &bezprzewodowe: Cast lub AirPlay…",
     ),
     Action.MIRROR_SESSION: CommandPresentation(
         Action.MIRROR_SESSION,
@@ -568,17 +568,17 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
     ),
     Action.PREVIOUS_CAST_OUTPUT: CommandPresentation(
         Action.PREVIOUS_CAST_OUTPUT,
-        "Poprzednie wyjście Google Cast",
-        "Przełącz bieżącą sesję na poprzedni dostępny odbiornik Google Cast albo komputer",
+        "Poprzednie wyjście bezprzewodowe",
+        "Przełącz bieżącą sesję na poprzedni dostępny cel z listy komputer, Google Cast i AirPlay; po potwierdzeniu wypowiedz nazwę",
         "Ctrl+Shift+[",
-        "Poprzednie &wyjście Google Cast",
+        "Poprzednie &wyjście bezprzewodowe",
     ),
     Action.NEXT_CAST_OUTPUT: CommandPresentation(
         Action.NEXT_CAST_OUTPUT,
-        "Następne wyjście Google Cast",
-        "Przełącz bieżącą sesję na następny dostępny odbiornik Google Cast albo komputer",
+        "Następne wyjście bezprzewodowe",
+        "Przełącz bieżącą sesję na następny dostępny cel z listy komputer, Google Cast i AirPlay; po potwierdzeniu wypowiedz nazwę",
         "Ctrl+Shift+]",
-        "Następne wyjśc&ie Google Cast",
+        "Następne wyjśc&ie bezprzewodowe",
     ),
     Action.VIEW_RADIO_RECOGNITION_HISTORY: CommandPresentation(
         Action.VIEW_RADIO_RECOGNITION_HISTORY,

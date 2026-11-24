@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 import subprocess
 import threading
-from typing import Callable
+from typing import Any, Callable
 
 from .airplay_adapter import AirPlayDevice, AirPlayUnavailable, close_airplay_receiver, discover_airplay_devices
 from . import i18n
@@ -35,6 +35,8 @@ class AirPlayRoute:
     ready: threading.Event = field(default_factory=threading.Event)
     stopped: bool = False
     error: Exception | None = None
+    volume: int | None = None
+    receiver: Any | None = None
 
     def stop(self) -> None:
         self.stopped = True
@@ -80,11 +82,14 @@ class MirrorAirPlayRouter:
         if config is None:
             raise RuntimeError("Wybrany odbiornik AirPlay jest niedostępny")
         receiver = await pyatv.connect(config, loop, protocol=protocol)
+        route.receiver = receiver
         process = None
         stream_task = None
         try:
             if route.stopped:
                 return
+            if route.volume is not None:
+                await receiver.audio.set_volume(route.volume)
             flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
             process = subprocess.Popen(
                 ffmpeg_command(route.ffmpeg, route.source, position),
@@ -106,6 +111,7 @@ class MirrorAirPlayRouter:
             if return_code != 0 and not route.stopped:
                 raise RuntimeError("Nie udało się przygotować dźwięku dla AirPlay")
         finally:
+            route.receiver = None
             if stream_task is not None and not stream_task.done():
                 stream_task.cancel()
                 await asyncio.gather(stream_task, return_exceptions=True)
@@ -159,7 +165,7 @@ class MirrorAirPlayRouter:
                 raise route.error
             raise AirPlayUnavailable(i18n.tr("mirror.airplayPlaybackFailed", name=route.device.name)) from None
 
-    def enable(self, session: str, device_id: str) -> dict:
+    def enable(self, session: str, device_id: str, *, volume: int | None = None) -> dict:
         if session not in MIRROR_SESSIONS or not Path(self.ffmpeg).is_file():
             raise RuntimeError("AirPlay nie jest dostępny w tej sesji")
         previous = self.routes.get(session)
@@ -172,13 +178,15 @@ class MirrorAirPlayRouter:
                for key, route in self.routes.items()):
             raise RuntimeError("Odbiornik AirPlay jest już używany przez AMC")
         status = self.native("transport.status", {"sessionId": session})
-        if not status.get("source") or not (status.get("playing") or status.get("paused")):
+        preparing_tidal = session == "tidal" and status.get("preparing")
+        if not status.get("source") or not (
+                status.get("playing") or status.get("paused") or preparing_tidal):
             raise RuntimeError("Najpierw uruchom materiał w AMC")
         source_for_session(session, status)
-        route = AirPlayRoute(device, self.ffmpeg)
+        route = AirPlayRoute(device, self.ffmpeg, volume=volume)
         self.routes[session] = route
         try:
-            if status.get("playing") and not status.get("paused"):
+            if (status.get("playing") or preparing_tidal) and not status.get("paused"):
                 self._start(session, route, status)
         except Exception:
             if previous is None:
@@ -213,6 +221,7 @@ class MirrorAirPlayRouter:
             accepted_tidal = op == "tidal.nativePlay" and status.get("preparing")
             if (status.get("playing") or accepted_tidal) and not status.get("paused") and status.get("source"):
                 replacement = AirPlayRoute(route.device, route.ffmpeg)
+                replacement.volume = route.volume
                 self.routes[session] = replacement
                 self._start(session, replacement, status)
         except Exception:
@@ -224,3 +233,19 @@ class MirrorAirPlayRouter:
     def close(self) -> None:
         for session in tuple(self.routes):
             self.disable(session)
+
+    def set_volume(self, session: str, volume: int) -> None:
+        """Set RAOP volume on the stream loop, or remember it until playback."""
+        route = self.routes.get(session)
+        if route is None:
+            return
+        value = max(0, min(100, int(volume)))
+        receiver, loop = route.receiver, route.loop
+        if receiver is not None and loop is not None and loop.is_running():
+            future = asyncio.run_coroutine_threadsafe(receiver.audio.set_volume(value), loop)
+            try:
+                future.result(timeout=5)
+            except Exception as error:
+                future.cancel()
+                raise AirPlayUnavailable(i18n.tr("mirror.airplayPlaybackFailed", name=route.device.name)) from error
+        route.volume = value

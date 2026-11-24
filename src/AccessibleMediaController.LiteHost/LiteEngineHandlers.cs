@@ -3526,7 +3526,11 @@ internal sealed class LiteEngineHandlers : IDisposable
             }
             else
             {
-                RequireTargetOwnsFilesItemLocked(target);
+                // Po Stop natywnego TIDAL nie ma już właściciela pliku, ale
+                // trzeba móc przywrócić wyciszenie lokalnego wyjścia po RAOP.
+                // Gdy inna sesja posiada dekoder, dotychczasowa izolacja zostaje.
+                if (_filesItem is not null)
+                    RequireTargetOwnsFilesItemLocked(target);
                 _filesMuted = !_filesMuted;
                 muted = _filesMuted;
                 volume = _filesVolume;
@@ -3857,7 +3861,10 @@ internal sealed class LiteEngineHandlers : IDisposable
                     }
                     paused = item is not null;
                     playing = false;
-                    muted = false;
+                    // Bez właściciela następny materiał użyje właśnie tego
+                    // wyciszenia; nie ukrywaj go po Stop natywnego TIDAL.
+                    // Gdy dekoder należy do innej sesji, nie ujawniaj jej stanu.
+                    muted = _filesItem is null && _filesMuted;
                 }
                 else
                 {

@@ -1,9 +1,6 @@
-name: AMC Test alpha.525 — HEOS browse build
+name: AMC Test alpha.525 — historyczny build ręczny
 
 on:
-  push:
-    branches:
-      - codex/heos-next-test-20261123
   workflow_dispatch:
 
 permissions:

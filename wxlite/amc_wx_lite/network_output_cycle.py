@@ -3,6 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True, slots=True)
+class NetworkOutputChoice:
+    device_id: str
+    label: str
+    available: bool = True
+
+    def __str__(self) -> str:
+        return self.label
 
 
 def adjacent_target_id(

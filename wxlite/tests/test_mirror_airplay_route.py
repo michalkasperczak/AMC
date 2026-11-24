@@ -51,6 +51,18 @@ class AirPlayRouteTests(unittest.TestCase):
         self.router.after_native("transport.stop", {"sessionId": "files"}, {})
         self.assertIsNone(self.router.selected_device_id("files"))
 
+    def test_preparing_tidal_starts_raop_for_selected_primary_route(self):
+        self.status.update({
+            "source": "tidal:track:123", "playing": False, "preparing": True,
+            "_tidal_request": {
+                "id": "123",
+                "proxyUrl": "http://127.0.0.1:1234/audio/" + "A" * 32 + ".mpd",
+            },
+        })
+        self.router.enable("tidal", "private-id", volume=18)
+        self.assertEqual(self.starts, [("tidal", "private-id", 12.5)])
+        self.assertEqual(self.router.routes["tidal"].volume, 18)
+
     def test_start_failure_keeps_previous_receiver(self):
         self.router.enable("files", "private-id")
         other = AirPlayDevice("other", "Gabinet")

@@ -342,8 +342,10 @@ def test_gui_tidal_availability_distinguishes_native_flac_dash_and_external_play
     assert available(Action.CAST_SESSION) and available(Action.MIRROR_SESSION)
     assert available(Action.PREVIOUS_CAST_OUTPUT) and available(Action.NEXT_CAST_OUTPUT)
     client._tidal_network_request = tidal_request(dash=True)
-    assert not available(Action.CAST_SESSION) and available(Action.MIRROR_SESSION)
-    assert not available(Action.PREVIOUS_CAST_OUTPUT)
+    # DASH cannot go to Cast, but the shared Shift+C command remains available
+    # because its AirPlay route can transcode the local TIDAL proxy.
+    assert available(Action.CAST_SESSION) and available(Action.MIRROR_SESSION)
+    assert available(Action.PREVIOUS_CAST_OUTPUT)
     frame._tidal_native_has_playback = False
     assert not available(Action.CAST_SESSION) and not available(Action.MIRROR_SESSION)
     assert not available(Action.NEXT_CAST_OUTPUT)
@@ -440,12 +442,12 @@ def test_stale_picker_results_do_not_open_in_another_session(monkeypatch, mirror
     choose = gui.LiteFrame._choose_cast_mirror if mirror else gui.LiteFrame._choose_cast_output
     choose(frame)
     frame.navigator.active = SessionId.PODCASTS
-    pending.pop()({"devices": (), "information": ""} if mirror else ())
+    pending.pop()({"devices": (), "information": ""})
     assert not opened
     frame.navigator.active = SessionId.RADIOARCHIWISTA
     choose(frame)
     choose(frame)
-    pending[0]({"devices": (), "information": ""} if mirror else ())
+    pending[0]({"devices": (), "information": ""})
     assert not opened
 
 
@@ -484,6 +486,31 @@ def test_cast_picker_announces_selected_output_in_list_on_reopen():
                 assert dialog.devices.GetStringSelection() == "WiiM Sound, wybrane"
                 assert dialog.selected_device_id == "private-id"
                 assert "private-id" not in " ".join(dialog.devices.GetStrings())
+                assert not dialog.IsShown()
+    finally:
+        parent.Destroy()
+        app.Yield()
+
+
+def test_wireless_picker_reopens_with_airplay_selected_and_friendly_names():
+    import wx
+    from amc_wx_lite.cast_dialog import CastDeviceDialog
+    from amc_wx_lite.network_output_cycle import NetworkOutputChoice
+
+    app = wx.GetApp() or wx.App(False)
+    parent = wx.Frame(None)
+    choices = (
+        NetworkOutputChoice("cast:private-cast", "Google Cast: Salon"),
+        NetworkOutputChoice("airplay:private-air", "AirPlay: Gabinet"),
+    )
+    try:
+        for _ in range(2):
+            with CastDeviceDialog(parent, "Radio", choices,
+                                  "airplay:private-air") as dialog:
+                assert dialog.devices.GetStringSelection() == "AirPlay: Gabinet, wybrane"
+                assert dialog.selected_device_id == "airplay:private-air"
+                assert dialog.devices.GetName() == "Komputer, Google Cast i AirPlay"
+                assert "private" not in " ".join(dialog.devices.GetStrings())
                 assert not dialog.IsShown()
     finally:
         parent.Destroy()
