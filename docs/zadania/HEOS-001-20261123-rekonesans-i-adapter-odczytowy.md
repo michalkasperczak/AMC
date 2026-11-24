@@ -1,6 +1,6 @@
 # HEOS-001 — rozpoznanie urządzenia HEOS 200 i adapter odczytowy
 
-**Status 24.11.2026: AMC Test alpha.523 z HEOS jest opublikowanym wydaniem GitHub, dostępnym w aktualizatorze zainstalowanej alpha.522. Zainstalowana alpha.522 nadal nie zawiera HEOS; nie instalowano alpha.523 ani nie wykonano sterowania głośnikiem lub odbioru NVDA. Wcześniejsze sekcje pokazują kolejne etapy; stan końcowy znajduje się na końcu raportu.**
+**Status 24.11.2026: AMC Test alpha.524 z poprawką Menedżera sesji jest opublikowanym wydaniem GitHub i jest widoczny w aktualizatorze zainstalowanej alpha.523. Instalacji alpha.524, sterowania głośnikiem ani odbioru NVDA nie wykonywano. Wcześniejsze sekcje opisują etapy historyczne; stan bieżący znajduje się na końcu raportu.**
 
 ## Cel i zakres
 
@@ -171,4 +171,16 @@ Menedżer sesji pozwala włączać wszystkie dostępne sesje, także HEOS jako j
 
 ### Znane ograniczenia oraz wersja i commit
 
-Kod przygotowywany jako AMC Test `0.1.0-alpha.524` na gałęzi `codex/heos-next-test-20261123`. Commit, wynik GitHub Actions, instalator, wydanie GitHub oraz widoczność w aktualizatorze wymagają jeszcze osobnego potwierdzenia. Fizyczna próba NVDA i sterowania Denon Home 200 pozostaje do wykonania przez Michała po aktualizacji.
+Kod AMC Test `0.1.0-alpha.524` na gałęzi `codex/heos-next-test-20261123`. Wynik kompilacji, wydania i aktualizatora opisano poniżej. Fizyczna próba NVDA i sterowania Denon Home 200 pozostaje do wykonania przez Michała po aktualizacji.
+
+## Wydanie poprawki alpha.524 — 24.11.2026
+
+Źródła poprawki: commit `338ea2105867b6a974c0a5a8ee774074397bdb06`, bez danych użytkownika i poświadczeń. GitHub Actions run `45409320866` zakończył się `success`, artefakt `14927436721` ma digest `sha256:406c62fc51a313a0009686b618992b0df6fb0e7b1718ef64ac9cc2ae77120208`. Workflow pobrał wcześniej zweryfikowany runtime alpha.522, zbudował paczkę Test i instalator alpha.524; instalatora nie budowano lokalnie. [Wynik GitHub Actions](https://github.com/michalkasperczak/AMC/actions/runs/45409320866).
+https://github.com/michalkasperczak/AMC/actions/runs/45409320866
+
+Pobrany instalator: `D:\Projekty Codex\AMC - integracja wxPython\publish\installers-alpha524-session-manager-github-338ea210\AMC-Test-2026-11-24-1502.exe`. Manifest integralności potwierdza profil Test, wersję `0.1.0-alpha.524`, etykietę `24.11.2026, 15:02`, commit źródeł i `secretScan=passed`. Plik ma **214634955 bajtów**, SHA-256 `0f2510b7bcbc9f833b3e096dbf8eaf06abfb07de60d222e8162643dae09d01d0`; suma i rozmiar zgadzają się z manifestem.
+
+Po odczytowej walidacji opublikowano [AMC Test — 24.11.2026, 15:02](https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.24.1502) jako prerelease kanału Test. Tag wskazuje dokładnie commit źródeł. GitHub potwierdził trzy zasoby `uploaded`: instalator **214634955 bajtów** z identycznym SHA-256, plik integralności **973 bajty** z digest `sha256:967125c591947094337c0c206cc693b9e0d3014b311386c087c859156746769b` oraz `amc-update-test.json` **935 bajtów** z digest `sha256:fa5f65a171266cfcc7172d613a837406c4209af360c04135d64b54919b6cee50`.
+https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.24.1502
+
+Odczytowy `check_for_application_update` z runtime bieżącej instalacji `D:\Projekty Codex\AMC Python` zwrócił `available=true`, bieżącą wersję `24.11.2026, 12:32`, tag `test-2026.11.24.1502` i wersję `24.11.2026, 15:02`. To potwierdza widoczność wydania w aktualizatorze. Instalacji ani uruchomienia nowej wersji nie wykonywano; Michał równolegle testuje inne funkcje. Funkcjonalna próba Menedżera i HEOS w zainstalowanej alpha.524 oraz odbiór NVDA pozostają otwarte.

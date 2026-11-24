@@ -14,7 +14,7 @@ Apple Music, oba profile bez HEOS. [Zapis wydania](RELEASE-ALPHA518-20261123.md)
 
 **VIDEO-001 (23.11.2026): kod i 10 testów celowanych gotowe; widoczny odbiór, build i wydanie otwarte.** Obraz lokalnego filmu w obecnym odtwarzaczu AMC, wybór samego audio i otwieranie strony filmu internetowego w zwykłej przeglądarce. [Zadanie](VIDEO-20261123-odtwarzanie-w-odtwarzaczu-AMC.md).
 
-**HEOS-001 (24.11.2026): AMC Test alpha.523 z HEOS wydany na GitHubie i widoczny w aktualizatorze.** Zainstalowana alpha.522 jeszcze nie ma sesji HEOS; pobranie i instalacja alpha.523, fizyczne sterowanie oraz odbiór NVDA pozostają otwarte. [Wynik wydania i ścieżka instalatora](HEOS-001-20261123-rekonesans-i-adapter-odczytowy.md).
+**HEOS-001 (24.11.2026): AMC Test alpha.524 z poprawką Menedżera sesji wydany na GitHubie i widoczny w aktualizatorze.** Zainstalowana alpha.523 ma HEOS, ale limit dziesięciu aktywnych sesji utrudnia jego włączenie. Alpha.524 usuwa ten limit; instalacja i próba NVDA oraz fizyczne sterowanie głośnikiem pozostają otwarte. [Wynik wydania i ścieżka instalatora](HEOS-001-20261123-rekonesans-i-adapter-odczytowy.md).
 
 **Jedna aktywna gałąź i przekazanie 22.11.2026:** [bieżący stan oraz kolejność pracy](AMC-HANDOFF-20261122-jedna-galaz.md).
 
