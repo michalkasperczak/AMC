@@ -1,5 +1,9 @@
 # Rejestr zadań AMC
 
+**SCHED-004 (25.11.2026): komunikat zapisu planu po powrocie fokusu, przygotowany do AMC Test alpha.527.** Ustawienie kolejności tytułu materiału i nazwy aplikacji już istnieje; zachowano wybór użytkownika. Po Enter wynik zapisu ma być wypowiedziany po przywróceniu fokusu listy harmonogramów. 142 testy celowane przeszły; fizyczny odbiór NVDA i kolejne wydanie są osobnymi etapami. [Zgłoszenie, przyczyna i kontrakt](SCHED-004-20261125-komunikat-po-zapisie-planu.md).
+
+**AMC Test alpha.526 (25.11.2026): wydanie GitHub opublikowane, instalacja lokalna nie została wykonana.** GitHub Actions zbudował instalator ze źródeł `c3cd2952`; zdalne zasoby i SHA-256 są zgodne. Wersja zawiera HEOS, Cast/AirPlay i listę `Shift+F6` ze Spacją. Alpha.527 ma dodać poprawkę komunikatu harmonogramu; nadal zainstalowana jest alpha.525. [Lista źródeł](NEXT-TEST-20261124-instrukcja-i-lista-zmian-szkic.md).
+
 **CAST-002 / alpha.522 (24.11.2026): spójne Test i Public wydane; Test automatycznie zainstalowany i uruchomiony.** Zachowano alpha.520 oraz Cast/AirPlay. Gotowe funkcje nagrań wspólne, Apple Music tylko w Test. GitHub, oba instalatory i SHA-256, pełna integralność instalacji Test oraz jedna instancja potwierdzone. Odsłuch nowych wariantów i NVDA pozostają otwarte. [Wyniki i baza następnych wydań](RELEASE-ALPHA522-20261124-Cast-instalacja.md).
 
 **RELEASE-ALPHA520 (23.11.2026):** końcowy kandydat Test/Public po konflikcie równoległych wydań alpha.519; ten sam zweryfikowany zakres funkcji bez Google Cast i HEOS, z zachowanym odsłuchem nagrania tylko w Test. [Zapis wydania](RELEASE-ALPHA520-20261123.md).

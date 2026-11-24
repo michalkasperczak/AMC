@@ -63,6 +63,44 @@ def test_modal_status_sends_one_real_live_region_event() -> None:
     assert calls == [(EVENT_OBJECT_LIVEREGIONCHANGED, 741, OBJID_CLIENT, CHILDID_SELF)]
 
 
+def test_schedule_save_result_is_announced_after_focus_returns(monkeypatch) -> None:
+    import amc_wx_lite.radio_schedule_dialogs as dialogs
+
+    pending: list[tuple[object, tuple]] = []
+    events: list[object] = []
+    monkeypatch.setattr(
+        dialogs.wx, "CallAfter",
+        lambda callback, *args: pending.append((callback, args)),
+    )
+    monkeypatch.setattr(dialogs, "clone_schedules", lambda schedules: schedules)
+    monkeypatch.setattr(
+        dialogs, "schedules_from_host_status",
+        lambda _payload, schedules: schedules,
+    )
+
+    dialog = RadioSchedulesDialog.__new__(RadioSchedulesDialog)
+    dialog.IsBeingDeleted = lambda: False
+    dialog.schedule_list = type(
+        "ScheduleList", (), {"SetFocus": lambda self: events.append("focus")}
+    )()
+    dialog.global_wake = type(
+        "GlobalWake", (), {"SetValue": lambda self, value: None}
+    )()
+    dialog._schedules = []
+    dialog._wake = False
+    dialog._refresh = lambda _payload, preferred_id=None: events.append("refresh")
+    dialog._announce = lambda message: events.append(("speech", message))
+    dialog._commit_callback = lambda _schedules, _wake: {"schedules": []}
+
+    assert dialog._commit([], False, preferred_id=None,
+                          success_message="Zapisano plan Test")
+    assert events == ["refresh"]
+    while pending:
+        callback, args = pending.pop(0)
+        callback(*args)
+    assert events == ["refresh", "focus", ("speech", "Zapisano plan Test")]
+
+
 def test_schedule_context_menu_contains_the_same_actions_as_keyboard() -> None:
     import amc_wx_lite.radio_schedule_dialogs as dialogs
 

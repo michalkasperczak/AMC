@@ -1096,6 +1096,17 @@ class RadioSchedulesDialog(wx.Dialog):
     def _announce(self, message: str) -> None:
         announce_status(self.status, message)
 
+    def _focus_list_then_announce(self, message: str) -> None:
+        """Let NVDA finish the focus event before announcing the save result."""
+        if self.IsBeingDeleted():
+            return
+        self.schedule_list.SetFocus()
+        wx.CallAfter(self._announce_if_open, message)
+
+    def _announce_if_open(self, message: str) -> None:
+        if not self.IsBeingDeleted():
+            self._announce(message)
+
     def _announce_short_information(self, _event: object | None = None) -> None:
         selected = self._selected_schedule()
         self._announce(
@@ -1224,14 +1235,16 @@ class RadioSchedulesDialog(wx.Dialog):
             payload = self._commit_callback(clone_schedules(candidate), bool(wake))
         except Exception:  # noqa: BLE001 - callback laczy dysk i proces hosta
             self.global_wake.SetValue(self._wake)
-            self._announce("Nie udało się zapisać harmonogramu. Niczego nie zmieniono")
+            wx.CallAfter(
+                self._focus_list_then_announce,
+                "Nie udało się zapisać harmonogramu. Niczego nie zmieniono",
+            )
             return False
         self._schedules = schedules_from_host_status(payload, candidate)
         self._wake = bool(wake)
         self.global_wake.SetValue(self._wake)
         self._refresh(payload, preferred_id=preferred_id)
-        self._announce(success_message)
-        wx.CallAfter(self.schedule_list.SetFocus)
+        wx.CallAfter(self._focus_list_then_announce, success_message)
         return True
 
     def _new(self, _event) -> None:

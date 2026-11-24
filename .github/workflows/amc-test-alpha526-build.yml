@@ -1,12 +1,6 @@
-name: AMC Test alpha.526 — build GitHub
+name: AMC Test alpha.526 — historyczny build ręczny
 
 on:
-  push:
-    branches:
-      - codex/heos-next-test-20261123
-    paths:
-      - Directory.Build.props
-      - .github/workflows/amc-test-alpha526-build.yml
   workflow_dispatch:
 
 permissions:
