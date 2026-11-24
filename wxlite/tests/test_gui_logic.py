@@ -250,7 +250,7 @@ def test_native_list_forwards_eleven_and_twelve_session_shortcuts() -> None:
     assert calls == ["Ctrl+-", "Ctrl+="]
 
 
-def test_native_heos_list_forwards_left_and_favorites_to_dispatcher() -> None:
+def test_native_heos_list_forwards_information_back_and_favorites() -> None:
     import wx
 
     calls: list[str] = []
@@ -259,8 +259,9 @@ def test_native_heos_list_forwards_left_and_favorites_to_dispatcher() -> None:
     frame._screen_reader_modifier_down = lambda: False
     frame._on_key = lambda event: calls.append(chord_from_event(event).canonical)
     frame._on_list_shortcut_hook(FakeKeyEvent(wx.WXK_LEFT))
+    frame._on_list_shortcut_hook(FakeKeyEvent(wx.WXK_ESCAPE))
     frame._on_list_shortcut_hook(FakeKeyEvent(21, ctrl=True, raw_code=0x55))
-    assert calls == ["Left", "Ctrl+U"]
+    assert calls == ["Left", "Escape", "Ctrl+U"]
 
 
 def test_physical_f5_and_ctrl_f5_reach_the_files_session_commands() -> None:

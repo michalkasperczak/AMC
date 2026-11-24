@@ -1357,6 +1357,7 @@ HEOS_SUPPORTED_ACTIONS = frozenset({
     Action.SESSION_DISABLE_CURRENT, Action.SESSION_CONFIGURE_CURRENT,
     Action.PREVIOUS_SESSION, Action.NEXT_SESSION, Action.COMMAND_PALETTE,
     Action.ACTIVATE, Action.PARENT_FOLDER, Action.CLOSE_LIST_PREVIEW,
+    Action.QUICK_INFORMATION,
     Action.SHOW_PLAYER, Action.SHOW_LIST, Action.PLAY_PAUSE,
     Action.TOGGLE_MUTE, Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS,
     Action.VOLUME_UP_5, Action.VOLUME_DOWN_5, Action.VOLUME_UP_1,
@@ -2185,19 +2186,13 @@ SONOS_SESSION_VIEW: dict[str, Action] = {
 
 HEOS_SESSION_VIEW: dict[str, Action] = {
     "Ctrl+F5": Action.SESSION_CONFIGURE_CURRENT,
+    "Left": Action.QUICK_INFORMATION,
     "Ctrl+U": Action.VIEW_FAVORITES,
     "Ctrl+P": Action.VIEW_PLAYLISTS,
     "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
     "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
     "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
 }
-
-# W katalogu HEOS lewa strzałka cofa o jeden poziom. Odtwarzacz zachowuje
-# własną obsługę strzałek; Backspace działa również na liście.
-HEOS_LIST_VIEW: dict[str, Action] = {
-    "Left": Action.PARENT_FOLDER,
-}
-
 
 SONOS_OWN_STREAMS_VIEW: dict[str, Action] = {
     "Ctrl+N": Action.ADD_SONOS_OWN_STREAM,
@@ -2240,7 +2235,6 @@ _SHORTCUT_TABLES: tuple[dict[str, Action], ...] = (
     RADIOARCHIWISTA_SESSION_VIEW,
     SONOS_SESSION_VIEW,
     HEOS_SESSION_VIEW,
-    HEOS_LIST_VIEW,
     SONOS_OWN_STREAMS_VIEW,
     LIST_VIEW,
     RADIO_COLLECTION_LIST_VIEW,
@@ -2647,8 +2641,6 @@ def _resolve_default(
         return SONOS_OWN_STREAMS_VIEW[canonical] if sonos_own_streams else None
     if sonos_session and canonical in SONOS_SESSION_VIEW:
         return SONOS_SESSION_VIEW[canonical]
-    if heos_session and not player_view and canonical in HEOS_LIST_VIEW:
-        return HEOS_LIST_VIEW[canonical]
     if heos_session and canonical in HEOS_SESSION_VIEW:
         return HEOS_SESSION_VIEW[canonical]
     if sonos_session and canonical in {"Ctrl+[", "Ctrl+]"}:
@@ -3185,6 +3177,9 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         APPLE_MUSIC_LIST_VIEW,
     ):
         for chord, action in table.items():
+            if table is HEOS_SESSION_VIEW and chord == "Left":
+                # This alias is HEOS-specific; add it only to HEOS help below.
+                continue
             if action in seen:
                 continue
             seen.add(action)
@@ -3331,10 +3326,10 @@ def describe(
         )
     ]
     if (session_label or "").casefold() == "heos" and (
-        available_actions is None or Action.PARENT_FOLDER in available_actions
+        available_actions is None or Action.QUICK_INFORMATION in available_actions
     ):
-        rows.append(("Strzałka w lewo (lista HEOS)",
-                     describe_action(Action.PARENT_FOLDER, session_label)))
+        rows.append(("Strzałka w lewo (HEOS)",
+                     describe_action(Action.QUICK_INFORMATION, session_label)))
     return rows
 
 
@@ -3359,6 +3354,8 @@ def describe_action(
             Action.TOGGLE_PLAY_NEXT: "Dodaj odtwarzalną pozycję jako następną w kolejce HEOS",
             Action.ACTIVATE: "Wybierz głośnik, otwórz katalog albo uruchom pozycję HEOS",
             Action.PARENT_FOLDER: "Wróć o poziom wyżej w katalogu HEOS",
+            Action.CLOSE_LIST_PREVIEW: "Wróć o poziom wyżej w katalogu HEOS",
+            Action.QUICK_INFORMATION: "Informacje o pozycji lub odtwarzaniu HEOS",
             Action.PLAY_PAUSE: "Wstrzymaj lub wznów odtwarzanie na wybranym głośniku HEOS",
             Action.TOGGLE_MUTE: "Wycisz lub włącz dźwięk wybranego głośnika HEOS",
             Action.QUEUE_NEXT: "Przejdź do następnej pozycji na głośniku HEOS",

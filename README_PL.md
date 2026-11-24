@@ -3,8 +3,9 @@
 ## HEOS w AMC Test — poprawka przygotowywana 24.11.2026
 
 `Ctrl+U` otwiera Ulubione wybranego głośnika HEOS także z odtwarzacza. Na
-liście HEOS strzałka w lewo lub Backspace wraca do nadrzędnego katalogu i
-przywraca zaznaczenie; ze źródeł prowadzi do listy głośników. Poprawka odczytu
+liście HEOS Backspace lub Escape wraca do nadrzędnego katalogu i przywraca
+zaznaczenie; ze źródeł prowadzi do listy głośników. Strzałka w lewo czyta
+informacje o pozycji, a w odtwarzaczu — o bieżącym materiale. Poprawka odczytu
 opóźnionych odpowiedzi HEOS umożliwia przeglądanie Ulubionych, Playlist i
 katalogów TIDAL. Jedenasta i dwunasta aktywna sesja używają odpowiednio
 `Ctrl+-` oraz `Ctrl+=`. Presety HEOS będą ocenione po próbie nawigacji z NVDA.

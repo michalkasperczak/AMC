@@ -42,7 +42,8 @@ def test_heos_shortcuts_match_visible_menu_palette_help_and_dispatch():
         "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
         "Return": Action.ACTIVATE,
         "Back": Action.PARENT_FOLDER,
-        "Left": Action.PARENT_FOLDER,
+        "Escape": Action.CLOSE_LIST_PREVIEW,
+        "Left": Action.QUICK_INFORMATION,
         "Space": Action.PLAY_PAUSE,
         "Ctrl+M": Action.TOGGLE_MUTE,
     }
@@ -65,11 +66,13 @@ def test_heos_shortcuts_match_visible_menu_palette_help_and_dispatch():
     for chord, action in cases.items():
         assert resolve(Chord(chord), player_view=False, radio_session=False,
                        heos_session=True) is action
-        assert action in menu_actions
-        assert action in palette_actions
+        if action is not Action.CLOSE_LIST_PREVIEW:
+            # Escape uses the existing parent command's menu/palette entry.
+            assert action in menu_actions
+            assert action in palette_actions
         assert {
             "Return": "Enter", "Back": "Backspace",
-            "Left": "Strzałka w lewo (lista HEOS)",
+            "Left": "Strzałka w lewo (HEOS)",
             "Ctrl+Shift+Return": "Ctrl+Shift+Enter",
         }.get(chord, chord) in help_labels
         if action is not Action.SESSION_CONFIGURE_CURRENT:
@@ -77,10 +80,10 @@ def test_heos_shortcuts_match_visible_menu_palette_help_and_dispatch():
             assert seen[-1] is action
 
     assert resolve(Chord("Left"), player_view=True, radio_session=False,
-                   heos_session=True) is not Action.PARENT_FOLDER
+                   heos_session=True) is Action.QUICK_INFORMATION
 
 
-def test_left_in_heos_catalog_goes_to_parent_and_restores_selection():
+def test_backspace_and_escape_in_heos_catalog_restore_parent_selection():
     from amc_wx_lite.heos_source import HeosSource, catalog_items
 
     state = HeosBrowseState()
@@ -104,6 +107,37 @@ def test_left_in_heos_catalog_goes_to_parent_and_restores_selection():
     assert state.location.title == "Favorites"
     assert state.selected_item_id == albums[0].item_id
     assert loaded == ["Favorites"]
+    LiteFrame._dispatch_heos(frame, Action.CLOSE_LIST_PREVIEW)
+    assert state.location.kind == "sources"
+    assert state.selected_item_id == source.item_id
+    assert loaded == ["Favorites", "Biblioteka HEOS"]
+
+
+def test_left_in_heos_catalog_speaks_information_without_ids():
+    from amc_wx_lite.heos_source import HeosSource
+    from amc_wx_lite.navigation import View
+
+    source = HeosSource("internal-id", "Favorites", "1024", "music_service")
+    state = HeosBrowseState(items=(source,))
+    spoken = []
+    session = SimpleNamespace(
+        view=View.LIST,
+        model=SimpleNamespace(selected_row=SimpleNamespace(
+            item_id=source.item_id, title=source.title,
+        )),
+    )
+    frame = SimpleNamespace(
+        _heos_state=state,
+        navigator=SimpleNamespace(sessions={SessionId.HEOS: session}),
+        announcer=SimpleNamespace(say=spoken.append),
+    )
+    frame._heos_quick_information = lambda: LiteFrame._heos_quick_information(frame)
+    LiteFrame._dispatch_heos(frame, Action.QUICK_INFORMATION)
+    assert spoken == ["Favorites, źródło HEOS"]
+    session.view = View.PLAYER
+    frame._heos_status = SimpleNamespace(spoken_label=lambda: "Utwór, odtwarzanie")
+    LiteFrame._dispatch_heos(frame, Action.QUICK_INFORMATION)
+    assert spoken[-1] == "Utwór, odtwarzanie"
 
 
 def test_favorites_from_heos_player_opens_speaker_source_list():

@@ -12956,8 +12956,9 @@ class LiteFrame(wx.Frame):
     def _on_list_shortcut_hook(self, event: wx.KeyEvent) -> None:
         """Polecenia, ktorych natywna lista nie moze zabrac jako liter."""
         canonical = chord_from_event(event).canonical
-        if (canonical == "Left" and self.navigator.active is SessionId.HEOS
-                and not self._screen_reader_modifier_down()):
+        if (canonical in {"Left", "Escape"}
+                and self.navigator.active is SessionId.HEOS
+                and (canonical == "Escape" or not self._screen_reader_modifier_down())):
             self._on_key(event)
             return
         if canonical == "Shift+F10":
@@ -18079,7 +18080,8 @@ class LiteFrame(wx.Frame):
         # poziomie okna. Reszte klawiszy listy nadal dostaje natywna kontrolka
         # -- szczegolnie strzalki, Home/End i wyszukiwanie przyrostowe NVDA.
         if self.navigator.view is not View.PLAYER:
-            if canonical == "Left" and self.navigator.active is SessionId.HEOS:
+            if (canonical in {"Left", "Escape"}
+                    and self.navigator.active is SessionId.HEOS):
                 self._on_key(event)
                 return
             # Ctrl+Shift+0 wymaga tej wczesnej drogi tak samo jak w starym
@@ -18512,6 +18514,7 @@ class LiteFrame(wx.Frame):
                 return
             if action in {
                 Action.ACTIVATE, Action.PARENT_FOLDER, Action.CLOSE_LIST_PREVIEW,
+                Action.QUICK_INFORMATION,
                 Action.SHOW_PLAYER, Action.SHOW_LIST,
                 Action.VIEW_LIBRARY, Action.VIEW_FAVORITES,
                 Action.VIEW_PLAYLISTS, Action.VIEW_SAVED_QUEUE,
@@ -25742,19 +25745,48 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("heos-list", service.sources, done, self._heos_failure)
 
+    def _heos_quick_information(self) -> None:
+        if self.navigator.sessions[SessionId.HEOS].view is View.PLAYER:
+            status = self._heos_status
+            self.announcer.say(
+                status.spoken_label() if status is not None
+                else "Brak informacji o odtwarzaniu HEOS"
+            )
+            return
+        row = self.navigator.sessions[SessionId.HEOS].model.selected_row
+        if row is None:
+            self.announcer.say("Lista HEOS jest pusta")
+            return
+        state = self._heos_state
+        entry = next((item for item in (*state.targets, *state.items)
+                      if item.item_id == row.item_id), None)
+        parts = [row.title]
+        if isinstance(entry, HeosTarget):
+            parts.append(entry.kind_label)
+        elif isinstance(entry, HeosSource):
+            parts.append("źródło HEOS")
+        elif isinstance(entry, HeosItem):
+            parts.append(entry.kind_label)
+            if entry.detail:
+                parts.append(entry.detail)
+        elif isinstance(entry, HeosQueueItem) and entry.detail:
+            parts.append(entry.detail)
+        self.announcer.say(", ".join(dict.fromkeys(
+            part for part in parts if part
+        )))
+
     def _dispatch_heos(self, action: Action) -> None:
         state = self._heos_state
         if action is Action.ACTIVATE:
             self._heos_activate()
-        elif action is Action.PARENT_FOLDER:
+        elif action in (Action.PARENT_FOLDER, Action.CLOSE_LIST_PREVIEW):
             if state.back():
                 self._heos_load_location()
             elif state.location.kind != "targets":
                 state.show_targets()
                 self._heos_render()
-        elif action is Action.CLOSE_LIST_PREVIEW:
-            if state.location.kind == "queue" and state.back():
-                self._heos_load_location()
+        elif action is Action.QUICK_INFORMATION:
+            self._heos_quick_information()
         elif action in (Action.SHOW_PLAYER, Action.SHOW_LIST):
             session = self.navigator.sessions[SessionId.HEOS]
             if action is Action.SHOW_LIST or session.view is View.PLAYER:
