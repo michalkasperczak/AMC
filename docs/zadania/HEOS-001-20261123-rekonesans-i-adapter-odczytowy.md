@@ -264,7 +264,7 @@ Michał potwierdził dużą poprawę odczytu Ulubionych HEOS. Zgłosił jednocze
 
 ### Uzasadnienie i decyzje
 
-Odczyt własnego Denon Home 200 bez zmian odtwarzania pokazał 23 pozycje Ulubionych, wszystkie typu stacja. Każda zawiera nazwę i identyfikator odtwarzania, ale nie bitrate, kodek ani częstotliwość próbkowania. Bieżące media odtwarzacza również nie zwróciły tych parametrów. Lewa strzałka powinna podać dostępne informacje i w tym przypadku wyraźnie zaznaczyć, że parametry strumienia są niedostępne w HEOS; nie wolno wymyślać wartości. Odczyt statusu głośnika wykazał stan „odtwarzanie”, typ „stacja” i poziom głośności **0**. To może wyjaśniać brak dźwięku, ale nie dowodzi, że ostatni Enter zadziałał. Głośności i odtwarzania nie zmieniano podczas diagnozy.
+Odczyt własnego Denon Home 200 bez zmian odtwarzania pokazał 23 pozycje Ulubionych, wszystkie typu stacja. Każda zawiera nazwę i identyfikator odtwarzania, ale nie bitrate, kodek ani częstotliwość próbkowania. Bieżące media odtwarzacza również nie zwróciły tych parametrów. Lewa strzałka powinna podać dostępne informacje i w tym przypadku wyraźnie zaznaczyć, że parametry strumienia są niedostępne w HEOS; nie wolno wymyślać wartości. Odczyt statusu głośnika wykazał stan „odtwarzanie”, typ „stacja” i poziom głośności **0**. Nie dowodzi to, że ostatni Enter zadziałał. Głośności i odtwarzania nie zmieniano podczas tamtej diagnozy.
 
 Kod sterowania oddziela teraz przyjęcie mutującego polecenia przez HEOS od późniejszego odczytu statusu: błąd późniejszego odczytu nie będzie nazywany błędem samego polecenia. Odróżnia też jawną odmowę urządzenia od upływu czasu bez potwierdzenia, bez odczytywania prywatnej treści odpowiedzi. Po udanym odczycie zmiana głośności ma podać konkretny poziom, na przykład „HEOS: głośność 17”; potwierdzenie Enter przy odczytanej głośności 0 ostrzega, że dźwięk może być niesłyszalny. Nadal trzeba zbadać, czy natywne strzałki rzeczywiście wywołują informację w liście z NVDA oraz czy Enter z prawdziwą stacją zostaje przyjęty i odtwarzany przy bezpiecznej głośności. Nie wykonywano mutującej próby na głośniku.
 
@@ -281,3 +281,21 @@ W Ulubionych HEOS lewa strzałka ma podać informacje o zaznaczonej stacji. Jeż
 ### Znane ograniczenia oraz wersja i commit
 
 Dotychczas zainstalowana i wydana pozostaje alpha.525 z commitu `e85854d47dd598a1aafa2f640e3fd655df1459d0`. Poprawki komunikatów po tej próbie są w źródłach commitu `3a5d2ceade84fedcd0cc274fd16acf787b4042ac`, nie w tej instalacji. Następny krok: poprawić kontrakt presetów i lokalnej kolejności Ulubionych, wykonać celowaną próbę NVDA oraz osobno uzgodnioną próbę mutującą Enter na głośniku, a następnie wydać zweryfikowaną wersję testową.
+
+## Potwierdzona odmowa odtwarzania stacji i poprawka źródeł — 24.11.2026
+
+### Korekta zgłoszenia i rzeczywista próba
+
+Michał sprostował wcześniejszą hipotezę: komunikat o niemożności odtworzenia strumienia jest błędem polecenia lub źródła, którego głośność 0 nie wyjaśnia. To sprostowanie zastępuje wcześniejsze powiązanie braku dźwięku z poziomem 0 jako możliwego wyjaśnienia całego zgłoszenia. Przy osobnej zgodzie na **jedną** próbę stacji i zastrzeżeniu, by nie grać głośno, odczytano Denon Home 200: głośność 0, brak wyciszenia, stan „play”. Nie zmieniono poziomu. Jednorazowe uruchomienie stacji „357” z Ulubionych poleceniem `browse/play_stream` zostało jawnie **odrzucone**: `eid=4`, `text=Requested data not available`. Późniejszy odczyt nadal pokazał głośność 0 i poprzednią pozycję, nie stację „357”. To dowodzi odmowy tej komendy dla tej pozycji; nie dowodzi przyczyny wszystkich zgłoszonych odmów ani sprawności innej komendy. Nie ponawiano mutacji.
+
+### Zmiana źródeł i uzasadnienie
+
+Oficjalna specyfikacja HEOS udostępnia `browse/play_preset?pid=...&preset=...` dla stacji z HEOS Favorites. Dla stacji z głównej listy Ulubionych (`sid=1028`) AMC kieruje teraz Enter do `play_preset` z bieżącą pozycją 1–n na serwerze. Stronicowanie zachowuje przesunięcie pozycji. Pozostałe stacje nadal używają `play_stream`. Preset AMC zachowuje identyfikator stacji i urządzenia, a przed uruchomieniem ponownie odczytuje listę, znajduje bieżącą pozycję tej samej stacji i dopiero wtedy używa właściwego polecenia; usunięta stacja daje jawny błąd. Dzięki temu zmiana kolejności na serwerze nie przekieruje zapisanego presetu na inną pozycję.
+
+### Testy, ograniczenia, wersja i commit
+
+Na przypiętym Pythonie i wxPython 4.3.1 przeszło **191 celowanych testów** klienta i sesji HEOS, presetów, profilu, skrótów, menu i palety. Testy obejmują numer pozycji na kolejnej stronie, trasę komendy, walidację indeksu, odnalezienie zapisanej stacji po przestawieniu oraz brak przekierowania po jej usunięciu. Wynik jest źródłowy; `play_preset` nie został jeszcze wysłany do fizycznego głośnika, więc skuteczność odtwarzania, słyszalność i odbiór NVDA pozostają niepotwierdzone. Lokalny porządek, sortowanie i wycinanie Ulubionych również pozostają otwarte. Następne wspólne wydanie Test wymaga osobnej weryfikacji, kompilacji GitHub i opublikowania instalatora; alpha.525 nie zawiera tej zmiany. Commit tej poprawki: do uzupełnienia po zapisaniu gałęzi.
+
+### Materiał do instrukcji użytkownika — szkic
+
+Enter na stacji z Ulubionych HEOS ma uruchamiać tę samą stację na wybranym głośniku. Presety AMC zapisują konkretną stację, nie jej numer na liście; po usunięciu stacji program zgłasza jej brak. Komunikat o odmowie urządzenia nie może być zastąpiony ostrzeżeniem o głośności. Ten opis jest szkicem przyszłego wydania, nie instrukcją zainstalowanej alpha.525.

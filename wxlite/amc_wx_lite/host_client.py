@@ -432,6 +432,9 @@ class LiteHostClient:
         route = self._cast.routes.get(session_id) if self._cast else None
         return route.device.device_id if route else None
 
+    def cast_playback_context(self, session_id: str) -> tuple[str, str] | None:
+        return self._cast.playback_context(session_id) if self._cast else None
+
     def select_cast(self, session_id: str, device_id: str | None) -> dict:
         if self.mirror_selected_target_id(session_id) is not None:
             raise ValueError("Najpierw wyłącz dublowanie dźwięku przez Shift+M")

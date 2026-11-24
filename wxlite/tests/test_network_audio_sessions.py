@@ -467,6 +467,42 @@ def test_actual_picker_labels_are_friendly_and_reopening_restores_airplay():
         app.Yield()
 
 
+def test_cast_picker_announces_selected_output_in_list_on_reopen():
+    import wx
+    from amc_wx_lite.cast_dialog import CastDeviceDialog
+    from amc_wx_lite.cast_protocol import CastDevice
+
+    app = wx.GetApp() or wx.App(False)
+    parent = wx.Frame(None)
+    choices = (CastDevice("private-id", "WiiM Sound", "127.0.0.1", 8009),)
+    try:
+        for _ in range(2):
+            with CastDeviceDialog(parent, "Radio", choices, "private-id") as dialog:
+                assert dialog.devices.GetStringSelection() == "WiiM Sound, wybrane"
+                assert dialog.selected_device_id == "private-id"
+                assert "private-id" not in " ".join(dialog.devices.GetStrings())
+                assert not dialog.IsShown()
+    finally:
+        parent.Destroy()
+        app.Yield()
+
+
+def test_cast_playback_context_requires_active_material():
+    router, _calls, _events = router_fixture("radio")
+    assert router.playback_context("radio") is None
+    route = SimpleNamespace(
+        device=CastDevice("private-id", "WiiM Sound", "192.0.2.1"),
+        item={"title": "Radio 357"},
+        stopped=False, failed=False, ended=False,
+    )
+    router.routes["radio"] = route
+    assert router.playback_context("radio") == ("Radio 357", "WiiM Sound")
+    route.stopped = True
+    assert router.playback_context("radio") is None
+    route.stopped, route.failed = False, True
+    assert router.playback_context("radio") is None
+
+
 def test_successful_native_handoff_from_another_cast_session_notifies_mirrors_once():
     router, calls, _ = router_fixture("files")
     client = LiteHostClient("unused")

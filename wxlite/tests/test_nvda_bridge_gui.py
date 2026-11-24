@@ -44,6 +44,15 @@ def test_local_status_uses_only_user_facing_playback_values() -> None:
     )
 
 
+def test_now_playing_reports_cast_receiver_from_active_route() -> None:
+    frame = _frame(SessionId.RADIO)
+    frame.client = SimpleNamespace(
+        cast_playback_context=lambda session: ("Radio 357", "WiiM Sound")
+        if session == "radio" else None
+    )
+    assert frame._nvda_now_playing_message() == "Radio 357, na WiiM Sound"
+
+
 def test_bit_rate_reaches_nvda_now_playing_and_status_for_archive() -> None:
     frame = _frame(SessionId.RADIOARCHIWISTA)
     frame.navigator.session.now_playing_title = "Audycja"

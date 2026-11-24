@@ -30,7 +30,7 @@ _READ_COMMANDS = frozenset({
 _CONTROL_COMMANDS = frozenset({
     "player/set_play_state", "player/play_next", "player/play_previous",
     "player/set_volume", "player/set_mute", "player/play_queue",
-    "browse/add_to_queue", "browse/play_stream",
+    "browse/add_to_queue", "browse/play_stream", "browse/play_preset",
 })
 _MAX_LINE = 4 * 1024 * 1024
 _SSDP_TARGET = "urn:schemas-denon-com:device:ACT-Denon:1"
@@ -368,6 +368,12 @@ class HeosControlClient(HeosReadClient):
             params["cid"] = parent_cid
         params.update(mid=mid, name=name)
         self.request("browse/play_stream", **params)
+
+    def play_preset(self, pid: str, position: int) -> None:
+        """Play a HEOS Favorite by its current one-based server position."""
+        if not pid or isinstance(position, bool) or not isinstance(position, int) or position < 1:
+            raise ValueError("Brakuje celu lub pozycji Ulubionych HEOS.")
+        self.request("browse/play_preset", pid=pid, preset=position)
 
     def play_queue_if_current(
         self, pid: str, qid: str, expected_fingerprint: str,

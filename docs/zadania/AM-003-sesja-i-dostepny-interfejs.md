@@ -349,3 +349,9 @@ W Ulubionych strzałka w lewo podaje informacje o wybranej pozycji. `Ctrl+F` prz
 ### Znane ograniczenia oraz wersja i commit
 
 Szczegóły błędów i częściowej poprawki HEOS: `HEOS-001-20261123-rekonesans-i-adapter-odczytowy.md`. Wydana alpha.525 nie realizuje całego kontraktu. Kolejny krok: zintegrować operacje Ulubionych i presety w jednym modelu poleceń, po czym sprawdzić skróty, menu, paletę, pomoc, fokus i NVDA na prawdziwej liście.
+
+## Korekta wskaźnika odtwarzania na listach — 24.11.2026
+
+Michał doprecyzował kontrakt po próbie HEOS alpha.525: podczas przechodzenia strzałkami po liście AMC ma wskazać, która pozycja jest aktualnie odtwarzana. Sygnał może być dźwiękowy, mówiony albo oba, zgodnie z ustawieniami dostępności; samo zaznaczenie nie oznacza odtwarzania. Zasada dotyczy HEOS, Radia, TIDAL i innych sesji, gdy źródło pozwala wiarygodnie porównać pozycję ze stanem odtwarzacza. Jeśli stan jest nieznany albo pochodzi z nieaktualnego odczytu, program nie może fałszywie oznaczać pozycji jako grającej. W każdej sesji trzeba sprawdzić pierwszy fokus, ruch strzałkami, zmianę odtwarzania, odświeżenie listy, filtr i powrót z odtwarzacza z NVDA.
+
+To jest wymaganie do następnego wspólnego wydania, a nie wynik potwierdzonego testu HEOS. W zainstalowanej alpha.525 Michał nie otrzymał tej informacji na liście HEOS. Kod i testy tego wskaźnika nie zostały jeszcze dodane; nie przeprowadzono odbioru NVDA.

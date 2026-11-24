@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .heos_client import HeosControlClient, HeosPage
+from .heos_client import HeosControlClient, HeosError, HeosPage
+from .heos_presets import HeosPresetReference
 from .heos_source import (
     HeosItem, HeosQueueItem, HeosSource, HeosStatus, HeosTarget,
     catalog_items, playback_status, queue_items, source_choices, target_choices,
@@ -22,6 +23,10 @@ class HeosCatalogPage:
     next_start: int
     has_more: bool
     total: int | None
+
+
+class HeosPresetUnavailable(HeosError):
+    """A saved station is no longer present in its original HEOS folder."""
 
 
 class HeosService:
@@ -45,7 +50,7 @@ class HeosService:
             source_id, container_id or None, start=start, limit=limit,
         )
         return HeosCatalogPage(
-            catalog_items(source_id, container_id, list(page.items)),
+            catalog_items(source_id, container_id, list(page.items), start=start),
             page.next_start, page.has_more, page.total,
         )
 
@@ -65,10 +70,13 @@ class HeosService:
         if item.media_type == "station":
             if placement != "now":
                 raise ValueError("Stacji HEOS nie można dodać do kolejki.")
-            self.client.play_station(
-                player_id, item.source_id, item.media_id, item.title,
-                parent_cid=item.parent_container_id,
-            )
+            if item.source_id == "1028" and item.preset_position is not None:
+                self.client.play_preset(player_id, item.preset_position)
+            else:
+                self.client.play_station(
+                    player_id, item.source_id, item.media_id, item.title,
+                    parent_cid=item.parent_container_id,
+                )
             return
         self.client.add_to_queue(
             player_id, item.source_id,
@@ -81,6 +89,28 @@ class HeosService:
         self.client.play_queue_if_current(
             player_id, item.queue_id, item.fingerprint,
         )
+
+    def play_preset_station(self, reference: HeosPresetReference) -> str:
+        """Resolve the saved media ID before playback; never trust its old index."""
+
+        start = 0
+        while start < 1000:
+            page = self.catalog_page(
+                reference.source_id, reference.container_id,
+                start=start, limit=100,
+            )
+            item = next((
+                candidate for candidate in page.items
+                if candidate.media_id == reference.media_id
+                and candidate.media_type == "station" and candidate.can_play
+            ), None)
+            if item is not None:
+                self.play_item(reference.player_id, item)
+                return item.title
+            if not page.has_more or page.next_start <= start:
+                break
+            start = page.next_start
+        raise HeosPresetUnavailable("Zapisanej stacji nie ma już w źródle HEOS.")
 
     def set_play_state(self, player_id: str, state: str) -> None:
         self.client.set_play_state(player_id, state)

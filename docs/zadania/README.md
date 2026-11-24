@@ -14,7 +14,11 @@ Apple Music, oba profile bez HEOS. [Zapis wydania](RELEASE-ALPHA518-20261123.md)
 
 **VIDEO-001 (23.11.2026): kod i 10 testów celowanych gotowe; widoczny odbiór, build i wydanie otwarte.** Obraz lokalnego filmu w obecnym odtwarzaczu AMC, wybór samego audio i otwieranie strony filmu internetowego w zwykłej przeglądarce. [Zadanie](VIDEO-20261123-odtwarzanie-w-odtwarzaczu-AMC.md).
 
-**HEOS-001 (24.11.2026): alpha.525 zainstalowana; próba Michała ujawniła dalsze błędy sterowania i kontraktu Ulubionych.** Lista Ulubionych działa lepiej, lecz Enter nie dał słyszalnego odtwarzania, lewa strzałka i presety wymagają poprawy, a komunikat głośności nie podawał wartości. Odczyt głośnika wykazał poziom 0. Pierwsza poprawka komunikatów jest tylko w źródłach i testach, bez nowego wydania; przenoszenie/sortowanie Ulubionych oraz próba NVDA i sterowania pozostają otwarte. [Wynik wydania, instalacji i korekta po próbie](HEOS-001-20261123-rekonesans-i-adapter-odczytowy.md).
+**HEOS-001 (24.11.2026): alpha.525 zainstalowana; fizyczny głośnik odrzucił uruchomienie stacji z Ulubionych przez `play_stream` kodem 4.** Głośność 0 nie wyjaśnia odmowy. W źródłach dodano osobne `play_preset` dla Ulubionych i stabilne presety AMC; 191 testów celowanych przeszło. Nowej komendy jeszcze nie sprawdzono na głośniku, nie zbudowano ani nie wydano nowej wersji. Porządek/sortowanie/wycinanie Ulubionych i odbiór NVDA są otwarte. [Dowód i zakres](HEOS-001-20261123-rekonesans-i-adapter-odczytowy.md).
+
+**Interfejs odtwarzania i CAST-002 (24.11.2026): część źródeł gotowa do następnego wspólnego Test.** `Shift+C` oznacza teraz wybrany odbiornik, a odczyt bieżącego materiału przez most NVDA łączy tytuł z faktyczną trasą Cast; testy źródłowe przeszły, bez wydania i fizycznego NVDA. Strzałki listy mają jeszcze wskazywać pozycję aktualnie odtwarzaną. Skróty zmiany Cast/Mirror i docelowe miejsce AirPlay pozostają tematami projektowymi. [Kontrakt list](AM-003-sesja-i-dostepny-interfejs.md); [Cast i AirPlay](CAST-002-20261123-zakres-sesji-i-AirPlay.md).
+
+[Szkic instrukcji i listy zmian następnego wspólnego Test](NEXT-TEST-20261124-instrukcja-i-lista-zmian-szkic.md) jest do korekty Michała; nie jest opublikowany.
 
 **QUEUE-003 (24.11.2026): osobne zadanie projektowe, bez implementacji.** Opcja wspólnej kolejki dla obsługiwanych plików, podcastów i innych materiałów, z zachowaniem osobnych kolejek jako dotychczasowego trybu. Zwykłe Radio na żywo nie należy do kolejki. [Kontrakt i następny krok](QUEUE-003-20261124-wspolna-kolejka.md).
 

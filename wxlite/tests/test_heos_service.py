@@ -33,6 +33,9 @@ class FakeClient:
     def play_station(self, *args, **kwargs):
         self.calls.append(("station", args, kwargs))
 
+    def play_preset(self, pid, position):
+        self.calls.append(("preset", pid, position))
+
     def add_to_queue(self, *args, **kwargs):
         self.calls.append(("add", args, kwargs))
 
@@ -69,6 +72,18 @@ def test_station_uses_stream_command_and_rejects_queue_placement():
     service.play_item("1", station)
     assert fake.calls == [("station", ("1", "2", "m", "Stacja"),
                            {"parent_cid": "folder"})]
+
+
+def test_favorite_station_uses_preset_with_paged_server_position():
+    fake = FakeClient()
+    service = HeosService(fake)
+    item = service.catalog_page("1028", start=4, limit=10).items[0]
+    assert item.preset_position == 5
+    service.play_item("1", item)
+    assert fake.calls == [
+        ("browse", "1028", None, 4, 10),
+        ("preset", "1", 5),
+    ]
 
 
 def test_track_uses_parent_container_and_album_uses_own_container():

@@ -68,6 +68,7 @@ class HeosItem:
     child_source_id: str = ""
     parent_container_id: str = ""
     media_type: str = ""
+    preset_position: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -211,7 +212,8 @@ _KIND_LABELS = {
 }
 
 
-def catalog_items(source_id: str, container_id: str | None, payload: object) -> tuple[HeosItem, ...]:
+def catalog_items(source_id: str, container_id: str | None, payload: object, *,
+                  start: int = 0) -> tuple[HeosItem, ...]:
     """Preserve server order and duplicate titles, scoped to source and folder."""
 
     if not isinstance(payload, list):
@@ -256,6 +258,7 @@ def catalog_items(source_id: str, container_id: str | None, payload: object) -> 
             child_source_id=child_sid,
             parent_container_id=parent,
             media_type=kind,
+            preset_position=start + index + 1 if sid == "1028" and not parent and kind == "station" else None,
         ))
     return tuple(result)
 

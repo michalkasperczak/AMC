@@ -37,6 +37,7 @@ SESSION_PROFILE_KEYS = {
     SessionId.WIIM: "wiim",
     SessionId.SONOS: "sonos",
     SessionId.SPOTIFY: "spotify",
+    SessionId.HEOS: "heos",
 }
 WIIM_DEVICE_PRESET_PREFIX = "wiim-device:"
 WIIM_NATIVE_PRESET_PREFIX = "native-preset:"
@@ -661,6 +662,8 @@ def effective_entries(
         return _entry_list(cleaned[session.value])
     if session is SessionId.RADIOARCHIWISTA:
         return RADIOARCHIWISTA_DEFAULT_ENTRIES
+    if session is SessionId.HEOS:
+        return ()
     return _entries(_read_profile(path), session)
 
 
@@ -687,6 +690,9 @@ def resolve_preset(
             _entry_list(cleaned_overrides[session.value])
             if has_override else RADIOARCHIWISTA_DEFAULT_ENTRIES
         )
+        return ResolvedPreset(next((item for item in entries if item.slot == slot), None))
+    if session is SessionId.HEOS:
+        entries = _entry_list(cleaned_overrides.get(session.value, []))
         return ResolvedPreset(next((item for item in entries if item.slot == slot), None))
     try:
         raw = _read_profile(path)

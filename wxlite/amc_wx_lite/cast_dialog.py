@@ -9,7 +9,12 @@ class CastDeviceDialog(wx.Dialog):
         self._ids = [None] + [device.device_id for device in devices]
         panel = wx.Panel(self)
         label = wx.StaticText(panel, label=i18n.tr("cast.devices"))
-        self.devices = wx.ListBox(panel, choices=[i18n.tr("cast.local")] + [device.label for device in devices])
+        names = [i18n.tr("cast.local")] + [device.label for device in devices]
+        choices = [
+            i18n.tr("cast.selectedItem", name=name) if device_id == selected_id else name
+            for device_id, name in zip(self._ids, names)
+        ]
+        self.devices = wx.ListBox(panel, choices=choices)
         self.devices.SetName(i18n.tr("cast.devices"))
         self.devices.SetSelection(self._ids.index(selected_id) if selected_id in self._ids else 0)
         hint = wx.StaticText(panel, label=i18n.tr("cast.hint" if devices else "cast.empty"))

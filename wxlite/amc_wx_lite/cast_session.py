@@ -98,6 +98,16 @@ class CastSessionRouter:
     def active(self, session: str) -> bool:
         return session in self.routes
 
+    def playback_context(self, session: str) -> tuple[str, str] | None:
+        """Known material and receiver, only while this Cast route has media."""
+        with self._lock:
+            route = self.routes.get(session)
+            if route is None or route.stopped or route.failed or route.ended:
+                return None
+            title = str(route.item.get("title") or "").strip()
+            name = route.device.name.strip()
+            return (title, name) if title and name else None
+
     def select(self, session: str, device_id: str | None) -> dict:
         if session not in CAST_SESSIONS:
             raise CastError("cast.error.session")

@@ -255,6 +255,16 @@ def test_play_station_uses_named_station_command():
     ]
 
 
+def test_play_favorite_uses_current_one_based_preset_position():
+    fake = FakeSocket([packet("browse/play_preset")])
+    client, _ = client_for(fake, cls=HeosControlClient)
+    with pytest.raises(ValueError):
+        client.play_preset("1", 0)
+    assert fake.sent == []
+    client.play_preset("1", 7)
+    assert fake.sent == [b"heos://browse/play_preset?pid=1&preset=7\r\n"]
+
+
 def test_queue_fingerprint_rejects_stale_index_before_play():
     current = [{"qid": "1", "mid": "new", "song": "Nowa"}]
     old = [{"qid": "1", "mid": "old", "song": "Stara"}]

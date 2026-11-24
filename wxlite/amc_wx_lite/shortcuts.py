@@ -553,7 +553,7 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
     Action.CAST_SESSION: CommandPresentation(
         Action.CAST_SESSION,
         "Google Cast bieżącej sesji…",
-        "Wybierz Google Cast dla Plików, Radia, Podcastów, Radio Archiwisty lub natywnego TIDAL albo wróć do komputera; dostępność zależy od strumienia, radio jest na żywo",
+        "Wybierz Google Cast dla Plików, Radia, Podcastów, Radio Archiwisty lub natywnego TIDAL albo wróć do komputera; lista oznacza wybrane wyjście, dostępność zależy od strumienia, radio jest na żywo",
         "Shift+C",
         "G&oogle Cast bieżącej sesji…",
     ),
@@ -1364,6 +1364,8 @@ HEOS_SUPPORTED_ACTIONS = frozenset({
     Action.VOLUME_DOWN_1, Action.VIEW_LIBRARY, Action.VIEW_FAVORITES,
     Action.VIEW_PLAYLISTS, Action.VIEW_SAVED_QUEUE, Action.ADD_TO_QUEUE,
     Action.TOGGLE_PLAY_NEXT, Action.FOCUS_FILTER,
+    Action.VIEW_PRESETS, Action.ASSIGN_PRESET,
+    *(Action[f"PRESET_{slot}"] for slot in range(1, 13)),
     Action.COPY_NAME, Action.HELP,
     Action.KEYBOARD_HELP, Action.REPORT_PROBLEM, Action.VERSION_INFO,
     Action.GENERAL_SETTINGS, Action.REFRESH_COMMON_DATA,
@@ -1693,6 +1695,7 @@ TIDAL_SUPPORTED_ACTIONS |= _DIRECT_PRESET_ASSIGN_ACTIONS
 SPOTIFY_SUPPORTED_ACTIONS |= _DIRECT_PRESET_ASSIGN_ACTIONS
 SONOS_SUPPORTED_ACTIONS |= _DIRECT_PRESET_ASSIGN_ACTIONS
 RADIOARCHIWISTA_SUPPORTED_ACTIONS |= _DIRECT_PRESET_ASSIGN_ACTIONS
+HEOS_SUPPORTED_ACTIONS |= _DIRECT_PRESET_ASSIGN_ACTIONS
 
 
 def assign_preset_slot(action: Action) -> int | None:

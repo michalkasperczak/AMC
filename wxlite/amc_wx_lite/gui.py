@@ -360,12 +360,13 @@ from .heos_client import (
     HeosTimeout,
     discover_heos,
 )
+from .heos_presets import reference_for_entry, target_for_station
 from .heos_navigation import HeosBrowseState
 from .heos_rows import catalog_rows as heos_catalog_rows
 from .heos_rows import queue_rows as heos_queue_rows
 from .heos_rows import source_rows as heos_source_rows
 from .heos_rows import target_rows as heos_target_rows
-from .heos_service import HeosService
+from .heos_service import HeosPresetUnavailable, HeosService
 from .heos_source import HeosItem, HeosQueueItem, HeosSource, HeosStatus, HeosTarget
 from .profile_layout import common_data_snapshot_path, resolve_layout
 from .full_backup import (
@@ -16125,6 +16126,16 @@ class LiteFrame(wx.Frame):
             if state.get("hasSession"):
                 return str(state.get("title") or "Utwór Apple Music").strip()
             return "Apple Music, brak bieżącego utworu w oryginalnej aplikacji."
+        client = self.__dict__.get("client")
+        cast_context = (
+            client.cast_playback_context(self.navigator.active.value)
+            if client is not None and hasattr(client, "cast_playback_context")
+            else None
+        )
+        if (isinstance(cast_context, tuple) and len(cast_context) == 2
+                and all(isinstance(value, str) and value for value in cast_context)):
+            title, destination = cast_context
+            return f"{title}, na {destination}"
         snapshot = self._nvda_playback_snapshot()
         if self.navigator.active is SessionId.TIDAL:
             if self._tidal_native_has_playback:
@@ -20589,6 +20600,15 @@ class LiteFrame(wx.Frame):
         session = self.navigator.active
         state = self.navigator.session
         row = state.model.selected_row
+        if session is SessionId.HEOS:
+            target = self._heos_state.selected_target
+            if target is None or state.view is not View.LIST or row is None:
+                return None
+            item = next((
+                candidate for candidate in self._heos_state.items
+                if isinstance(candidate, HeosItem) and candidate.item_id == row.item_id
+            ), None)
+            return target_for_station(target, item) if item is not None else None
         if state.view is View.PLAYER and state.now_playing_id:
             row = next(
                 (
@@ -22076,6 +22096,29 @@ class LiteFrame(wx.Frame):
                     sequence,
                     open_player=self._session_open_player_on_preset(session),
                 ))
+                return
+
+            if session is SessionId.HEOS and entry.target_kind.casefold() == "heos-station":
+                target = self._heos_state.selected_target
+                if target is None:
+                    self.announcer.say("Najpierw wybierz głośnik HEOS")
+                    return
+                reference = reference_for_entry(entry, target)
+                if reference is None:
+                    self.announcer.say(
+                        f"Preset {spoken} dotyczy innego głośnika albo jest nieaktualny"
+                    )
+                    return
+                current_title = [entry.title]
+
+                def play_preset(service, _pid):
+                    current_title[0] = service.play_preset_station(reference)
+
+                self._last_preset_slot_by_session[session] = slot
+                self._heos_control(
+                    play_preset,
+                    lambda status: self._heos_play_confirmation(current_title[0], status),
+                )
                 return
 
             if session is SessionId.SONOS and entry.target_kind.casefold() in {
@@ -25641,7 +25684,9 @@ class LiteFrame(wx.Frame):
         def failed(error):
             self._heos_control_pending = False
             if self.navigator.active is SessionId.HEOS:
-                if isinstance(error, HeosCommandError):
+                if isinstance(error, HeosPresetUnavailable):
+                    self.announcer.say("Zapisanej stacji nie ma już w źródle HEOS")
+                elif isinstance(error, HeosCommandError):
                     self.announcer.say("HEOS odrzucił polecenie. Odczytuję stan")
                 elif isinstance(error, HeosTimeout):
                     self.announcer.say(

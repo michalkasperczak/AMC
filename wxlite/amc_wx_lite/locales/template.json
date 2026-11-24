@@ -36,6 +36,7 @@
     "cast.local": "",
     "cast.refresh": "",
     "cast.selected": "",
+    "cast.selectedItem": "",
     "cast.title": "",
     "cast.unavailable": "",
     "cast.unavailableDevice": "",
