@@ -1,4 +1,4 @@
-name: AMC Test alpha.521 — HEOS build
+name: AMC Test alpha.523 — HEOS build
 
 on:
   push:
@@ -33,7 +33,7 @@ jobs:
             throw 'Nieoczekiwana gałąź źródłowa.'
           }
           [xml]$props = Get-Content -LiteralPath 'Directory.Build.props' -Raw
-          if ([string]$props.Project.PropertyGroup.Version -cne '0.1.0-alpha.521') {
+          if ([string]$props.Project.PropertyGroup.Version -cne '0.1.0-alpha.523') {
             throw 'Nieoczekiwana wersja źródeł.'
           }
           if (@(git status --porcelain=v1 --untracked-files=no).Count -ne 0) {
@@ -48,20 +48,20 @@ jobs:
         with:
           dotnet-version: 8.0.423
 
-      - name: Pobierz zweryfikowany runtime alpha.519 Cast
+      - name: Pobierz zweryfikowany runtime alpha.522 Test
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $prior = Join-Path $env:RUNNER_TEMP 'amc-alpha519-input'
+          $prior = Join-Path $env:RUNNER_TEMP 'amc-alpha522-input'
           New-Item -ItemType Directory -Path $prior -Force | Out-Null
-          gh release download test-2026.11.23.2231 --repo michalkasperczak/AMC `
-            --pattern AMC-Test-2026-11-23-2231.exe --dir $prior
-          if ($LASTEXITCODE -ne 0) { throw 'Nie pobrano instalatora alpha.519.' }
-          $installer = Join-Path $prior 'AMC-Test-2026-11-23-2231.exe'
-          if ((Get-Item -LiteralPath $installer).Length -ne 214459178 -or
+          gh release download test-2026.11.24.0100 --repo michalkasperczak/AMC `
+            --pattern AMC-Test-2026-11-24-0100.exe --dir $prior
+          if ($LASTEXITCODE -ne 0) { throw 'Nie pobrano instalatora alpha.522.' }
+          $installer = Join-Path $prior 'AMC-Test-2026-11-24-0100.exe'
+          if ((Get-Item -LiteralPath $installer).Length -ne 214452254 -or
               (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant() -cne
-              '5cdff6a048a89a911879542180e1d4ff45185a59e33fff81d3b91dfaf551dbb8') {
-            throw 'Instalator alpha.519 ma nieprawidłowy rozmiar lub SHA-256.'
+              '518752f1d6f497638a42df7349a1f7eef27f9441fa1bc28c6a07e98433d58036') {
+            throw 'Instalator alpha.522 ma nieprawidłowy rozmiar lub SHA-256.'
           }
           $archive = Join-Path $prior 'innoextract670.zip'
           Invoke-WebRequest -Uri `
@@ -76,22 +76,29 @@ jobs:
           $tool = Join-Path $toolDir 'innoextract.exe'
           $extracted = Join-Path $prior 'extracted'
           & $tool --extract --silent --output-dir $extracted $installer
-          if ($LASTEXITCODE -ne 0) { throw 'Nie rozpakowano instalatora alpha.519.' }
+          if ($LASTEXITCODE -ne 0) { throw 'Nie rozpakowano instalatora alpha.522.' }
           $runtime = Join-Path $extracted 'app\runtime'
           $site = Join-Path $runtime 'Lib\site-packages'
           $addon = Join-Path $extracted 'tmp\quickAppSwitcher-0.1.6.nvda-addon'
+          $amcAddon = Join-Path $extracted 'tmp\AMC-NVDA-0.4.2.nvda-addon'
           if (-not (Test-Path -LiteralPath (Join-Path $runtime 'python.exe') -PathType Leaf) -or
               -not (Test-Path -LiteralPath $site -PathType Container) -or
-              -not (Test-Path -LiteralPath $addon -PathType Leaf)) {
+              -not (Test-Path -LiteralPath $addon -PathType Leaf) -or
+              -not (Test-Path -LiteralPath $amcAddon -PathType Leaf)) {
             throw 'Brakuje runtime, zależności lub dodatku NVDA.'
           }
           if ((Get-FileHash -LiteralPath $addon -Algorithm SHA256).Hash.ToLowerInvariant() -cne
               '16dc660e6b3fece58af8ccb84ccc43824bcb7744e1f18a37ffa629685349a61f') {
             throw 'Dodatek NVDA ma nieprawidłowy SHA-256.'
           }
+          if ((Get-FileHash -LiteralPath $amcAddon -Algorithm SHA256).Hash.ToLowerInvariant() -cne
+              '22e211db6030c0c5c7e8b343066f2568647c72cf5bca8e66b3398418047a1ae9') {
+            throw 'Dodatek AMC do NVDA ma nieprawidłowy SHA-256.'
+          }
           "AMC_RUNTIME=$runtime" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "AMC_SITE_PACKAGES=$site" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "AMC_QAS_ADDON=$addon" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "AMC_NVDA_ADDON=$amcAddon" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Zainstaluj przypięty Inno Setup
         shell: pwsh
@@ -152,15 +159,16 @@ jobs:
             throw 'Etykieta wersji nie zgadza się z polskim czasem utworzenia paczki.'
           }
 
-      - name: Skompiluj i sprawdź instalator alpha.521
+      - name: Skompiluj i sprawdź instalator alpha.523
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           & .\wxlite\tools\Build-AMCInstaller.ps1 -Profile test `
             -BundleRoot (Join-Path $env:RUNNER_TEMP 'amc-heos-bundle') `
-            -Version '0.1.0-alpha.521' `
+            -Version '0.1.0-alpha.523' `
             -OutputDirectory (Join-Path $env:RUNNER_TEMP 'amc-heos-installer') `
-            -NvdaAddonPath $env:AMC_QAS_ADDON -IsccPath $env:AMC_ISCC
+            -NvdaAddonPath $env:AMC_QAS_ADDON `
+            -AmcNvdaAddonPath $env:AMC_NVDA_ADDON -IsccPath $env:AMC_ISCC
           if ($LASTEXITCODE -ne 0) { throw 'Budowa instalatora AMC Test nie powiodła się.' }
           $output = Join-Path $env:RUNNER_TEMP 'amc-heos-installer'
           $installers = @(Get-ChildItem -LiteralPath $output -Filter 'AMC-Test-*.exe' -File)
@@ -175,7 +183,7 @@ jobs:
       - name: Zachowaj instalator do odbioru
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: amc-test-alpha521-heos-${{ github.sha }}
+          name: amc-test-alpha523-heos-${{ github.sha }}
           path: ${{ runner.temp }}/amc-heos-installer/
           if-no-files-found: error
           retention-days: 14

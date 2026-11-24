@@ -115,38 +115,39 @@ def test_public_profile_keeps_presets_and_radio_timeshift_navigation() -> None:
     assert resolve(Chord("5"), player_view=True, radio_session=True) is Action.SEEK_PERCENT_50
 
 
-def test_recording_monitor_and_live_rename_are_test_only_commands() -> None:
-    assert RECORDING_MONITOR_CAPABILITY in TEST_PROFILE.capabilities
-    assert RECORDING_MONITOR_CAPABILITY not in PUBLIC_PROFILE.capabilities
-    with _with_release_profile("test"):
-        assert resolve(
-            Chord("Return"), player_view=False, radio_session=True,
-            radio_recording_context=True,
-        ) is Action.OPEN_RECORDING_MONITOR
-        assert resolve(
-            Chord("F2"), player_view=False, radio_session=True,
-            radio_recording_context=True,
-        ) is Action.RENAME_ACTIVE_RECORDING
-    with _with_release_profile("public"):
-        assert resolve(
-            Chord("Return"), player_view=False, radio_session=True,
-            radio_recording_context=True,
-        ) is Action.ACTIVATE
-        assert resolve(
-            Chord("F2"), player_view=False, radio_session=True,
-            radio_recording_context=True,
-        ) is Action.STATION_EDIT
-        actions = {
-            item.action for menu in menu_model.menus_for_session(SessionId.RADIO)
-            for item in menu.items
-        }
-        assert Action.OPEN_RECORDING_MONITOR not in actions
-        assert Action.RENAME_ACTIVE_RECORDING not in actions
-        assert not describe("Radio", {Action.OPEN_RECORDING_MONITOR})
-        assert not any(
-            entry.action in {Action.OPEN_RECORDING_MONITOR, Action.RENAME_ACTIVE_RECORDING}
-            for entry in entries_for_session(SessionId.RADIO)
-        )
+def test_recording_monitor_and_live_rename_have_parity_in_both_profiles() -> None:
+    for profile in (TEST_PROFILE, PUBLIC_PROFILE):
+        assert RECORDING_MONITOR_CAPABILITY in profile.capabilities
+        with _with_release_profile(profile.profile_id):
+            assert resolve(
+                Chord("Return"), player_view=False, radio_session=True,
+                radio_recording_context=True,
+            ) is Action.OPEN_RECORDING_MONITOR
+            assert resolve(
+                Chord("F2"), player_view=False, radio_session=True,
+                radio_recording_context=True,
+            ) is Action.RENAME_ACTIVE_RECORDING
+            actions = {
+                item.action for menu in menu_model.menus_for_session(SessionId.RADIO)
+                for item in menu.items
+            }
+            assert Action.OPEN_RECORDING_MONITOR in actions
+            assert Action.RENAME_ACTIVE_RECORDING in actions
+            assert describe("Radio", {Action.OPEN_RECORDING_MONITOR})
+            assert any(
+                entry.action is Action.OPEN_RECORDING_MONITOR
+                for entry in entries_for_session(SessionId.RADIO)
+            )
+
+
+def test_recording_monitor_retains_existing_installer_profile_fields() -> None:
+    # The historical Test marker remains for old updater compatibility;
+    # actual availability now uses the recording capability common to both.
+    assert "recording.monitor" in TEST_PROFILE.capabilities
+    assert "recording.monitor" not in PUBLIC_PROFILE.capabilities
+    host = (Path(__file__).resolve().parents[2]
+            / "src/AccessibleMediaController.LiteHost/Program.cs").read_text(encoding="utf-8")
+    assert 'enableRecordingMonitor: string.Equals' not in host
 
 
 def test_python_capabilities_match_closed_launcher_contract() -> None:

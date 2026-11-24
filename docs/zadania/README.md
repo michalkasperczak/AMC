@@ -1,5 +1,7 @@
 # Rejestr zadań AMC
 
+**CAST-002 / alpha.522 (24.11.2026): spójne Test i Public wydane; Test automatycznie zainstalowany i uruchomiony.** Zachowano alpha.520 oraz Cast/AirPlay. Gotowe funkcje nagrań wspólne, Apple Music tylko w Test. GitHub, oba instalatory i SHA-256, pełna integralność instalacji Test oraz jedna instancja potwierdzone. Odsłuch nowych wariantów i NVDA pozostają otwarte. [Wyniki i baza następnych wydań](RELEASE-ALPHA522-20261124-Cast-instalacja.md).
+
 **RELEASE-ALPHA520 (23.11.2026):** końcowy kandydat Test/Public po konflikcie równoległych wydań alpha.519; ten sam zweryfikowany zakres funkcji bez Google Cast i HEOS, z zachowanym odsłuchem nagrania tylko w Test. [Zapis wydania](RELEASE-ALPHA520-20261123.md).
 
 **RELEASE-ALPHA519 (23.11.2026):** kandydat naprawczy Test/Public zachowuje odsłuch nagrania z Test alpha.516, rozdziela adresy odtwarzacza YouTube dla profili i dodaje wznawianie podcastów z aktualnej pozycji. Kod i testy celowane gotowe; pakiety, publikacja i instalacja do osobnego potwierdzenia. [Zapis zadania](RELEASE-ALPHA519-20261123.md).

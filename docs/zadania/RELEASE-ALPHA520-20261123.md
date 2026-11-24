@@ -1,5 +1,7 @@
 # AMC alpha.520 — wydanie Test i Public po konflikcie kanałów
 
+**Korekta użytkownika 24.11.2026:** Cast ma teraz zostać połączony z pełnym zakresem alpha.520, opublikowany w spójnym wydaniu GitHub i automatycznie zainstalowany w Test. Gotowe funkcje obu profili mają być zgodne poza Apple Music. [Alpha.522](RELEASE-ALPHA522-20261124-Cast-instalacja.md) zastępuje poniższe wykluczenie Cast i ograniczenie odsłuchu nagrań tylko do Test; pozostałe wyniki alpha.520 są historyczne.
+
 - Decyzja użytkownika z 23.11.2026: obie wersje mają zawierać ukończone poprawki wideo, wyszukiwania, kolejki, lewej strzałki, czasu i harmonogramu. Apple Music, HEOS i Google Cast pozostają w dalszych pracach; Apple Music eksperymentalnie może być w Test, nie w Public. Odsłuch trwającego nagrania z Test alpha.516 pozostaje tylko w Test.
 - Poprzednia decyzja „wideo tylko Test” została zastąpiona zgodą na wideo także w Public. Zapis pełnego zachowania i wyników testów źródłowych znajduje się w [rejestrze alpha.519](RELEASE-ALPHA519-20261123.md), który jest częścią tej samej linii kodu.
 

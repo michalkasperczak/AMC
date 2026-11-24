@@ -1,5 +1,7 @@
 # RADIO-REC-MONITOR — odsłuch trwającego nagrania i zmiana nazwy
 
+**Korekta użytkownika 24.11.2026:** gotowy odsłuch trwającego nagrania (Alt+R, Enter) i zmiana nazwy F2 są wspólne w Test/Public alpha.522. Zastępuje to starsze ograniczenie tylko do Test. Apple Music pozostaje tylko w Test. [Wydanie i rzeczywista instalacja](RELEASE-ALPHA522-20261124-Cast-instalacja.md).
+
 Stan na 23.11.2026: implementacja źródłowa i testy celowane. Bez instalacji,
 wydania i ręcznego odbioru NVDA. Bieżąca gałąź:
 `codex/amc-current-d-20261123`, punkt bazowy `faf67433`. Katalog:
