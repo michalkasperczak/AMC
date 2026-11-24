@@ -117,6 +117,15 @@ się na „Ctrl+0, Apple Music, włączona”, a komunikat wyniku ma zostać wyp
 `Ctrl+Page Up` i `Ctrl+Page Down` przechodzą odpowiednio do poprzedniej i
 następnej sesji według tej kolejności, z zawijaniem na końcach.
 
+Gdy pierwszych dziesięć sesji jest już włączonych, otwórz Menedżer sesji
+`Ctrl+Shift+S`, wybierz strzałkami „HEOS, wyłączona” i naciśnij Spację.
+NVDA powinien wypowiedzieć „Włączono sesję HEOS, bez skrótu numerycznego”,
+a wiersz powinien brzmieć „HEOS, włączona, bez skrótu numerycznego”. Enter
+przełącza na HEOS. `Ctrl+0` nadal wybiera dziesiątą sesję, a
+`Ctrl+Page Up`/`Ctrl+Page Down` obejmują także HEOS. W menu Widok, palecie
+`Ctrl+Shift+K` i pomocy HEOS nie może mieć fałszywego skrótu. Sprawdź fokus
+początkowy, strzałki, Escape, powrót fokusu po zamknięciu oraz ponowne otwarcie.
+
 Na tej samej karcie zmień „Wyświetlaj po uruchomieniu” na „Lista sesji”,
 zapisz i uruchom AMC Python ponownie w bezpiecznym momencie. Po gotowości
 silnika ma otworzyć się zwykłe okno „Wybór sesji” z fokusem na ostatniej

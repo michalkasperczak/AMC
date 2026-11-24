@@ -80,6 +80,7 @@ Nie wykonano testów GUI/NVDA, kompilacji, instalacji ani publikacji. Następnym
 Ta sekcja zastępuje wcześniejsze stwierdzenia w tym raporcie, że sesja HEOS nie jest podłączona do GUI. Kod sesji jest przygotowany na izolowanej gałęzi następnej wersji AMC Test; **nie ma go w zainstalowanej ani opublikowanej wersji**.
 
 - HEOS jest osobną sesją Test, domyślnie wyłączoną w Menedżerze sesji. Włączenie wymaga wolnego miejsca w limicie dziesięciu sesji i nie przenumerowuje dotychczasowych skrótów. Profil Public nie pokazuje HEOS.
+- **Korekta z 24.11.2026:** powyższy limit dziesięciu aktywnych sesji został usunięty w przygotowywanej alpha.524. Dotyczy to wszystkich sesji; tylko pierwszych dziesięć ma skróty numeryczne.
 - Po wejściu do sesji AMC wyszukuje urządzenia i istniejące grupy. Ctrl+F5 daje wybór ponownego wykrycia albo ręcznego adresu IP. Enter wybiera cel bez zmiany odtwarzania i otwiera odtwarzacz. Ctrl+L pokazuje zmienną listę źródeł; Enter otwiera katalog lub odtwarza pozycję; Backspace wraca do rodzica. Ctrl+U otwiera Ulubione, Ctrl+P Playlisty, Ctrl+Q kolejkę. Ctrl+Shift+Q dodaje odtwarzalną pozycję na koniec kolejki, Ctrl+Shift+Enter jako następną; stacje nie są tak dodawane. Akcje kolejki wymagają odczytu przed i po zmianie. Spacja steruje play/pauzą, Page Up/Down poprzednią/następną pozycją, Ctrl+M wyciszeniem; suwak i istniejące skróty głośności sterują wybranym celem.
 - Każdy widok ma użytkową nazwę dostępną dla NVDA, a identyfikatory HEOS pozostają w modelu. Wyniki list z poprzedniego widoku lub celu są odrzucane. Dźwięk gra na urządzeniu; zamknięcie AMC nie wysyła Stop. Filtr dotyczy tylko aktualnie wczytanych pozycji, nie całego zdalnego katalogu.
 - Wspólny model poleceń zasila routing klawiatury, menu, paletę i pomoc. Test parytetu porównuje dla HEOS skrót, widoczność w menu i palecie, opis w pomocy oraz przekierowanie wykonania. Testy obejmują także jawny odczyt kolejki po dodaniu.
@@ -147,3 +148,27 @@ https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.24.1232
 Zdalny tag wskazuje dokładnie `822b1fd78b37bbce52bb68fa87ff76d025818f50`. GitHub potwierdził trzy zasoby w stanie `uploaded`: instalator **214635965 bajtów**, SHA-256 `f521afe1f511fe6b7340a14439b3683588d852889ffe672188be71a7cea8340e`; plik integralności **973 bajty**, SHA-256 `a84ef6f3359fdc9e13f7c8242737a39af6b59ac202d768d1aa66cbc8ac80ebea`; manifest `amc-update-test.json` **950 bajtów**, SHA-256 `95ccd399b2c4bd16517bc0692e6e84743ab7b0d1b8ef0e74845ccd92fd9706a4`. Zdalny digest instalatora zgadza się z lokalnym plikiem.
 
 Odczytowy `check_for_application_update` z runtime zainstalowanej alpha.522 i jej katalogu `D:\Projekty Codex\AMC Python` zwrócił `available=true`, bieżącą wersję `24.11.2026, 01:00`, nowy tag `test-2026.11.24.1232` i wersję `24.11.2026, 12:32`. To potwierdza widoczność w aktualizatorze bez pobierania przez niego instalatora i bez lokalnej instalacji. Działanie sesji HEOS na głośniku oraz odbiór NVDA nadal wymagają próby użytkowej.
+
+## Korekta Menedżera sesji — 24.11.2026
+
+Michał zgłosił, że w zainstalowanej alpha.523 HEOS jest wyłączona, a Spacja i Enter w Menedżerze sesji nie pozwalają jej uruchomić. Odczyt zapisanej kolejności pokazał dziesięć aktywnych sesji, od Plików lokalnych do Apple Music. Stary limit odrzucał dopisanie HEOS jako jedenastej; Enter prawidłowo odmawiał przejścia do sesji wyłączonej. Ta diagnoza zastępuje wcześniejsze założenie, że do HEOS wystarczy wolne miejsce w limicie.
+
+### Uzasadnienie i decyzje
+
+Usunięto limit aktywnych sesji we wspólnym modelu kolejności, zapisu i menu. Limit dziesięciu pozostał wyłącznie dla skrótów `Ctrl+1–9` i `Ctrl+0`; jedenastą i dalsze sesje można włączyć Spacją, wybrać Enterem albo osiągnąć przez `Ctrl+Page Up`/`Ctrl+Page Down`. Migracja historycznego profilu zachowuje dziesięć dawnych sesji i nie włącza HEOS samoczynnie. Dla sesji bez skrótu etykieta i komunikat mówią „bez skrótu numerycznego”, bez wartości technicznej `None`. Zmiana obejmuje wszystkie sesje, nie specjalny wyjątek dla HEOS.
+
+### Testy i wynik
+
+Na przypiętym Pythonie z wxPython 4.3.1: **214 testów** Menedżera, kolejności, stanu, skrótów, palety i profilu przeszło; po dodaniu testu pełnego przejścia Spacja/Enter **24 testy** Menedżera i kolejności przeszły ponownie. **48 testów** HEOS przeszło w osobnym procesie. **95 testów** pakowania i publikacji przeszło. Testy sprawdzają jedenastą sesję po zapisie i ponownym odczycie, trasę Spacja/Enter, stabilność `Ctrl+0`, nawigację sąsiednią, etykiety NVDA oraz zgodność skrótów w menu, palecie i pomocy. Próba zestawu pakowania o dwóch błędnych nazwach plików zakończyła się `no tests ran`; nie jest wynikiem regresji. Kompilacja GitHub pozostaje do wykonania. Nie uruchamiano lokalnej aplikacji ani głośnika, ponieważ Michał sprawdza równolegle inne funkcje.
+
+### Materiał do dokumentacji użytkownika — szkic
+
+W AMC Test otwórz Menedżer sesji przez `Ctrl+Shift+S`. Strzałkami zaznacz HEOS i naciśnij Spację. Po komunikacie „Włączono sesję HEOS, bez skrótu numerycznego” naciśnij Enter, aby się przełączyć. Gdy dziesięć sesji jest już włączonych, `Ctrl+0` nadal prowadzi do dziesiątej, a do HEOS można także przejść przez `Ctrl+Page Up` lub `Ctrl+Page Down`. Kolejność zmienisz przez `Alt+strzałka w górę/w dół`.
+
+### Szkic changelogu — do korekty Michała
+
+Menedżer sesji pozwala włączać wszystkie dostępne sesje, także HEOS jako jedenastą. Skróty numeryczne pozostają przypisane do pierwszych dziesięciu sesji; pozostałe są dostępne z Menedżera i przez przełączanie sąsiednich sesji. Poprawiono komunikaty NVDA dla sesji bez skrótu.
+
+### Znane ograniczenia oraz wersja i commit
+
+Kod przygotowywany jako AMC Test `0.1.0-alpha.524` na gałęzi `codex/heos-next-test-20261123`. Commit, wynik GitHub Actions, instalator, wydanie GitHub oraz widoczność w aktualizatorze wymagają jeszcze osobnego potwierdzenia. Fizyczna próba NVDA i sterowania Denon Home 200 pozostaje do wykonania przez Michała po aktualizacji.

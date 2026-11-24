@@ -5,7 +5,7 @@ from amc_wx_lite.command_palette import entries_for_session
 from amc_wx_lite.navigation import SessionId
 from amc_wx_lite.session_order import (
     AVAILABLE_TEST_SESSIONS,
-    MAX_ACTIVE_SESSIONS,
+    MAX_NUMBERED_SESSIONS,
     action_for_slot,
     adjacent,
     disable,
@@ -49,8 +49,9 @@ def test_custom_active_order_does_not_reenable_missing_sessions() -> None:
 def test_legacy_migration_preserves_order_and_appends_known_sessions_once() -> None:
     migrated = migrate_legacy(["sonos", "radio", "sonos", "obca-wartosc"])
     assert migrated[:2] == (SessionId.SONOS, SessionId.RADIO)
-    assert len(migrated) == MAX_ACTIVE_SESSIONS
+    assert len(migrated) == MAX_NUMBERED_SESSIONS
     assert set(migrated).issubset(set(SessionId))
+    assert SessionId.HEOS not in migrated
     assert SessionId.APPLE_MUSIC in AVAILABLE_TEST_SESSIONS
 
 
@@ -63,7 +64,7 @@ def test_tenth_session_uses_ctrl_zero_without_dropping_apple_music() -> None:
 
     enabled, message = enable(SessionId.APPLE_MUSIC, first_nine)
 
-    assert len(enabled) == MAX_ACTIVE_SESSIONS == 10
+    assert len(enabled) == MAX_NUMBERED_SESSIONS == 10
     assert enabled[-1] is SessionId.APPLE_MUSIC
     assert message == "Włączono sesję Apple Music, Ctrl+0"
     assert shortcut_for_slot(10) == "Ctrl+0"
@@ -78,16 +79,31 @@ def test_tenth_session_uses_ctrl_zero_without_dropping_apple_music() -> None:
 def test_heos_is_opt_in_without_renumbering_existing_sessions() -> None:
     existing = [session.value for session in SessionId if session is not SessionId.HEOS]
     assert len(normalize(existing)) == 10
-    unchanged, message = enable(SessionId.HEOS, existing)
-    assert unchanged == normalize(existing)
-    assert "dziesięć" in message
-    shorter, _current, _message = disable(
-        SessionId.APPLE_MUSIC, existing, current=SessionId.FILES,
-    )
-    enabled, message = enable(SessionId.HEOS, shorter)
+    enabled, message = enable(SessionId.HEOS, existing)
+    assert len(enabled) == 11
+    assert enabled[:10] == normalize(existing)
     assert enabled[-1] is SessionId.HEOS
-    assert action_for_slot(10, enabled) is Action.SESSION_HEOS
-    assert message == "Włączono sesję HEOS, Ctrl+0"
+    assert action_for_slot(10, enabled) is Action.SESSION_APPLE_MUSIC
+    assert shortcut_for_slot(11) is None
+    assert slot_for_session(SessionId.HEOS, enabled) == 11
+    assert adjacent(SessionId.APPLE_MUSIC, 1, enabled) is SessionId.HEOS
+    assert message == (
+        "Włączono sesję HEOS, bez skrótu numerycznego. "
+        "Wybierz ją Enterem w Menedżerze sesji"
+    )
+    assert dict(manager_labels(enabled))[SessionId.HEOS].startswith(
+        "HEOS, włączona, bez skrótu numerycznego"
+    )
+    assert selection_labels(enabled)[-1] == "HEOS, bez skrótu numerycznego"
+    assert all("None" not in label for label in selection_labels(enabled))
+
+    moved, move_message = move(SessionId.HEOS, -1, enabled)
+    assert moved[9] is SessionId.HEOS
+    assert moved[10] is SessionId.APPLE_MUSIC
+    assert move_message == "HEOS, Ctrl+0"
+    assert dict(manager_labels(moved))[SessionId.APPLE_MUSIC].startswith(
+        "Apple Music, włączona, bez skrótu numerycznego"
+    )
 
 
 def test_enable_disable_reenable_and_move_keep_compact_slots() -> None:
@@ -211,17 +227,21 @@ def test_tenth_session_has_ctrl_zero_in_menu_palette_and_help() -> None:
     raw = [session.value for session in SessionId]
     view = next(menu for menu in menu_model.build_menus(raw) if menu.title == "&Widok")
     apple = next(item for item in view.items if item.action is Action.SESSION_APPLE_MUSIC)
+    heos = next(item for item in view.items if item.action is Action.SESSION_HEOS)
     assert apple.shortcut == "Ctrl+0"
+    assert heos.shortcut is None
     palette = {
         entry.action: entry.shortcut
         for entry in entries_for_session(SessionId.FILES, raw)
     }
     assert palette[Action.SESSION_APPLE_MUSIC] == "Ctrl+0"
+    assert palette[Action.SESSION_HEOS] is None
     help_rows = dict(describe(
         available_actions={Action.SESSION_APPLE_MUSIC},
         shortcut_overrides={Action.SESSION_APPLE_MUSIC: "Ctrl+0"},
     ))
     assert help_rows["Ctrl+0"] == "Apple Music"
+    assert dict(describe(available_actions={Action.SESSION_HEOS}))["Bez skrótu"] == "HEOS"
 
 
 def test_session_manager_commands_share_the_view_menu_and_configuration_is_in_files() -> None:

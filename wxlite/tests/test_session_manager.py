@@ -118,6 +118,21 @@ def test_enabling_apple_music_as_tenth_session_is_saved_with_ctrl_zero() -> None
     assert frame.menu_rebuilds == 1
 
 
+def test_enabling_eleventh_session_persists_without_renumbering() -> None:
+    first_ten = [session.value for session in SessionId if session is not SessionId.HEOS]
+    frame = _frame(first_ten, SessionId.FILES)
+
+    changed, message = LiteFrame._toggle_session_enabled(frame, SessionId.HEOS)
+
+    assert len(changed) == 11
+    assert changed[-1] is SessionId.HEOS
+    assert frame.options.session_order == first_ten + ["heos"]
+    assert frame.save_snapshots[-1][0] == first_ten + ["heos"]
+    assert frame.menu_rebuilds == 1
+    assert "bez skrótu numerycznego" in message
+    assert "None" not in message
+
+
 def test_internal_playback_and_recording_block_only_the_owned_sessions() -> None:
     frame = _frame(["files", "radio", "sonos", "wiim"], SessionId.FILES)
     frame._playing_sessions = {SessionId.FILES, SessionId.SONOS, SessionId.WIIM}
@@ -167,6 +182,59 @@ def test_manager_dialog_has_explicit_names_keys_and_focus_restoration_contract()
     assert "selected is SessionId.FRONTIER_SMART" in dialog
     assert "self.configure_session = selected" in dialog
     assert "self.EndModal(wx.ID_APPLY)" in dialog
+
+
+def test_manager_space_toggles_and_enter_accepts_the_selected_session() -> None:
+    import wx
+
+    calls: list[str] = []
+    dialog = SimpleNamespace(
+        _toggle=lambda _event: calls.append("toggle"),
+        _accept=lambda _event: calls.append("accept"),
+        EndModal=lambda _result: calls.append("close"),
+    )
+
+    class Key:
+        def __init__(self, code: int) -> None:
+            self.code = code
+
+        def AltDown(self) -> bool: return False
+        def ControlDown(self) -> bool: return False
+        def ShiftDown(self) -> bool: return False
+        def GetKeyCode(self) -> int: return self.code
+        def Skip(self) -> None: calls.append("skip")
+
+    SessionSelectionDialog._on_key(dialog, Key(wx.WXK_SPACE))
+    SessionSelectionDialog._on_key(dialog, Key(wx.WXK_RETURN))
+    assert calls == ["toggle", "accept"]
+
+
+def test_manager_can_toggle_and_accept_heos_after_ten_active_sessions() -> None:
+    import wx
+
+    from amc_wx_lite import session_order
+
+    order = [session.value for session in SessionId if session is not SessionId.HEOS]
+    result: list[int] = []
+    messages: list[str] = []
+    session_list = _Control()
+    dialog = SimpleNamespace(
+        selected_session=SessionId.HEOS,
+        _order=session_order.normalize(order),
+        _toggle_session=lambda selected: session_order.enable(selected, order),
+        _refresh_rows=lambda _selected: None,
+        _say=messages.append,
+        session_list=session_list,
+        EndModal=result.append,
+    )
+
+    SessionSelectionDialog._toggle(dialog, None)
+    SessionSelectionDialog._accept(dialog, None)
+
+    assert dialog._order[-1] is SessionId.HEOS
+    assert "Włączono sesję HEOS" in messages[0]
+    assert session_list.focused is True
+    assert result == [wx.ID_OK]
 
 
 def test_manager_separates_session_settings_from_source_configuration() -> None:

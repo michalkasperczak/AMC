@@ -108,6 +108,14 @@ def test_session_order_round_trip_is_normalized_without_exposing_labels() -> Non
     assert "Sonos" not in raw["options"]["session_order"]
 
 
+def test_all_eleven_sessions_survive_state_round_trip() -> None:
+    store, _ = temp_store()
+    all_sessions = [session.value for session in SessionId]
+    store.save(LiteState(options=Options(session_order=all_sessions)))
+
+    assert store.load().options.session_order == all_sessions
+
+
 def test_legacy_last_used_rate_does_not_become_the_default_of_every_session() -> None:
     # Przed 6ce2241 ``rate`` było ostatnio użytą prędkością (np. 2x podcastu)
     # i bez migracji radio na żywo startowało z 2x.
@@ -139,7 +147,9 @@ def test_legacy_state_migration_preserves_order_and_does_not_disable_services() 
     loaded = store.load()
 
     assert loaded.options.session_order[:2] == ["sonos", "radio"]
-    assert set(loaded.options.session_order) == set(item.value for item in SessionId)
+    assert set(loaded.options.session_order) == {
+        item.value for item in SessionId if item is not SessionId.HEOS
+    }
     assert loaded.navigation["active_session"] == "sonos"
 
 

@@ -1,4 +1,4 @@
-name: AMC Test alpha.523 — HEOS build
+name: AMC Test alpha.524 — Session Manager build
 
 on:
   push:
@@ -33,7 +33,7 @@ jobs:
             throw 'Nieoczekiwana gałąź źródłowa.'
           }
           [xml]$props = Get-Content -LiteralPath 'Directory.Build.props' -Raw
-          if ([string]$props.Project.PropertyGroup.Version -cne '0.1.0-alpha.523') {
+          if ([string]$props.Project.PropertyGroup.Version -cne '0.1.0-alpha.524') {
             throw 'Nieoczekiwana wersja źródeł.'
           }
           if (@(git status --porcelain=v1 --untracked-files=no).Count -ne 0) {
@@ -159,13 +159,13 @@ jobs:
             throw 'Etykieta wersji nie zgadza się z polskim czasem utworzenia paczki.'
           }
 
-      - name: Skompiluj i sprawdź instalator alpha.523
+      - name: Skompiluj i sprawdź instalator alpha.524
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           & .\wxlite\tools\Build-AMCInstaller.ps1 -Profile test `
             -BundleRoot (Join-Path $env:RUNNER_TEMP 'amc-heos-bundle') `
-            -Version '0.1.0-alpha.523' `
+            -Version '0.1.0-alpha.524' `
             -OutputDirectory (Join-Path $env:RUNNER_TEMP 'amc-heos-installer') `
             -NvdaAddonPath $env:AMC_QAS_ADDON `
             -AmcNvdaAddonPath $env:AMC_NVDA_ADDON -IsccPath $env:AMC_ISCC
@@ -183,7 +183,7 @@ jobs:
       - name: Zachowaj instalator do odbioru
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: amc-test-alpha523-heos-${{ github.sha }}
+          name: amc-test-alpha524-session-manager-${{ github.sha }}
           path: ${{ runner.temp }}/amc-heos-installer/
           if-no-files-found: error
           retention-days: 14

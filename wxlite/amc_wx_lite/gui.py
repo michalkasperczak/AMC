@@ -12086,10 +12086,7 @@ class LiteFrame(wx.Frame):
                 if item.GetItemLabel() != native_label:
                     item.SetItemLabel(native_label)
             enabled = True
-            if entry.action is Action.SESSION_ENABLE and (
-                not inactive_sessions
-                or len(active_sessions) >= session_order.MAX_ACTIVE_SESSIONS
-            ):
+            if entry.action is Action.SESSION_ENABLE and not inactive_sessions:
                 enabled = False
             if entry.action is Action.SESSION_DISABLE_CURRENT and (
                 len(active_sessions) <= 1
@@ -23653,9 +23650,10 @@ class LiteFrame(wx.Frame):
             self._transient_preview_return = None
             self._switch_session(new_current)
             slot = session_order.slot_for_session(new_current, changed)
+            shortcut = session_order.shortcut_for_slot(slot or 0)
             message += (
                 f". Aktywna sesja: {session_order.session_name(new_current)}, "
-                f"{session_order.shortcut_for_slot(slot or 0)}"
+                f"{shortcut if shortcut is not None else 'bez skrótu numerycznego'}"
             )
         return changed, message
 
@@ -41595,6 +41593,7 @@ class LiteFrame(wx.Frame):
                 session_order.normalize(self.options.session_order),
                 start=1,
             )
+            if session_order.shortcut_for_slot(slot) is not None
         })
         lines = [
             f"{chord}\t{label}"

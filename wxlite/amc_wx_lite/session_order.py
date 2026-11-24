@@ -23,12 +23,17 @@ DEFAULT_SESSION_ORDER: tuple[SessionId, ...] = (
     SessionId.RADIO,
     SessionId.PODCASTS,
 )
-LEGACY_SESSION_ORDER: tuple[SessionId, ...] = tuple(SessionId)
+LEGACY_SESSION_ORDER: tuple[SessionId, ...] = (
+    SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS, SessionId.TIDAL,
+    SessionId.WIIM, SessionId.SONOS, SessionId.SPOTIFY,
+    SessionId.FRONTIER_SMART, SessionId.RADIOARCHIWISTA,
+    SessionId.APPLE_MUSIC,
+)
 AVAILABLE_TEST_SESSIONS: tuple[SessionId, ...] = tuple(SessionId)
-# Dziesiąta pozycja używa Ctrl+0. Pozwala to zachować zwarte Ctrl+1–9 dla
-# pierwszych dziewięciu sesji i nie wyrzucać Apple Music z profilu, który miał
-# już włączone wszystkie wcześniejsze usługi.
-MAX_ACTIVE_SESSIONS = 10
+# Numerowane skróty obejmują dziesięć pierwszych sesji. Kolejne wybiera się
+# w Menedżerze sesji albo przez Ctrl+Page Up/Down. Nowe sesje nie włączają się
+# automatycznie podczas migracji historycznego profilu.
+MAX_NUMBERED_SESSIONS = 10
 
 SESSION_ACTIONS: dict[SessionId, Action] = {
     SessionId.FILES: Action.SESSION_FILES,
@@ -124,7 +129,7 @@ def normalize(raw: object) -> tuple[SessionId, ...]:
 
     if not result:
         result.extend(session for session in DEFAULT_SESSION_ORDER if session in allowed)
-    return tuple(result[:MAX_ACTIVE_SESSIONS])
+    return tuple(result)
 
 
 def migrate_legacy(raw: object) -> tuple[SessionId, ...]:
@@ -136,7 +141,7 @@ def migrate_legacy(raw: object) -> tuple[SessionId, ...]:
         for session in LEGACY_SESSION_ORDER
         if session in available_sessions() and session not in migrated
     )
-    return tuple(migrated[:MAX_ACTIVE_SESSIONS])
+    return tuple(migrated)
 
 
 def values(raw: object) -> list[str]:
@@ -150,7 +155,7 @@ def shortcut_for_slot(slot: int) -> str | None:
 
     if 1 <= slot <= 9:
         return f"Ctrl+{slot}"
-    if slot == 10:
+    if slot == MAX_NUMBERED_SESSIONS:
         return "Ctrl+0"
     return None
 
@@ -203,7 +208,7 @@ def adjacent(current: SessionId, direction: int, raw: object) -> SessionId:
 
 
 def enable(session: SessionId, raw: object) -> tuple[tuple[SessionId, ...], str]:
-    """Dopisz sesję na końcu bez naruszania limitu dziesięciu."""
+    """Dopisz sesję na końcu; tylko pierwsze dziesięć ma skrót numeryczny."""
 
     ordered = list(normalize(raw))
     if session not in available_sessions():
@@ -216,16 +221,15 @@ def enable(session: SessionId, raw: object) -> tuple[tuple[SessionId, ...], str]
             f"{SESSION_NAMES[session]} jest już włączona",
             f"{session_name(session)} is already enabled",
         )
-    if len(ordered) >= MAX_ACTIVE_SESSIONS:
-        return (
-            tuple(ordered),
-            _message(
-                "Można włączyć najwyżej dziesięć sesji. Najpierw wyłącz jedną z nich",
-                "At most ten sessions can be enabled. Disable one first",
-            ),
-        )
     ordered.append(session)
     shortcut = shortcut_for_slot(len(ordered))
+    if shortcut is None:
+        return tuple(ordered), _message(
+            f"Włączono sesję {SESSION_NAMES[session]}, bez skrótu numerycznego. "
+            "Wybierz ją Enterem w Menedżerze sesji",
+            f"Enabled {session_name(session)}, no number shortcut. "
+            "Choose it with Enter in Session Manager",
+        )
     return tuple(ordered), _message(
         f"Włączono sesję {SESSION_NAMES[session]}, {shortcut}",
         f"Enabled {session_name(session)}, {shortcut}",
@@ -292,9 +296,14 @@ def move(
             "The session is already at the edge of the list",
         )
     ordered[index], ordered[target] = ordered[target], ordered[index]
+    shortcut = shortcut_for_slot(target + 1)
     return (
         tuple(ordered),
-        f"{session_name(session)}, {shortcut_for_slot(target + 1)}",
+        f"{session_name(session)}, {shortcut}"
+        if shortcut is not None else _message(
+            f"{SESSION_NAMES[session]}, bez skrótu numerycznego",
+            f"{session_name(session)}, no number shortcut",
+        ),
     )
 
 
@@ -313,11 +322,16 @@ def manager_labels(
     result: list[tuple[SessionId, str]] = []
     for slot, session in enumerate(active, start=1):
         status = ready.get(session, _message("Wymaga konfiguracji", "Needs configuration"))
+        shortcut = shortcut_for_slot(slot)
         result.append((
             session,
             _message(
-                f"{shortcut_for_slot(slot)}, {SESSION_NAMES[session]}, włączona, {status.casefold()}",
-                f"{shortcut_for_slot(slot)}, {session_name(session)}, enabled, {status.casefold()}",
+                f"{shortcut}, {SESSION_NAMES[session]}, włączona, {status.casefold()}"
+                if shortcut else
+                f"{SESSION_NAMES[session]}, włączona, bez skrótu numerycznego, {status.casefold()}",
+                f"{shortcut}, {session_name(session)}, enabled, {status.casefold()}"
+                if shortcut else
+                f"{session_name(session)}, enabled, no number shortcut, {status.casefold()}",
             ),
         ))
     for session in inactive:
@@ -335,5 +349,9 @@ def manager_labels(
 def selection_labels(raw: object) -> tuple[str, ...]:
     return tuple(
         f"{shortcut_for_slot(slot)}, {session_name(session)}"
+        if shortcut_for_slot(slot) else _message(
+            f"{SESSION_NAMES[session]}, bez skrótu numerycznego",
+            f"{session_name(session)}, no number shortcut",
+        )
         for slot, session in enumerate(normalize(raw), start=1)
     )
