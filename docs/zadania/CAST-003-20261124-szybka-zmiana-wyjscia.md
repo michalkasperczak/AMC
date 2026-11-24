@@ -29,7 +29,7 @@ Wstępna rekomendacja do przyszłego projektu: jeśli AirPlay stanie się pojedy
 - `test_network_audio_sessions.py` w osobnym procesie z rzeczywistym ukrytym wx: **39 passed**. Wybrany cel Cast i Mirror jest czytelny po ponownym otwarciu; to nie jest odbiór NVDA.
 - Cztery celowane testy `test_i18n.py` polskiego/angielskiego katalogu, menu/palety/pomocy i szablonu: **4 passed**. `py_compile` zmienionych modułów: zaliczone.
 - Pierwszy przebieg poleceń wykrył kolizję liter dostępu menu, a drugi kolejną kolizję w TIDAL/Podcastach. Litery poprawiono i test kolizji przeszedł we wszystkich sesjach. Nie ukrywamy tych etapów; wynikiem końcowym jest 116 zaliczonych testów.
-- Zestawy częściowo się nakładają. Nie wykonywano fizycznego przełączenia na odbiornik Cast ani odsłuchu z NVDA; nie zbudowano ani nie wydano instalatora. Wersja użytkowa pozostaje alpha.525. Commit: do uzupełnienia po zapisaniu gałęzi.
+- Zestawy częściowo się nakładają. Nie wykonywano fizycznego przełączenia na odbiornik Cast ani odsłuchu z NVDA; nie zbudowano ani nie wydano instalatora. Wersja użytkowa pozostaje alpha.525. Commit źródeł: `cba4802893038a2e1265ef4d00028a1f9cf5ceae` na gałęzi `codex/heos-next-test-20261123`.
 
 ## Materiał do instrukcji i listy zmian — szkic
 
