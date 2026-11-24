@@ -1,5 +1,7 @@
 # PLAY-004 — lista aktywnego odtwarzania
 
+**Korekta statusu 25.11.2026:** funkcja trafiła do wydania GitHub alpha.526 i jest zainstalowana w alpha.527. Poniższy stan „bez wydania i instalacji” opisuje wcześniejszy etap źródłowy. Sprzętowy odbiór NVDA i zdalnych urządzeń pozostaje otwarty. [Dowody instalacji alpha.527](RELEASE-ALPHA527-20261125.md).
+
 **Zgłoszenie Michała, 24.11.2026; doprecyzowanie, 25.11.2026. Stan:** kod w gałęzi następnego AMC Test; bez nowego wydania i instalacji. Decyzja z 24.11 zastępuje dawny alias `Shift+F6` do odtwarzacza na liście i powrót z odtwarzacza. Doprecyzowanie z 25.11 dodaje Spację na wskazanym wierszu; pomysł przełączania dodatkowego odsłuchu komputerowego pozostaje do projektu. Zwykły `F6` nadal przechodzi między listą a odtwarzaczem bieżącej sesji; Escape w odtwarzaczu wraca na listę tej sesji.
 
 ## Materiał do dokumentacji użytkownika

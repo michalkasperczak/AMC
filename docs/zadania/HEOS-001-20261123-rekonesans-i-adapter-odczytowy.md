@@ -1,5 +1,7 @@
 # HEOS-001 — rozpoznanie urządzenia HEOS 200 i adapter odczytowy
 
+**Korekta statusu 25.11.2026:** poprawiona trasa Ulubionych i presety HEOS zostały wydane w alpha.526 i zainstalowane wraz z alpha.527. Poniższe opisy alpha.525 i etapów źródłowych są historyczne. Nowego `play_preset` nie sprawdzono jeszcze na fizycznym głośniku, a odbiór NVDA Ulubionych pozostaje otwarty. [Wydanie i instalacja alpha.527](RELEASE-ALPHA527-20261125.md).
+
 **Status 24.11.2026: AMC Test alpha.525 z poprawkami HEOS i skrótów sesji jest opublikowanym wydaniem GitHub, widocznym w aktualizatorze zainstalowanej alpha.524. Instalacji alpha.525, sterowania głośnikiem ani odbioru NVDA nie wykonywano. Wcześniejsze sekcje opisują etapy historyczne; stan bieżący znajduje się na końcu raportu.**
 
 ## Cel i zakres

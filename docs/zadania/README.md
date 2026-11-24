@@ -1,8 +1,10 @@
 # Rejestr zadań AMC
 
-**SCHED-004 (25.11.2026): komunikat zapisu planu po powrocie fokusu, przygotowany do AMC Test alpha.527.** Ustawienie kolejności tytułu materiału i nazwy aplikacji już istnieje; zachowano wybór użytkownika. Po Enter wynik zapisu ma być wypowiedziany po przywróceniu fokusu listy harmonogramów. 142 testy celowane przeszły; fizyczny odbiór NVDA i kolejne wydanie są osobnymi etapami. [Zgłoszenie, przyczyna i kontrakt](SCHED-004-20261125-komunikat-po-zapisie-planu.md).
+**SCHED-004 / AMC Test alpha.527 (25.11.2026): wydane na GitHub, zainstalowane i uruchomione.** Wynik zapisu planu ma być wypowiedziany po przywróceniu fokusu listy harmonogramów. 142 testy celowane, kompilacja GitHub, SHA-256 wydania, 3658 plików instalacji i jedna instancja nowej wersji potwierdzone; rzeczywisty odbiór NVDA po Enter nadal otwarty. Konfigurowalny układ tytułu okna zachowano. [Zgłoszenie i przyczyna](SCHED-004-20261125-komunikat-po-zapisie-planu.md); [dowody wydania](RELEASE-ALPHA527-20261125.md).
 
-**AMC Test alpha.526 (25.11.2026): wydanie GitHub opublikowane, instalacja lokalna nie została wykonana.** GitHub Actions zbudował instalator ze źródeł `c3cd2952`; zdalne zasoby i SHA-256 są zgodne. Wersja zawiera HEOS, Cast/AirPlay i listę `Shift+F6` ze Spacją. Alpha.527 ma dodać poprawkę komunikatu harmonogramu; nadal zainstalowana jest alpha.525. [Lista źródeł](NEXT-TEST-20261124-instrukcja-i-lista-zmian-szkic.md).
+**AMC Test alpha.526 (25.11.2026): historyczne wydanie GitHub, pominięte w instalacji lokalnej na rzecz alpha.527.** GitHub Actions zbudował instalator ze źródeł `c3cd2952`; zdalne zasoby i SHA-256 są zgodne. Wersja zawiera HEOS, Cast/AirPlay i listę `Shift+F6` ze Spacją. [Lista źródeł](NEXT-TEST-20261124-instrukcja-i-lista-zmian-szkic.md).
+
+**Korekta 25.11.2026:** starsze wpisy poniżej, które opisują HEOS, CAST-004, PLAY-004 lub zwykłą kolejkę Radia jako niewydane, dokumentują etap sprzed alpha.527; bieżący stan jest w [zapisie wydania](RELEASE-ALPHA527-20261125.md).
 
 **CAST-002 / alpha.522 (24.11.2026): spójne Test i Public wydane; Test automatycznie zainstalowany i uruchomiony.** Zachowano alpha.520 oraz Cast/AirPlay. Gotowe funkcje nagrań wspólne, Apple Music tylko w Test. GitHub, oba instalatory i SHA-256, pełna integralność instalacji Test oraz jedna instancja potwierdzone. Odsłuch nowych wariantów i NVDA pozostają otwarte. [Wyniki i baza następnych wydań](RELEASE-ALPHA522-20261124-Cast-instalacja.md).
 

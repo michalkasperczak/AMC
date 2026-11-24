@@ -2,6 +2,8 @@
 
 Ten tekst wynika z kart HEOS-001, AM-003 i CAST-002. Jest szkicem do korekty Michała. Nie opisuje zainstalowanej alpha.525 i nie jest opublikowaną listą zmian.
 
+**Korekta statusu 25.11.2026:** zakres źródeł poniżej został wydany w alpha.526, a następnie wraz z poprawką SCHED-004 zainstalowany w AMC Test alpha.527. Wszelkie dalsze stwierdzenia w tym szkicu o braku wydania lub instalacji opisują etap historyczny, zastąpiony [zapisem alpha.527](RELEASE-ALPHA527-20261125.md). Sam szkic instrukcji nadal czeka na korektę użytkownika.
+
 **Korekta 24.11.2026:** zatwierdzony zakres przyszłego `Shift+C` obejmuje także AirPlay jako pojedyncze główne wyjście, a skróty nawiasów mają przechodzić po tej wspólnej liście. Główna trasa AirPlay jest już w źródłach, bez wydania i próby sprzętowej. To zastępuje wcześniejsze sformułowania o nierozstrzygniętym miejscu i niewdrożonej trasie AirPlay. Szczegóły: [CAST-004](CAST-004-20261124-glowne-wyjscia-bezprzewodowe.md).
 
 **Następny stan źródeł, 24.11.2026:** główna trasa AirPlay została dodana w gałęzi następnego Test, lecz nie została jeszcze wydana ani sprawdzona na głośniku. Poniższy szkic instrukcji opisuje planowane wspólne wydanie, nie zainstalowaną alpha.525. [Wyniki i granice CAST-004](CAST-004-20261124-glowne-wyjscia-bezprzewodowe.md).

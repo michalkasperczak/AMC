@@ -1,5 +1,7 @@
 # CAST-004 — główne wyjścia bezprzewodowe Cast i AirPlay
 
+**Korekta statusu 25.11.2026:** źródła CAST-004 zostały wydane w alpha.526 i zainstalowane wraz z alpha.527. Wcześniejsze stwierdzenia o braku instalacji są historyczne; odsłuch prawdziwego AirPlay i odbiór NVDA nadal nie są potwierdzone. [Dowody wydania i instalacji](RELEASE-ALPHA527-20261125.md).
+
 **Decyzja Michała, 24.11.2026. Stan 24.11.2026:** kontrakt zatwierdzony i wdrożony w źródłach gałęzi następnego AMC Test; testy kodu i odizolowanego hosta zaliczone. Nie ma instalacji ani wydania GitHub tej zmiany. Odsłuch na prawdziwym AirPlay i odbiór NVDA są otwarte; zainstalowana alpha.525 nie zawiera tego przyrostu.
 
 ## Decyzja zastępująca wcześniejsze warianty

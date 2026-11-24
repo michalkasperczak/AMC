@@ -20,4 +20,4 @@ Celowane testy harmonogramów, dostępnego regionu, ustawień, aktualizatora i t
 
 ## Wersja i etapy
 
-Źródła przygotowywane do AMC Test `0.1.0-alpha.527`. Commit, kompilacja GitHub, instalator, publikacja wydania i aktualizacja zainstalowanej alpha.525 wymagają osobnego potwierdzenia. Alpha.526 jest opublikowana na GitHub, lecz nie została zainstalowana i nie zawiera tej poprawki.
+Poprawkę zawiera źródłowy commit `853504bcdcbbbbc9c31b1d93879900235f6f0263` w AMC Test `0.1.0-alpha.527`. Kompilacja GitHub, instalator, wydanie i lokalna aktualizacja zostały potwierdzone osobno w [zapisie wydania alpha.527](RELEASE-ALPHA527-20261125.md). Alpha.526 była opublikowana na GitHub, lecz nie została lokalnie zainstalowana i nie zawiera tej poprawki.

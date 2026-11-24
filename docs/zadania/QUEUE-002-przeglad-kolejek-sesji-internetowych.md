@@ -1,5 +1,7 @@
 # QUEUE-002 — kolejki AMC Test i Public
 
+**Korekta statusu 25.11.2026:** ukrycie polecenia kolejki w zwykłym Radiu zostało wydane w Test alpha.526 i jest zainstalowane w alpha.527. Poniższe etapy źródłowe pozostają zapisem historycznym. Wspólna opcjonalna kolejka z QUEUE-003 nie jest wdrożona. [Dowody wydania alpha.527](RELEASE-ALPHA527-20261125.md).
+
 Stan: 14.11.2026. Test i Public alpha.504 wydane oraz zainstalowane;
 odbiór własnym odsłuchem NVDA i kont internetowych pozostaje otwarty.
 Użytkownik zlecił przegląd aktywnego AMC Test wxPython,
