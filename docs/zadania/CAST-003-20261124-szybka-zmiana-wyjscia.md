@@ -2,6 +2,8 @@
 
 **Status 24.11.2026:** poprawka źródłowa na gałęzi następnego AMC Test; bez nowego buildu, instalacji i wydania GitHub. Odbiór fizycznej klawiatury i NVDA pozostaje otwarty.
 
+**Późniejsza korekta 24.11.2026:** Michał wybrał `Shift+C` dla głównych wyjść Google Cast **i AirPlay** oraz tę samą wspólną listę dla `Ctrl+Shift+[` / `Ctrl+Shift+]`. `Shift+A` dotyczy wyjść Windows, `Shift+M` dwóch równoczesnych wyjść. Zastępuje to poniższe nierozstrzygnięte warianty miejsca AirPlay, ale nie zmienia faktu, że kod opisany w tej karcie realizuje dotąd tylko główny Cast. Zakres nowej decyzji i warunki wdrożenia: [CAST-004](CAST-004-20261124-glowne-wyjscia-bezprzewodowe.md).
+
 ## Zlecenie i korekta użytkownika
 
 Michał zlecił dalsze poprawki `Shift+C` i proponowanych skrótów nawiasów. Doprecyzował, że Mirror oznacza jednoczesny odsłuch na dwóch wyjściach, podczas gdy podstawowy wybór AirPlay mógłby przełączać dźwięk na jedno inne urządzenie. **Ta korekta z 24.11.2026 zastępuje przejściowy wniosek wykonawcy, że AirPlay powinien docelowo pozostać w Mirror.** Obecny kod AirPlay w AMC jest wyłącznie dodatkowym wyjściem; decyzja o osobnym głównym wyjściu AirPlay i jego miejscu w interfejsie nie zapadła. `Ctrl+Alt+Shift+[` i `Ctrl+Alt+Shift+]` pozostają propozycją bez przypisania.

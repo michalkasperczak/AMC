@@ -22,6 +22,8 @@ Apple Music, oba profile bez HEOS. [Zapis wydania](RELEASE-ALPHA518-20261123.md)
 
 **CAST-003 (24.11.2026): szybkie przełączanie głównego wyjścia Cast gotowe w źródłach, bez wydania.** `Ctrl+Shift+[` i `Ctrl+Shift+]` przechodzą między komputerem i dostępnymi odbiornikami, wypowiadając wybrany cel; lista `Shift+M` oznacza wybrany dodatkowy odsłuch. Mirror ma oznaczać dwa wyjścia równocześnie. Główne AirPlay i wariant z Alt pozostają do decyzji. [Zadanie i testy](CAST-003-20261124-szybka-zmiana-wyjscia.md).
 
+**CAST-004 (24.11.2026): kontrakt głównego AirPlay zatwierdzony, implementacja otwarta.** `Shift+C` ma wybierać komputer, Cast lub AirPlay jako jedno główne wyjście; `Ctrl+Shift+[` / `Ctrl+Shift+]` mają używać tej samej listy i mówić cel. `Shift+A` pozostaje dla urządzeń Windows, `Shift+M` dla dublowania. Ta decyzja zastępuje nierozstrzygnięte warianty z CAST-002/003. Obecny router AirPlay nadal obsługuje tylko dodatkowy odsłuch; nie przeniesiono go pozornie na listę główną. [Kontrakt i stan](CAST-004-20261124-glowne-wyjscia-bezprzewodowe.md).
+
 **QUEUE-003 (24.11.2026): osobne zadanie projektowe, bez implementacji.** Opcja wspólnej kolejki dla obsługiwanych plików, podcastów i innych materiałów, z zachowaniem osobnych kolejek jako dotychczasowego trybu. Zwykłe Radio na żywo nie należy do kolejki. [Kontrakt i następny krok](QUEUE-003-20261124-wspolna-kolejka.md).
 
 **Jedna aktywna gałąź i przekazanie 22.11.2026:** [bieżący stan oraz kolejność pracy](AMC-HANDOFF-20261122-jedna-galaz.md).

@@ -2,6 +2,8 @@
 
 Ten tekst wynika z kart HEOS-001, AM-003 i CAST-002. Jest szkicem do korekty Michała. Nie opisuje zainstalowanej alpha.525 i nie jest opublikowaną listą zmian.
 
+**Korekta 24.11.2026:** zatwierdzony zakres przyszłego `Shift+C` obejmuje także AirPlay jako pojedyncze główne wyjście, a skróty nawiasów mają przechodzić po tej wspólnej liście. To zastępuje poniższe sformułowania o nierozstrzygniętym miejscu AirPlay. Implementacja AirPlay jako głównej trasy pozostaje otwarta; opis bieżącego kodu Cast w dalszej części jest nadal aktualny. Szczegóły: [CAST-004](CAST-004-20261124-glowne-wyjscia-bezprzewodowe.md).
+
 ## Instrukcja użytkownika — szkic
 
 - W sesji HEOS `Ctrl+L` otwiera katalog. Na liście Ulubionych Enter ma uruchamiać wybraną stację na wybranym głośniku; AMC używa do tego funkcji Ulubionych urządzenia. `Ctrl+Alt+Shift+P` przypisuje wybraną stację do presetu AMC, a `Ctrl+Shift+1` do `Ctrl+Shift+=` uruchamia zapisane miejsca 1–12. Po przestawieniu Ulubionych preset ma nadal wskazywać tę samą stację; gdy stacja zniknie, program poda jej brak.
