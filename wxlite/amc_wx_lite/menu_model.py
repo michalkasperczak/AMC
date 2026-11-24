@@ -2128,6 +2128,20 @@ def build_menus(
                 visible_sessions=NETWORK_AUDIO_SOURCES,
             ),
             MenuItem(
+                command_presentation(Action.PREVIOUS_CAST_OUTPUT).menu_label,
+                Action.PREVIOUS_CAST_OUTPUT,
+                shortcut=command_presentation(Action.PREVIOUS_CAST_OUTPUT).shortcut,
+                accelerator=False,
+                visible_sessions=NETWORK_AUDIO_SOURCES,
+            ),
+            MenuItem(
+                command_presentation(Action.NEXT_CAST_OUTPUT).menu_label,
+                Action.NEXT_CAST_OUTPUT,
+                shortcut=command_presentation(Action.NEXT_CAST_OUTPUT).shortcut,
+                accelerator=False,
+                visible_sessions=NETWORK_AUDIO_SOURCES,
+            ),
+            MenuItem(
                 command_presentation(Action.MIRROR_SESSION).menu_label,
                 Action.MIRROR_SESSION,
                 shortcut=command_presentation(Action.MIRROR_SESSION).shortcut,

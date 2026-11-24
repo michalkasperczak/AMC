@@ -84,6 +84,7 @@ from .collation import HostCollation
 from .cast_dialog import CastDeviceDialog
 from .mirror_dialog import MirrorDeviceDialog
 from .cast_session import CAST_SESSIONS, cast_action_available, cast_session_available
+from .network_output_cycle import adjacent_target_id
 from .cast_protocol import CastError
 from .command_palette import (
     CommandPaletteEntry,
@@ -1354,6 +1355,10 @@ def chord_from_event(event: wx.KeyEvent) -> Chord:
             # Ctrl potrafi zamienić kod znakowy OEM na znak sterujący;
             # fizyczne klawisze minus i równość pozostają jednoznaczne.
             name = "-" if raw_code == 0xBD else "="
+        elif raw_code in (0xDB, 0xDD) and ctrl and shift:
+            # Shift can turn the bracket key into a brace before CHAR_HOOK.
+            # Keep the physical bracket for Cast/Mirror direction shortcuts.
+            name = "[" if raw_code == 0xDB else "]"
         elif raw_code == 0x49 and ctrl and not alt:
             # Ctrl+I is ASCII TAB (9). MSW can expose that control character
             # through CHAR_HOOK instead of the physical I key. Keep the two
@@ -12540,7 +12545,10 @@ class LiteFrame(wx.Frame):
                 if not cast_action_available(entry.action, True, self.navigator.active.value,
                         self.navigator.session.library_view in (LibraryView.SAVED_QUEUE, LibraryView.LIVE_QUEUE)):
                     enabled = False
-            if entry.action in (Action.CAST_SESSION, Action.MIRROR_SESSION) and not self._action_available_in_active_session(entry.action):
+            if entry.action in (
+                Action.CAST_SESSION, Action.MIRROR_SESSION,
+                Action.PREVIOUS_CAST_OUTPUT, Action.NEXT_CAST_OUTPUT,
+            ) and not self._action_available_in_active_session(entry.action):
                 enabled = False
             if (entry.action in YOUTUBE_AUDIO_HOST_ONLY_ACTIONS
                     and getattr(self, "_youtube_playback_active", lambda: False)()):
@@ -18419,13 +18427,18 @@ class LiteFrame(wx.Frame):
         ):
             self.announcer.say("Usuwanie nie jest dostępne w tym widoku")
             return
-        if (action in (Action.CAST_SESSION, Action.MIRROR_SESSION) or (
+        if (action in (
+            Action.CAST_SESSION, Action.MIRROR_SESSION,
+            Action.PREVIOUS_CAST_OUTPUT, Action.NEXT_CAST_OUTPUT,
+        ) or (
             getattr(self, "client", None) is not None and getattr(self.client, "cast_active", lambda _: False)(
                 self.navigator.active.value)
         )) and not self._action_available_in_active_session(action):
             self.announcer.say(i18n.tr(
-                "cast.unavailable" if action is Action.CAST_SESSION else
-                "mirror.unavailable" if action is Action.MIRROR_SESSION else "cast.unsupported"))
+                "cast.unavailable" if action in {
+                    Action.CAST_SESSION, Action.PREVIOUS_CAST_OUTPUT, Action.NEXT_CAST_OUTPUT
+                } else "mirror.unavailable" if action is Action.MIRROR_SESSION
+                else "cast.unsupported"))
             return
         if (
             action in TRANSIENT_PREVIEW_ACTIONS
@@ -18648,6 +18661,10 @@ class LiteFrame(wx.Frame):
             self._choose_cast_output()
         elif action is Action.MIRROR_SESSION:
             self._choose_cast_mirror()
+        elif action is Action.PREVIOUS_CAST_OUTPUT:
+            self._cycle_cast_output(-1)
+        elif action is Action.NEXT_CAST_OUTPUT:
+            self._cycle_cast_output(1)
         elif action is Action.PREVIOUS_AUDIO_OUTPUT:
             self._cycle_audio_output(-1)
         elif action is Action.NEXT_AUDIO_OUTPUT:
@@ -35783,6 +35800,9 @@ class LiteFrame(wx.Frame):
         ))
 
     def _choose_cast_output(self, *, refresh: bool = False) -> None:
+        if getattr(self, "_network_output_cycle_pending", False):
+            self.announcer.say(i18n.tr("networkOutput.busy"))
+            return
         client = self.client
         session = self.navigator.active
         if client is None or session.value not in CAST_SESSIONS:
@@ -35835,6 +35855,9 @@ class LiteFrame(wx.Frame):
         self.runner.submit("cast-list", lambda: client.cast_devices(refresh=refresh), prepared, failed)
 
     def _choose_cast_mirror(self, *, refresh: bool = False) -> None:
+        if getattr(self, "_network_output_cycle_pending", False):
+            self.announcer.say(i18n.tr("networkOutput.busy"))
+            return
         client = self.client
         session = self.navigator.active
         if client is None or session.value not in CAST_SESSIONS:
@@ -35906,6 +35929,78 @@ class LiteFrame(wx.Frame):
             lambda: client.mirror_target_snapshot(session.value, primary_id, refresh=refresh),
             prepared, failed,
         )
+
+    def _cycle_cast_output(self, direction: int) -> None:
+        """Cycle the same primary outputs shown by Shift+C."""
+        if direction not in {-1, 1}:
+            raise ValueError("Nieprawidłowy kierunek zmiany wyjścia.")
+        action = Action.PREVIOUS_CAST_OUTPUT if direction < 0 else Action.NEXT_CAST_OUTPUT
+        if not self._action_available_in_active_session(action):
+            self.announcer.say(i18n.tr("cast.unavailable"))
+            return
+        if getattr(self, "_network_output_cycle_pending", False):
+            self.announcer.say(i18n.tr("networkOutput.busy"))
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie jest gotowy")
+            return
+        session = self.navigator.active
+        self._network_output_cycle_pending = True
+        request = getattr(self, "_network_output_request", 0) + 1
+        self._network_output_request = request
+
+        def is_current() -> bool:
+            return (self._window_alive() and self.navigator.active is session
+                    and self._network_output_request == request)
+
+        def release() -> None:
+            self._network_output_cycle_pending = False
+
+        def failed(error: Exception) -> None:
+            release()
+            if is_current():
+                reason = str(error) if isinstance(error, (CastError, ValueError)) else i18n.tr("cast.error.timeout")
+                self.announcer.say(i18n.tr("cast.cycleFailed", error=reason))
+
+        def work():
+            devices = tuple(client.cast_devices())
+            selected = client.cast_selected_device_id(session.value)
+            return devices, selected
+
+        def prepared(snapshot) -> None:
+            if not is_current():
+                release()
+                return
+            devices, selected = snapshot
+            ids = (item.device_id for item in devices if item.available)
+            target_id = adjacent_target_id(ids, selected, direction)
+            if target_id == selected:
+                release()
+                self.announcer.say(i18n.tr("cast.noOther"))
+                return
+            choice = next((item for item in devices if item.device_id == target_id), None)
+            label = i18n.tr("cast.local") if choice is None else choice.label
+
+            def apply():
+                return client.select_cast(session.value, target_id)
+
+            def applied(payload: dict) -> None:
+                release()
+                if not is_current():
+                    return
+                self.announcer.say(i18n.tr(
+                    "cast.cycleSelected",
+                    name=label if target_id is None else str(payload.get("name") or label),
+                ))
+                self._refresh_status()
+                if payload.get("warning") and target_id is not None:
+                    self.announcer.say(str(payload["warning"]))
+                self._refresh_menu_state()
+
+            self.runner.submit("cast-cycle-select", apply, applied, failed)
+
+        self.runner.submit("cast-cycle-list", work, prepared, failed)
 
     def _choose_audio_output(self) -> None:
         """Shift+A: wybierz i zapamietaj wyjscie osobno dla jednej sesji."""
@@ -41597,7 +41692,10 @@ class LiteFrame(wx.Frame):
                     return False
             return (session_id in CAST_SESSIONS and not (client and
                 getattr(client, "cast_active", lambda _: False)(session_id)))
-        if action is Action.CAST_SESSION:
+        if action in {
+            Action.CAST_SESSION, Action.PREVIOUS_CAST_OUTPUT,
+            Action.NEXT_CAST_OUTPUT,
+        }:
             client = getattr(self, "client", None)
             status = getattr(self, "_transport_status_by_session", {}).get(self.navigator.active)
             source_available = bool(self.navigator.active is SessionId.TIDAL

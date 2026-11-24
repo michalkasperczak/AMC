@@ -11,9 +11,13 @@ class MirrorDeviceDialog(wx.Dialog):
         self._ids = [None] + [device.device_id for device in devices]
         panel = wx.Panel(self)
         label = wx.StaticText(panel, label=i18n.tr("mirror.devices"))
+        names = [i18n.tr("mirror.off")] + [device.label for device in devices]
         self.devices = wx.ListBox(
             panel,
-            choices=[i18n.tr("mirror.off")] + [device.label for device in devices],
+            choices=[
+                i18n.tr("mirror.selectedItem", name=name) if device_id == selected_id else name
+                for device_id, name in zip(self._ids, names)
+            ],
         )
         self.devices.SetName(i18n.tr("mirror.devices"))
         self.devices.SetSelection(self._ids.index(selected_id) if selected_id in self._ids else 0)

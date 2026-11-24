@@ -340,10 +340,13 @@ def test_gui_tidal_availability_distinguishes_native_flac_dash_and_external_play
     )
     available = lambda action: LiteFrame._action_available_in_active_session(frame, action)
     assert available(Action.CAST_SESSION) and available(Action.MIRROR_SESSION)
+    assert available(Action.PREVIOUS_CAST_OUTPUT) and available(Action.NEXT_CAST_OUTPUT)
     client._tidal_network_request = tidal_request(dash=True)
     assert not available(Action.CAST_SESSION) and available(Action.MIRROR_SESSION)
+    assert not available(Action.PREVIOUS_CAST_OUTPUT)
     frame._tidal_native_has_playback = False
     assert not available(Action.CAST_SESSION) and not available(Action.MIRROR_SESSION)
+    assert not available(Action.NEXT_CAST_OUTPUT)
     frame._tidal_native_has_playback = True
     frame._tidal_desktop_has_playback = True
     assert not available(Action.CAST_SESSION) and not available(Action.MIRROR_SESSION)
@@ -458,7 +461,7 @@ def test_actual_picker_labels_are_friendly_and_reopening_restores_airplay():
         for _ in range(2):
             with MirrorDeviceDialog(parent, "Radio Archiwista", choices, "airplay:private-id",
                                     information="Nie znaleziono pozostałych odbiorników.") as dialog:
-                assert dialog.devices.GetStringSelection() == "AirPlay: Gabinet"
+                assert dialog.devices.GetStringSelection() == "AirPlay: Gabinet, wybrane"
                 assert dialog.selected_device_id == "airplay:private-id"
                 assert "private" not in " ".join(dialog.devices.GetStrings())
                 assert not dialog.IsShown()

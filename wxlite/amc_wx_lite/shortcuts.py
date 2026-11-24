@@ -249,6 +249,8 @@ class Action(Enum):
     SELECT_AUDIO_OUTPUT = "audio.selectOutput"
     CAST_SESSION = "cast.session"
     MIRROR_SESSION = "audio.mirrorSession"
+    PREVIOUS_CAST_OUTPUT = "cast.previousOutput"
+    NEXT_CAST_OUTPUT = "cast.nextOutput"
     PREVIOUS_AUDIO_OUTPUT = "audio.previousOutput"
     NEXT_AUDIO_OUTPUT = "audio.nextOutput"
     PRESET_1 = "preset.1"
@@ -559,10 +561,24 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
     ),
     Action.MIRROR_SESSION: CommandPresentation(
         Action.MIRROR_SESSION,
-        "AirPlay i dodatkowe wyjście audio…",
-        "Wybierz dodatkowe wyjście lokalne, Google Cast albo AirPlay dla Plików, Radia, Podcastów, Radio Archiwisty lub natywnego TIDAL; dostępność zależy od strumienia, może być opóźnienie",
+        "Dublowanie dźwięku (Mirror)…",
+        "Wybierz dodatkowe wyjście lokalne, Google Cast albo AirPlay dla Plików, Radia, Podcastów, Radio Archiwisty lub natywnego TIDAL; lista oznacza wybrany cel, może być opóźnienie",
         "Shift+M",
-        "AirPlay i &dodatkowe wyjście audio…",
+        "Dublowanie dźwięku (&Mirror)…",
+    ),
+    Action.PREVIOUS_CAST_OUTPUT: CommandPresentation(
+        Action.PREVIOUS_CAST_OUTPUT,
+        "Poprzednie wyjście Google Cast",
+        "Przełącz bieżącą sesję na poprzedni dostępny odbiornik Google Cast albo komputer",
+        "Ctrl+Shift+[",
+        "Poprzednie &wyjście Google Cast",
+    ),
+    Action.NEXT_CAST_OUTPUT: CommandPresentation(
+        Action.NEXT_CAST_OUTPUT,
+        "Następne wyjście Google Cast",
+        "Przełącz bieżącą sesję na następny dostępny odbiornik Google Cast albo komputer",
+        "Ctrl+Shift+]",
+        "Następne wyjśc&ie Google Cast",
     ),
     Action.VIEW_RADIO_RECOGNITION_HISTORY: CommandPresentation(
         Action.VIEW_RADIO_RECOGNITION_HISTORY,
@@ -759,6 +775,7 @@ SESSION_INDEPENDENT_ACTIONS = frozenset({
 # wylacznie podczas natywnego odtwarzania w AMC Test (druga bramka ponizej).
 TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.CAST_SESSION, Action.MIRROR_SESSION,
+    Action.PREVIOUS_CAST_OUTPUT, Action.NEXT_CAST_OUTPUT,
     *SESSION_INDEPENDENT_ACTIONS,
     Action.SESSION_FILES,
     Action.SESSION_RADIO,
@@ -1450,6 +1467,7 @@ RADIOARCHIWISTA_SUPPORTED_ACTIONS = frozenset(
     })
     | {
         Action.CAST_SESSION, Action.MIRROR_SESSION,
+        Action.PREVIOUS_CAST_OUTPUT, Action.NEXT_CAST_OUTPUT,
         Action.SELECT_AUDIO_OUTPUT,
         Action.PREVIOUS_AUDIO_OUTPUT,
         Action.NEXT_AUDIO_OUTPUT,
@@ -1547,6 +1565,14 @@ class ShortcutDefinition:
     action: Action
     name: str
     default_shortcut: str
+
+
+NETWORK_AUDIO_SHORTCUTS: dict[str, Action] = {
+    "Shift+C": Action.CAST_SESSION,
+    "Shift+M": Action.MIRROR_SESSION,
+    "Ctrl+Shift+[": Action.PREVIOUS_CAST_OUTPUT,
+    "Ctrl+Shift+]": Action.NEXT_CAST_OUTPUT,
+}
 
 
 # Skroty dzialajace W WIDOKU LISTY. Strzalki NIE sa tu wpisane - naleza do
@@ -1666,8 +1692,7 @@ LIST_VIEW: dict[str, Action] = {
     "Ctrl+,": Action.GENERAL_SETTINGS,
     # Pelne AMC: Shift+A wybiera wyjscie audio osobno dla biezacej sesji.
     "Shift+A": Action.SELECT_AUDIO_OUTPUT,
-    "Shift+C": Action.CAST_SESSION,
-    "Shift+M": Action.MIRROR_SESSION,
+    **NETWORK_AUDIO_SHORTCUTS,
     # Szybka zmiana podczas odtwarzania, bez otwierania dialogu. Nawiasy sa
     # para kierunkowa i nie koliduja z istniejacymi skrótami transportu.
     "Ctrl+[": Action.PREVIOUS_AUDIO_OUTPUT,
@@ -1907,8 +1932,7 @@ PLAYER_VIEW: dict[str, Action] = {
     "Ctrl+Alt+Return": Action.SESSION_OPTIONS,
     "Ctrl+,": Action.GENERAL_SETTINGS,
     "Shift+A": Action.SELECT_AUDIO_OUTPUT,
-    "Shift+C": Action.CAST_SESSION,
-    "Shift+M": Action.MIRROR_SESSION,
+    **NETWORK_AUDIO_SHORTCUTS,
     "Ctrl+[": Action.PREVIOUS_AUDIO_OUTPUT,
     "Ctrl+]": Action.NEXT_AUDIO_OUTPUT,
     "Ctrl+Alt+P": Action.VIEW_PRESETS,
@@ -2503,8 +2527,8 @@ def _resolve_default(
         return MUSIC_CATEGORY_SHORTCUTS[canonical]
     if spotify_session and canonical in {"Shift+,", "Shift+.", "Ctrl+."}:
         return None
-    if canonical in {"Shift+C", "Shift+M"}:
-        action = Action.CAST_SESSION if canonical == "Shift+C" else Action.MIRROR_SESSION
+    if canonical in NETWORK_AUDIO_SHORTCUTS:
+        action = NETWORK_AUDIO_SHORTCUTS[canonical]
         return (action if not any((spotify_session,
                 apple_music_session, wiim_session, sonos_session, heos_session,
                 frontier_smart_session)) else None)
@@ -3114,6 +3138,8 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         ),
         Action.CAST_SESSION: _STATIC_COMMAND_PRESENTATIONS[Action.CAST_SESSION].description,
         Action.MIRROR_SESSION: _STATIC_COMMAND_PRESENTATIONS[Action.MIRROR_SESSION].description,
+        Action.PREVIOUS_CAST_OUTPUT: _STATIC_COMMAND_PRESENTATIONS[Action.PREVIOUS_CAST_OUTPUT].description,
+        Action.NEXT_CAST_OUTPUT: _STATIC_COMMAND_PRESENTATIONS[Action.NEXT_CAST_OUTPUT].description,
         Action.PREVIOUS_AUDIO_OUTPUT: (
             "Poprzednie dostępne urządzenie audio bieżącej sesji"
         ),
