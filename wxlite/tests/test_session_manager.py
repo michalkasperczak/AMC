@@ -129,7 +129,7 @@ def test_enabling_eleventh_session_persists_without_renumbering() -> None:
     assert frame.options.session_order == first_ten + ["heos"]
     assert frame.save_snapshots[-1][0] == first_ten + ["heos"]
     assert frame.menu_rebuilds == 1
-    assert "bez skrótu numerycznego" in message
+    assert message == "Włączono sesję HEOS, Ctrl+-"
     assert "None" not in message
 
 

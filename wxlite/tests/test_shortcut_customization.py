@@ -100,6 +100,12 @@ def test_conflicts_and_typing_keys_are_rejected_with_user_facing_text() -> None:
     )
     assert dynamic_session is not None
     assert dynamic_session[1] == "Przełączanie sesji"
+    assert shortcut_conflict(
+        Action.GENERAL_SETTINGS, "Ctrl+-", {}
+    )[1] == "Przełączanie jedenastej sesji"
+    assert shortcut_conflict(
+        Action.GENERAL_SETTINGS, "Ctrl+=", {}
+    )[1] == "Przełączanie dwunastej sesji"
     assert validate_custom_shortcut("A") is not None
     assert validate_custom_shortcut("Shift+A") is not None
     assert validate_custom_shortcut("Ctrl+TechnicalKey") is not None

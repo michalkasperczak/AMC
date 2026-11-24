@@ -59,7 +59,8 @@ ktore ma. Warstwa okna to:
     21555-21557 / 22348-22350  cyfra BEZ modyfikatora -> SeekPercent(digit*10)
     21454-21456  Ctrl+cyfra -> SessionSlot, a dawniej Ctrl+0 -> SessionList
       => w interfejsie Python Ctrl+1–9 wybiera pierwsze dziewięć aktywnych
-         sesji, Ctrl+0 dziesiątą, a listę otwiera jednoznaczne
+         sesji, Ctrl+0 dziesiątą, Ctrl+- jedenastą i Ctrl+= dwunastą;
+         listę otwiera jednoznaczne
          ``Ctrl+Shift+S``.
     21662  Ctrl+E -> ExportRadioFavorites
       => w oknie ``Ctrl+E`` nalezy do eksportu, wiec alias czasu byl bledem.
@@ -1867,7 +1868,8 @@ PLAYER_VIEW: dict[str, Action] = {
     "Shift+Down": Action.VOLUME_DOWN_1,
     # Predkosc pod klawiszami ORYGINALU (cs:21595-21597, 22395-22397).
     # Ctrl+Up/Down zostaly usuniete, bo oryginal ich nie ma. Ctrl+0 jest
-    # obsługiwane wyżej przez dynamiczny router dziesiątej sesji; listę sesji
+    # obsługiwane wyżej przez dynamiczny router dziesiątej sesji;
+    # ten sam router obsługuje Ctrl+- i Ctrl+=; listę sesji
     # otwiera Ctrl+Shift+S.
     "Shift+,": Action.RATE_DOWN,
     "Shift+.": Action.RATE_UP,
@@ -2294,6 +2296,8 @@ _DIRECT_RESERVED_SHORTCUTS: dict[str, str] = {
     "Ctrl+Return": "Odtwórz album Spotify albo kontener TIDAL",
     **{f"Ctrl+{slot}": "Przełączanie sesji" for slot in range(1, 10)},
     "Ctrl+0": "Przełączanie dziesiątej sesji",
+    "Ctrl+-": "Przełączanie jedenastej sesji",
+    "Ctrl+=": "Przełączanie dwunastej sesji",
 }
 
 

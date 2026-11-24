@@ -834,7 +834,7 @@ def test_menu_shortcut_labels_still_tell_the_truth() -> None:
     ):
         for chord, action in table.items():
             real.setdefault(chord, set()).add(action)
-    # Te dwie komendy współdzielą klawisz z inną operacją i są wybierane przez
+    # Te komendy współdzielą klawisz z inną operacją i są wybierane przez
     # jeden resolver zależnie od bieżącego widoku oraz rodzaju zaznaczenia.
     # Testujemy zatem również reprezentatywne stany dynamiczne, a nie tylko
     # statyczne słowniki skrótów.
@@ -848,6 +848,18 @@ def test_menu_shortcut_labels_still_tell_the_truth() -> None:
         ),
         "Right": resolve(
             Chord("Right"),
+            player_view=False,
+            radio_session=True,
+            radio_recording_context=True,
+        ),
+        "Return": resolve(
+            Chord("Return"),
+            player_view=False,
+            radio_session=True,
+            radio_recording_context=True,
+        ),
+        "F2": resolve(
+            Chord("F2"),
             player_view=False,
             radio_session=True,
             radio_recording_context=True,

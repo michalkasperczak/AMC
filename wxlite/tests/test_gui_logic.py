@@ -234,6 +234,22 @@ def test_digit_keys_switch_sessions() -> None:
     assert resolve(chord, player_view=False, radio_session=False) is Action.SESSION_FILES
 
 
+def test_physical_minus_and_equals_reach_session_slots_when_ctrl_changes_character() -> None:
+    minus = chord_from_event(FakeKeyEvent(31, ctrl=True, raw_code=0xBD))
+    equals = chord_from_event(FakeKeyEvent(0, ctrl=True, raw_code=0xBB))
+    assert minus.canonical == "Ctrl+-"
+    assert equals.canonical == "Ctrl+="
+
+
+def test_native_list_forwards_eleven_and_twelve_session_shortcuts() -> None:
+    calls: list[str] = []
+    frame = object.__new__(LiteFrame)
+    frame._on_key = lambda event: calls.append(chord_from_event(event).canonical)
+    frame._on_list_shortcut_hook(FakeKeyEvent(31, ctrl=True, raw_code=0xBD))
+    frame._on_list_shortcut_hook(FakeKeyEvent(0, ctrl=True, raw_code=0xBB))
+    assert calls == ["Ctrl+-", "Ctrl+="]
+
+
 def test_physical_f5_and_ctrl_f5_reach_the_files_session_commands() -> None:
     """Use raw wx key codes, not a prebuilt Chord, to cover the GUI boundary."""
 

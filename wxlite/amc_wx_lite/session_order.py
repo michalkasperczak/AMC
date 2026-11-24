@@ -1,4 +1,4 @@
-"""Prywatna kolejność sesji i wynikające z niej skróty ``Ctrl+1–9``/``Ctrl+0``.
+"""Prywatna kolejność sesji i skróty pierwszych dwunastu pozycji.
 
 Wartości modelu pozostają oddzielone od tekstów dostępnościowych.  Ten moduł
 nie zna wx, dzięki czemu walidację zapisu, zawijanie kolejności i mapowanie
@@ -30,10 +30,11 @@ LEGACY_SESSION_ORDER: tuple[SessionId, ...] = (
     SessionId.APPLE_MUSIC,
 )
 AVAILABLE_TEST_SESSIONS: tuple[SessionId, ...] = tuple(SessionId)
-# Numerowane skróty obejmują dziesięć pierwszych sesji. Kolejne wybiera się
-# w Menedżerze sesji albo przez Ctrl+Page Up/Down. Nowe sesje nie włączają się
-# automatycznie podczas migracji historycznego profilu.
+# Dziesięć pierwszych pozycji ma cyfry, jedenasta minus, dwunasta znak równości.
+# Dalsze sesje wybiera się w Menedżerze albo przez Ctrl+Page Up/Down.
+# Nowe sesje nie włączają się automatycznie podczas migracji starego profilu.
 MAX_NUMBERED_SESSIONS = 10
+MAX_DIRECT_SESSION_SLOTS = 12
 
 SESSION_ACTIONS: dict[SessionId, Action] = {
     SessionId.FILES: Action.SESSION_FILES,
@@ -151,22 +152,30 @@ def values(raw: object) -> list[str]:
 
 
 def shortcut_for_slot(slot: int) -> str | None:
-    """Zwróć użytkowy skrót pozycji: 1–9, a dla dziesiątej Ctrl+0."""
+    """Zwróć skrót pozycji 1–12, zgodny z klawiszami górnego rzędu."""
 
     if 1 <= slot <= 9:
         return f"Ctrl+{slot}"
     if slot == MAX_NUMBERED_SESSIONS:
         return "Ctrl+0"
+    if slot == 11:
+        return "Ctrl+-"
+    if slot == MAX_DIRECT_SESSION_SLOTS:
+        return "Ctrl+="
     return None
 
 
 def slot_for_key(key: str) -> int | None:
-    """Przetłumacz cyfrę z Ctrl na numer pozycji Menedżera sesji."""
+    """Przetłumacz Ctrl z klawiszem 1–0, minusem albo równością na pozycję."""
 
     if key == "0":
         return 10
-    if key in "123456789":
+    if len(key) == 1 and key in "123456789":
         return int(key)
+    if key == "-":
+        return 11
+    if key == "=":
+        return MAX_DIRECT_SESSION_SLOTS
     return None
 
 
@@ -225,9 +234,9 @@ def enable(session: SessionId, raw: object) -> tuple[tuple[SessionId, ...], str]
     shortcut = shortcut_for_slot(len(ordered))
     if shortcut is None:
         return tuple(ordered), _message(
-            f"Włączono sesję {SESSION_NAMES[session]}, bez skrótu numerycznego. "
+            f"Włączono sesję {SESSION_NAMES[session]}, bez skrótu bezpośredniego. "
             "Wybierz ją Enterem w Menedżerze sesji",
-            f"Enabled {session_name(session)}, no number shortcut. "
+            f"Enabled {session_name(session)}, no direct shortcut. "
             "Choose it with Enter in Session Manager",
         )
     return tuple(ordered), _message(
@@ -301,8 +310,8 @@ def move(
         tuple(ordered),
         f"{session_name(session)}, {shortcut}"
         if shortcut is not None else _message(
-            f"{SESSION_NAMES[session]}, bez skrótu numerycznego",
-            f"{session_name(session)}, no number shortcut",
+            f"{SESSION_NAMES[session]}, bez skrótu bezpośredniego",
+            f"{session_name(session)}, no direct shortcut",
         ),
     )
 
@@ -328,10 +337,10 @@ def manager_labels(
             _message(
                 f"{shortcut}, {SESSION_NAMES[session]}, włączona, {status.casefold()}"
                 if shortcut else
-                f"{SESSION_NAMES[session]}, włączona, bez skrótu numerycznego, {status.casefold()}",
+                f"{SESSION_NAMES[session]}, włączona, bez skrótu bezpośredniego, {status.casefold()}",
                 f"{shortcut}, {session_name(session)}, enabled, {status.casefold()}"
                 if shortcut else
-                f"{session_name(session)}, enabled, no number shortcut, {status.casefold()}",
+                f"{session_name(session)}, enabled, no direct shortcut, {status.casefold()}",
             ),
         ))
     for session in inactive:
@@ -350,8 +359,8 @@ def selection_labels(raw: object) -> tuple[str, ...]:
     return tuple(
         f"{shortcut_for_slot(slot)}, {session_name(session)}"
         if shortcut_for_slot(slot) else _message(
-            f"{SESSION_NAMES[session]}, bez skrótu numerycznego",
-            f"{session_name(session)}, no number shortcut",
+            f"{SESSION_NAMES[session]}, bez skrótu bezpośredniego",
+            f"{session_name(session)}, no direct shortcut",
         )
         for slot, session in enumerate(normalize(raw), start=1)
     )

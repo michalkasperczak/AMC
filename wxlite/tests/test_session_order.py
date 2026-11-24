@@ -84,17 +84,19 @@ def test_heos_is_opt_in_without_renumbering_existing_sessions() -> None:
     assert enabled[:10] == normalize(existing)
     assert enabled[-1] is SessionId.HEOS
     assert action_for_slot(10, enabled) is Action.SESSION_APPLE_MUSIC
-    assert shortcut_for_slot(11) is None
+    assert shortcut_for_slot(11) == "Ctrl+-"
+    assert shortcut_for_slot(12) == "Ctrl+="
+    assert shortcut_for_slot(13) is None
+    assert slot_for_key("-") == 11
+    assert slot_for_key("=") == 12
+    assert slot_for_key("") is None
     assert slot_for_session(SessionId.HEOS, enabled) == 11
     assert adjacent(SessionId.APPLE_MUSIC, 1, enabled) is SessionId.HEOS
-    assert message == (
-        "Włączono sesję HEOS, bez skrótu numerycznego. "
-        "Wybierz ją Enterem w Menedżerze sesji"
-    )
+    assert message == "Włączono sesję HEOS, Ctrl+-"
     assert dict(manager_labels(enabled))[SessionId.HEOS].startswith(
-        "HEOS, włączona, bez skrótu numerycznego"
+        "Ctrl+-, HEOS, włączona"
     )
-    assert selection_labels(enabled)[-1] == "HEOS, bez skrótu numerycznego"
+    assert selection_labels(enabled)[-1] == "Ctrl+-, HEOS"
     assert all("None" not in label for label in selection_labels(enabled))
 
     moved, move_message = move(SessionId.HEOS, -1, enabled)
@@ -102,7 +104,7 @@ def test_heos_is_opt_in_without_renumbering_existing_sessions() -> None:
     assert moved[10] is SessionId.APPLE_MUSIC
     assert move_message == "HEOS, Ctrl+0"
     assert dict(manager_labels(moved))[SessionId.APPLE_MUSIC].startswith(
-        "Apple Music, włączona, bez skrótu numerycznego"
+        "Ctrl+-, Apple Music, włączona"
     )
 
 
@@ -229,19 +231,22 @@ def test_tenth_session_has_ctrl_zero_in_menu_palette_and_help() -> None:
     apple = next(item for item in view.items if item.action is Action.SESSION_APPLE_MUSIC)
     heos = next(item for item in view.items if item.action is Action.SESSION_HEOS)
     assert apple.shortcut == "Ctrl+0"
-    assert heos.shortcut is None
+    assert heos.shortcut == "Ctrl+-"
     palette = {
         entry.action: entry.shortcut
         for entry in entries_for_session(SessionId.FILES, raw)
     }
     assert palette[Action.SESSION_APPLE_MUSIC] == "Ctrl+0"
-    assert palette[Action.SESSION_HEOS] is None
+    assert palette[Action.SESSION_HEOS] == "Ctrl+-"
     help_rows = dict(describe(
         available_actions={Action.SESSION_APPLE_MUSIC},
         shortcut_overrides={Action.SESSION_APPLE_MUSIC: "Ctrl+0"},
     ))
     assert help_rows["Ctrl+0"] == "Apple Music"
-    assert dict(describe(available_actions={Action.SESSION_HEOS}))["Bez skrótu"] == "HEOS"
+    assert dict(describe(
+        available_actions={Action.SESSION_HEOS},
+        shortcut_overrides={Action.SESSION_HEOS: "Ctrl+-"},
+    ))["Ctrl+-"] == "HEOS"
 
 
 def test_session_manager_commands_share_the_view_menu_and_configuration_is_in_files() -> None:

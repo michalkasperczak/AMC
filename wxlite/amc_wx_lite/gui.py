@@ -1348,6 +1348,10 @@ def chord_from_event(event: wx.KeyEvent) -> Chord:
             alt = alt or _windows_virtual_key_down(0x12)  # VK_MENU
             if ctrl and shift and not alt:
                 name = "0"
+        elif raw_code in (0xBD, 0xBB) and ctrl and not alt and not shift:
+            # Ctrl potrafi zamienić kod znakowy OEM na znak sterujący;
+            # fizyczne klawisze minus i równość pozostają jednoznaczne.
+            name = "-" if raw_code == 0xBD else "="
         elif raw_code == 0x49 and ctrl and not alt:
             # Ctrl+I is ASCII TAB (9). MSW can expose that control character
             # through CHAR_HOOK instead of the physical I key. Keep the two
@@ -12984,6 +12988,8 @@ class LiteFrame(wx.Frame):
             "Ctrl+,",
             "F5",
             "Ctrl+F5",
+            "Ctrl+-",
+            "Ctrl+=",
         } | set(GLOBAL_VIEW_SHORTCUTS) | set(MUSIC_CATEGORY_SHORTCUTS) | set(PRESET_SHORTCUTS) | set(ASSIGN_PRESET_SHORTCUTS):
             # Ctrl+C musi zostac zatrzymane PRZED natywnym SysListView32,
             # zeby gest wykonal tylko polecenie AMC. Sam zapis do schowka jest
@@ -23653,7 +23659,7 @@ class LiteFrame(wx.Frame):
             shortcut = session_order.shortcut_for_slot(slot or 0)
             message += (
                 f". Aktywna sesja: {session_order.session_name(new_current)}, "
-                f"{shortcut if shortcut is not None else 'bez skrótu numerycznego'}"
+                f"{shortcut if shortcut is not None else 'bez skrótu bezpośredniego'}"
             )
         return changed, message
 

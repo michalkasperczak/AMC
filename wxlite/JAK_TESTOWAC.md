@@ -108,8 +108,9 @@ dodatku NVDA; w mowie nie może pojawić się `SessionId`, nazwa klasy, rekord a
 identyfikator. Poprzedni i następny preset z dodatku mają pomijać puste miejsca
 i zawijać listę, nie otwierając po drodze okna presetów.
 
-`Ctrl+1–9` przełącza pierwszych dziewięć aktywnych sesji, a `Ctrl+0` sesję
-dziesiątą. W Menedżerze sesji zmień kolejność przez Alt+strzałkę w górę i w
+`Ctrl+1–9` przełącza pierwszych dziewięć aktywnych sesji, `Ctrl+0` dziesiątą,
+`Ctrl+-` jedenastą, a `Ctrl+=` dwunastą. W Menedżerze sesji zmień kolejność
+przez Alt+strzałkę w górę i w
 dół. Po zmianie menu Widok, lista sesji, paleta poleceń oraz bezpośrednie
 skróty muszą od razu pokazywać i wykonywać tę samą kolejność. Na profilu z
 dziewięcioma wcześniejszymi sesjami włącz Apple Music Spacją: wiersz ma zmienić
@@ -119,12 +120,20 @@ następnej sesji według tej kolejności, z zawijaniem na końcach.
 
 Gdy pierwszych dziesięć sesji jest już włączonych, otwórz Menedżer sesji
 `Ctrl+Shift+S`, wybierz strzałkami „HEOS, wyłączona” i naciśnij Spację.
-NVDA powinien wypowiedzieć „Włączono sesję HEOS, bez skrótu numerycznego”,
-a wiersz powinien brzmieć „HEOS, włączona, bez skrótu numerycznego”. Enter
-przełącza na HEOS. `Ctrl+0` nadal wybiera dziesiątą sesję, a
+NVDA powinien wypowiedzieć „Włączono sesję HEOS, Ctrl+-”,
+a wiersz powinien brzmieć „Ctrl+-, HEOS, włączona”. Enter
+przełącza na HEOS. `Ctrl+0` nadal wybiera dziesiątą sesję, `Ctrl+-` HEOS, a
 `Ctrl+Page Up`/`Ctrl+Page Down` obejmują także HEOS. W menu Widok, palecie
-`Ctrl+Shift+K` i pomocy HEOS nie może mieć fałszywego skrótu. Sprawdź fokus
+`Ctrl+Shift+K` i pomocy HEOS ma mieć ten sam skrót. Sprawdź fokus
 początkowy, strzałki, Escape, powrót fokusu po zamknięciu oraz ponowne otwarcie.
+
+Po wybraniu głośnika HEOS Enterem naciśnij `Ctrl+L`. Na liście źródeł otwórz
+TIDAL, następnie „My Music” i „Tracks”; NVDA powinien przeczytać utwory,
+a „Wczytaj więcej pozycji” powinno pobrać dalszy fragment. Wróć przez
+Backspace. `Ctrl+U` otwiera Ulubione HEOS; lista stacji powinna się pojawić
+po odpowiedzi głośnika bez fałszywego komunikatu o niedostępności źródła.
+Sprawdź także powrót fokusu oraz ponowne otwarcie obu list. Sama nawigacja nie
+powinna zmieniać odtwarzania; Enter na utworze lub stacji już je zmienia.
 
 Na tej samej karcie zmień „Wyświetlaj po uruchomieniu” na „Lista sesji”,
 zapisz i uruchom AMC Python ponownie w bezpiecznym momencie. Po gotowości

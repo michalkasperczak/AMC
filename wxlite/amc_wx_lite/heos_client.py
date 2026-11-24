@@ -17,7 +17,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, quote, urlencode
 
 
 _COMMAND = re.compile(r"^[a-z]+/[a-z_]+$")
@@ -161,7 +161,16 @@ class HeosReadClient:
     def request(self, command: str, **params: object) -> dict[str, Any]:
         if command not in self._allowed_commands or not _COMMAND.fullmatch(command):
             raise ValueError("Nieobsługiwane polecenie HEOS.")
-        query = urlencode({key: str(value) for key, value in params.items()}, safe=",")
+        # HEOS treats a container ID as an opaque CLI value. In particular it
+        # does not decode '+' or '%20' back to spaces, and TIDAL uses IDs such
+        # as "My Music" and "What's New". Keep those characters verbatim;
+        # escape only query delimiters and unsafe bytes. Other parameters keep
+        # the existing encoding, including names in explicit control commands.
+        query = "&".join(
+            urlencode({key: str(value)}, safe=" ,'/%", quote_via=quote)
+            if key == "cid" else urlencode({key: str(value)}, safe=",")
+            for key, value in params.items()
+        )
         line = f"heos://{command}" + (f"?{query}" if query else "") + "\r\n"
         deadline = time.monotonic() + self.timeout
         with self._lock:
@@ -192,7 +201,10 @@ class HeosReadClient:
                         raise HeosCommandError(command, message)
                     if result != "success":
                         raise HeosProtocolError("HEOS zwrócił nieznany wynik.")
-                    if message.strip().lower() == "command under process":
+                    if any(
+                        key.strip().casefold() == "command under process"
+                        for key, _value in parse_qsl(message, keep_blank_values=True)
+                    ):
                         continue
                     return response
             except (HeosTimeout, HeosUnavailable, HeosProtocolError, HeosCommandError):

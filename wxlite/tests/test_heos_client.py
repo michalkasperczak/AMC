@@ -67,6 +67,50 @@ def test_fragmented_lines_events_and_interim_response():
     assert fake.sent == [b"heos://browse/browse?sid=2&range=0,99\r\n"]
 
 
+def test_interim_response_with_request_parameters_waits_for_final_list():
+    interim = packet("browse/browse", message="sid=2&range=0,99&command under process")
+    first = packet("browse/browse", message="sid=2&returned=1&count=1", payload=[{"name": "First"}])
+    second = packet("browse/browse", message="sid=3&returned=1&count=1", payload=[{"name": "Second"}])
+    fake = FakeSocket([interim + first, second])
+    client, _calls = client_for(fake)
+
+    assert [item["name"] for item in client.browse_page("2").items] == ["First"]
+    assert [item["name"] for item in client.browse_page("3").items] == ["Second"]
+    assert len(fake.sent) == 2
+
+
+def test_interim_response_without_final_list_times_out_and_closes_connection():
+    interim = packet("browse/browse", message="sid=2&command under process")
+    fake = FakeSocket([interim, socket.timeout()])
+    client, _calls = client_for(fake)
+
+    with pytest.raises(HeosTimeout):
+        client.browse_page("2")
+    assert fake.closed
+
+
+def test_container_ids_keep_spaces_and_apostrophes_for_heos_browse():
+    fake = FakeSocket([
+        packet("browse/browse", payload=[]),
+        packet("browse/browse", payload=[]),
+        packet("browse/browse", payload=[]),
+        packet("browse/browse", payload=[]),
+    ])
+    client, _calls = client_for(fake)
+
+    client.browse_page("2", "What's New")
+    client.browse_page("2", "My Music/Tracks")
+    client.browse_page("2", "A&B=C")
+    client.browse_page("2", "A%26B")
+
+    assert fake.sent == [
+        b"heos://browse/browse?sid=2&cid=What's New&range=0,99\r\n",
+        b"heos://browse/browse?sid=2&cid=My Music/Tracks&range=0,99\r\n",
+        b"heos://browse/browse?sid=2&cid=A%26B%3DC&range=0,99\r\n",
+        b"heos://browse/browse?sid=2&cid=A%26B&range=0,99\r\n",
+    ]
+
+
 def test_timeout_closes_connection_before_reconnect():
     first = FakeSocket([socket.timeout()])
     second = FakeSocket([packet("player/get_players", payload=[])])

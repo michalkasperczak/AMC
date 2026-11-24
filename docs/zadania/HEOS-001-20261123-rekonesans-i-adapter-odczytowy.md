@@ -184,3 +184,34 @@ Po odczytowej walidacji opublikowano [AMC Test — 24.11.2026, 15:02](https://gi
 https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.24.1502
 
 Odczytowy `check_for_application_update` z runtime bieżącej instalacji `D:\Projekty Codex\AMC Python` zwrócił `available=true`, bieżącą wersję `24.11.2026, 12:32`, tag `test-2026.11.24.1502` i wersję `24.11.2026, 15:02`. To potwierdza widoczność wydania w aktualizatorze. Instalacji ani uruchomienia nowej wersji nie wykonywano; Michał równolegle testuje inne funkcje. Funkcjonalna próba Menedżera i HEOS w zainstalowanej alpha.524 oraz odbiór NVDA pozostają otwarte.
+
+## Korekta od Michała po próbie alpha.524 — 24.11.2026
+
+Michał zainstalował AMC Test alpha.524 i potwierdził, że HEOS jest na liście, wybór głośnika otwiera odtwarzacz, a `Ctrl+L` pokazuje źródła, w tym TIDAL, SoundCloud i AUX. W części katalogów słyszał „To źródło HEOS nie udostępnia teraz listy” oraz „Urządzenie HEOS nie odpowiada lub odrzuciło polecenie”; TIDAL i Ulubione nie dawały oczekiwanej nawigacji. Poprosił także o dwa dodatkowe skróty: jedenasta sesja `Ctrl+-`, dwunasta `Ctrl+=`. To zastępuje wcześniejszą decyzję z alpha.524, według której jedenasta sesja nie miała bezpośredniego skrótu.
+
+### Uzasadnienie i decyzje
+
+Odczyt z Denon Home 200 pokazał, że `browse/browse` dla Ulubionych, Playlist i TuneIn najpierw odsyła wynik `success` z parametrami zapytania oraz znacznikiem `command under process`, bez listy, a po około 0,6–0,8 s dosyła końcową listę. Poprzedni klient rozpoznawał ten znacznik tylko wtedy, gdy stanowił całą treść pola `message`. Zwracał więc fałszywe „źródło nie udostępnia listy”, a spóźniona odpowiedź mogła zakłócić kolejny odczyt. Klient czeka teraz na odpowiedź końcową w tym samym połączeniu, z limitem czasu i zamknięciem połączenia przy jego przekroczeniu. Prawdziwy sukces bez listy nadal pozostaje osobnym stanem niedostępnej listy.
+
+Drugi błąd dotyczył identyfikatorów katalogów TIDAL zawierających spację lub apostrof. Stare kodowanie zmieniało je na `+`, `%20` lub `%27`; głośnik zwracał wtedy katalog początkowy zamiast wybranego. Dla parametru `cid` zachowano te znaki i ukośnik, a separatory zapytania nadal są kodowane. Pozostałe parametry, zwłaszcza nazwy w poleceniach sterowania, zachowują dotychczasowy format. [Specyfikacja HEOS CLI Denon](https://assets.denon.com/documentmaster/us/heos_cli_protocolspecification-version_04062020.pdf) opisuje odpowiedź pośrednią i nawigację `sid`/`cid`.
+https://assets.denon.com/documentmaster/us/heos_cli_protocolspecification-version_04062020.pdf
+
+Wspólny model skrótów mapuje pozycje 1–9 na `Ctrl+1–9`, dziesiątą na `Ctrl+0`, jedenastą na `Ctrl+-`, dwunastą na `Ctrl+=`. Numery są zależne od kolejności aktywnych sesji. Routing klawiatury, natywna lista, menu, paleta, pomoc i walidacja konfliktów skrótów używają tej samej kolejności. Dalsze sesje pozostają osiągalne przez Menedżer i `Ctrl+Page Up/Down`.
+
+### Testy i wynik
+
+Na przypiętym Pythonie z wxPython 4.3.1: **51 testów HEOS**, **213 testów sesji, klawiatury, menu, palety, pomocy, stanu i profilu** oraz **88 testów pakowania i wydania** przeszło. Dodatkowy zestaw skrótów i parytetu transportu: **115 testów** przeszło po uzupełnieniu testu o istniejące kontekstowe polecenia nagrania pod Enter i F2; pierwotna porażka tego testu wynikała z niepełnego modelu testowego, nie ze zmiany aplikacji. `py_compile` zmienionych modułów i `git diff --check` przeszły. Nowe testy obejmują odpowiedź pośrednią z parametrami, końcową listę, brak odpowiedzi końcowej, kolejny odczyt bez spóźnionej listy, identyfikatory katalogów ze spacją, apostrofem i separatorami, fizyczne kody klawiszy minus/równość oraz ich przejście przez natywną listę.
+
+Odczyt na aktywnym Denon Home 200 po poprawce zwrócił **23 stacje Ulubionych**, **2 Playlisty**, katalog TIDAL z „My Music”, pod nim „Playlists”, „Artists”, „Albums” i „Tracks” oraz **50 + 45 utworów** na dwóch stronach „Tracks” bez nakładania się identyfikatorów. Status głośnika dał się odczytać po Ulubionych na tym samym połączeniu. Nie wysłano komend zmieniających odtwarzanie, wejście AUX, kolejkę ani głośność. Testy nie są jeszcze dowodem odbioru NVDA w zainstalowanej poprawce.
+
+### Materiał do dokumentacji użytkownika — szkic
+
+W Menedżerze sesji `Ctrl+Shift+S` jedenasta aktywna sesja otrzymuje `Ctrl+-`, a dwunasta `Ctrl+=`. Po wybraniu głośnika HEOS naciśnij `Ctrl+L`, aby otworzyć źródła. W TIDAL można wejść do „My Music”, potem „Tracks”; lista wczytuje się partiami, a „Wczytaj więcej pozycji” pokazuje dalsze utwory. `Ctrl+U` otwiera Ulubione HEOS. Backspace wraca o poziom wyżej. Sama nawigacja nie powinna zmienić tego, co gra; Enter na utworze lub stacji może już rozpocząć odtwarzanie.
+
+### Szkic changelogu — do korekty Michała
+
+AMC Test poprawia odczyt opóźnionych list HEOS oraz wejście w katalogi TIDAL ze spacjami i apostrofami w identyfikatorach. Ulubione, Playlisty i dalsze strony katalogów pokazują dostępne pozycje. Jedenasta i dwunasta aktywna sesja mają skróty `Ctrl+-` oraz `Ctrl+=`.
+
+### Znane ograniczenia oraz wersja i commit
+
+Kod przygotowywany jako AMC Test `0.1.0-alpha.525` na gałęzi `codex/heos-next-test-20261123`. Commit, kompilacja GitHub, instalator, GitHub Release i widoczność w aktualizatorze wymagają osobnej weryfikacji. Próba sterowania fizycznym głośnikiem i NVDA po instalacji alpha.525 pozostaje do wykonania. Liczba pozycji z konkretnego konta lub źródła może się zmienić.
