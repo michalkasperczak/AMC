@@ -1,5 +1,15 @@
 # Dostępny kontroler multimedialny — prototyp dla Windows
 
+## HEOS w AMC Test — poprawka przygotowywana 24.11.2026
+
+`Ctrl+U` otwiera Ulubione wybranego głośnika HEOS także z odtwarzacza. Na
+liście HEOS strzałka w lewo lub Backspace wraca do nadrzędnego katalogu i
+przywraca zaznaczenie; ze źródeł prowadzi do listy głośników. Poprawka odczytu
+opóźnionych odpowiedzi HEOS umożliwia przeglądanie Ulubionych, Playlist i
+katalogów TIDAL. Jedenasta i dwunasta aktywna sesja używają odpowiednio
+`Ctrl+-` oraz `Ctrl+=`. Presety HEOS będą ocenione po próbie nawigacji z NVDA.
+[Stan, testy i szkic instrukcji](docs/zadania/HEOS-001-20261123-rekonesans-i-adapter-odczytowy.md).
+
 ## Aktualizacja Cast i zgodność profili — 24.11.2026
 
 Wydana alpha.522 łączy rozszerzony Cast/AirPlay z pełnym zakresem alpha.520. Odsłuch nagrań i nazwa F2 stają się wspólne dla Test/Public; Apple Music pozostaje tylko w Test. Po publikacji GitHub Test został automatycznie zainstalowany i uruchomiony zgodnie ze zleceniem. [Dokładny stan i wyniki](docs/zadania/RELEASE-ALPHA522-20261124-Cast-instalacja.md).

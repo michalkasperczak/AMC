@@ -431,10 +431,12 @@ def menus_for_session(
                 }[entry.action])
             if session_id is SessionId.HEOS and entry.action in {
                 Action.ADD_TO_QUEUE, Action.TOGGLE_PLAY_NEXT,
+                Action.PARENT_FOLDER,
             }:
                 entry = replace(entry, label={
                     Action.ADD_TO_QUEUE: "&Dodaj na koniec kolejki HEOS",
                     Action.TOGGLE_PLAY_NEXT: "Odtwarzaj jako &następne w HEOS",
+                    Action.PARENT_FOLDER: "&Poziom wyżej w katalogu HEOS",
                 }[entry.action])
             if session_id is SessionId.SPOTIFY and entry.action in {
                 Action.VIEW_CHAPTERS,

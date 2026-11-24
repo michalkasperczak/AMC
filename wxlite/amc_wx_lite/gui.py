@@ -1357,6 +1357,10 @@ def chord_from_event(event: wx.KeyEvent) -> Chord:
             # through CHAR_HOOK instead of the physical I key. Keep the two
             # inbox shortcuts out of Tab navigation and the player route.
             name = "I"
+        elif raw_code == 0x55 and ctrl and not alt:
+            # Ctrl+U can arrive as ASCII NAK (21) through CHAR_HOOK. Restore
+            # the physical key so Favorites reaches the session dispatcher.
+            name = "U"
     if name is None:
         if 32 < code < 127:
             name = chr(code).upper()
@@ -12952,6 +12956,10 @@ class LiteFrame(wx.Frame):
     def _on_list_shortcut_hook(self, event: wx.KeyEvent) -> None:
         """Polecenia, ktorych natywna lista nie moze zabrac jako liter."""
         canonical = chord_from_event(event).canonical
+        if (canonical == "Left" and self.navigator.active is SessionId.HEOS
+                and not self._screen_reader_modifier_down()):
+            self._on_key(event)
+            return
         if canonical == "Shift+F10":
             get_source = getattr(event, "GetEventObject", None)
             control = get_source() if callable(get_source) else self._active_list()
@@ -12988,6 +12996,7 @@ class LiteFrame(wx.Frame):
             "Ctrl+,",
             "F5",
             "Ctrl+F5",
+            "Ctrl+U",
             "Ctrl+-",
             "Ctrl+=",
         } | set(GLOBAL_VIEW_SHORTCUTS) | set(MUSIC_CATEGORY_SHORTCUTS) | set(PRESET_SHORTCUTS) | set(ASSIGN_PRESET_SHORTCUTS):
@@ -18023,7 +18032,7 @@ class LiteFrame(wx.Frame):
     def _on_player_shortcut_hook(self, event: wx.KeyEvent) -> None:
         # NVDA+End ma dotrzeć do czytnika również w polu filtra i w pomocy.
         if (
-            chord_from_event(event).canonical in {"Up", "Down", "End"}
+            chord_from_event(event).canonical in {"Left", "Up", "Down", "End"}
             and getattr(self, "_screen_reader_modifier_down", lambda: False)()
         ):
             event.Skip()
@@ -18070,6 +18079,9 @@ class LiteFrame(wx.Frame):
         # poziomie okna. Reszte klawiszy listy nadal dostaje natywna kontrolka
         # -- szczegolnie strzalki, Home/End i wyszukiwanie przyrostowe NVDA.
         if self.navigator.view is not View.PLAYER:
+            if canonical == "Left" and self.navigator.active is SessionId.HEOS:
+                self._on_key(event)
+                return
             # Ctrl+Shift+0 wymaga tej wczesnej drogi tak samo jak w starym
             # AMC; pozostawienie go kontrolce listy daje cisze i brak akcji.
             # SysListView32 może połknąć gołą Spację przed EVT_KEY_DOWN.
@@ -18106,6 +18118,7 @@ class LiteFrame(wx.Frame):
                 # dotrą do EVT_KEY_DOWN kontrolki. Przechwytujemy wyłącznie
                 # gesty z modyfikatorami; gołe litery nadal należą do listy.
                 "Ctrl+Shift+U",
+                "Ctrl+U",
                 "Ctrl+Shift+P",
                 "Ctrl+Shift+L",
                 "Ctrl+Shift+Q",

@@ -129,11 +129,14 @@ początkowy, strzałki, Escape, powrót fokusu po zamknięciu oraz ponowne otwar
 
 Po wybraniu głośnika HEOS Enterem naciśnij `Ctrl+L`. Na liście źródeł otwórz
 TIDAL, następnie „My Music” i „Tracks”; NVDA powinien przeczytać utwory,
-a „Wczytaj więcej pozycji” powinno pobrać dalszy fragment. Wróć przez
-Backspace. `Ctrl+U` otwiera Ulubione HEOS; lista stacji powinna się pojawić
+a „Wczytaj więcej pozycji” powinno pobrać dalszy fragment. Na liście strzałka
+w lewo lub Backspace wraca o poziom wyżej i zaznacza otwierany wcześniej
+katalog; na liście źródeł wraca do głośników. `Ctrl+U` z listy lub odtwarzacza
+otwiera Ulubione HEOS; lista stacji powinna się pojawić
 po odpowiedzi głośnika bez fałszywego komunikatu o niedostępności źródła.
 Sprawdź także powrót fokusu oraz ponowne otwarcie obu list. Sama nawigacja nie
 powinna zmieniać odtwarzania; Enter na utworze lub stacji już je zmienia.
+Presety HEOS wymagają osobnego sprawdzenia po odbiorze nawigacji strzałkami.
 
 Na tej samej karcie zmień „Wyświetlaj po uruchomieniu” na „Lista sesji”,
 zapisz i uruchom AMC Python ponownie w bezpiecznym momencie. Po gotowości

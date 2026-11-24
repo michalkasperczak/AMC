@@ -42,6 +42,7 @@ def test_heos_shortcuts_match_visible_menu_palette_help_and_dispatch():
         "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
         "Return": Action.ACTIVATE,
         "Back": Action.PARENT_FOLDER,
+        "Left": Action.PARENT_FOLDER,
         "Space": Action.PLAY_PAUSE,
         "Ctrl+M": Action.TOGGLE_MUTE,
     }
@@ -68,11 +69,73 @@ def test_heos_shortcuts_match_visible_menu_palette_help_and_dispatch():
         assert action in palette_actions
         assert {
             "Return": "Enter", "Back": "Backspace",
+            "Left": "Strzałka w lewo (lista HEOS)",
             "Ctrl+Shift+Return": "Ctrl+Shift+Enter",
         }.get(chord, chord) in help_labels
         if action is not Action.SESSION_CONFIGURE_CURRENT:
             LiteFrame._dispatch(frame, action)
             assert seen[-1] is action
+
+    assert resolve(Chord("Left"), player_view=True, radio_session=False,
+                   heos_session=True) is not Action.PARENT_FOLDER
+
+
+def test_left_in_heos_catalog_goes_to_parent_and_restores_selection():
+    from amc_wx_lite.heos_source import HeosSource, catalog_items
+
+    state = HeosBrowseState()
+    state.set_targets((gui.HeosTarget("speaker", "Głośnik", "1"),))
+    state.choose_target("speaker")
+    source = HeosSource("favorites", "Favorites", "1024", "music_service")
+    assert state.apply_list(state.begin_list_request(), (source,))
+    state.open_source(source)
+    albums = catalog_items("1024", None, [
+        {"name": "Album", "type": "album", "cid": "a", "container": "yes"},
+    ])
+    assert state.apply_list(state.begin_list_request(), albums)
+    state.open_item(albums[0])
+    loaded = []
+    frame = SimpleNamespace(
+        _heos_state=state,
+        _heos_load_location=lambda: loaded.append(state.location.title),
+        navigator=SimpleNamespace(sessions={SessionId.HEOS: SimpleNamespace()}),
+    )
+    LiteFrame._dispatch_heos(frame, Action.PARENT_FOLDER)
+    assert state.location.title == "Favorites"
+    assert state.selected_item_id == albums[0].item_id
+    assert loaded == ["Favorites"]
+
+
+def test_favorites_from_heos_player_opens_speaker_source_list():
+    from amc_wx_lite.heos_source import HeosSource, HeosTarget
+    from amc_wx_lite.navigation import View
+
+    source = HeosSource("favorites", "Favorites", "1024", "music_service")
+    state = HeosBrowseState()
+    state.set_targets((HeosTarget("speaker", "Głośnik", "1"),))
+    state.choose_target("speaker")
+    session = SimpleNamespace(view=View.PLAYER)
+    loaded = []
+
+    class Runner:
+        def submit(self, _name, work, done, _failed):
+            done(work())
+
+    frame = SimpleNamespace(
+        _heos_state=state,
+        _heos_service=SimpleNamespace(sources=lambda: (source,)),
+        _heos_render=lambda: None,
+        _heos_load_location=lambda: loaded.append(state.location.title),
+        _heos_failure=lambda error: (_ for _ in ()).throw(error),
+        navigator=SimpleNamespace(sessions={SessionId.HEOS: session}),
+        runner=Runner(),
+    )
+    frame._heos_open_named_source = lambda kind: LiteFrame._heos_open_named_source(frame, kind)
+    LiteFrame._dispatch_heos(frame, Action.VIEW_FAVORITES)
+    assert session.view is View.LIST
+    assert state.location.kind == "catalog"
+    assert state.location.title == "Favorites"
+    assert loaded == ["Favorites"]
 
 
 def test_heos_queue_action_uses_current_playable_item_and_reads_back():

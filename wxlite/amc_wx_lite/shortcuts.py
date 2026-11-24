@@ -2192,6 +2192,12 @@ HEOS_SESSION_VIEW: dict[str, Action] = {
     "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
 }
 
+# W katalogu HEOS lewa strzałka cofa o jeden poziom. Odtwarzacz zachowuje
+# własną obsługę strzałek; Backspace działa również na liście.
+HEOS_LIST_VIEW: dict[str, Action] = {
+    "Left": Action.PARENT_FOLDER,
+}
+
 
 SONOS_OWN_STREAMS_VIEW: dict[str, Action] = {
     "Ctrl+N": Action.ADD_SONOS_OWN_STREAM,
@@ -2234,6 +2240,7 @@ _SHORTCUT_TABLES: tuple[dict[str, Action], ...] = (
     RADIOARCHIWISTA_SESSION_VIEW,
     SONOS_SESSION_VIEW,
     HEOS_SESSION_VIEW,
+    HEOS_LIST_VIEW,
     SONOS_OWN_STREAMS_VIEW,
     LIST_VIEW,
     RADIO_COLLECTION_LIST_VIEW,
@@ -2640,6 +2647,8 @@ def _resolve_default(
         return SONOS_OWN_STREAMS_VIEW[canonical] if sonos_own_streams else None
     if sonos_session and canonical in SONOS_SESSION_VIEW:
         return SONOS_SESSION_VIEW[canonical]
+    if heos_session and not player_view and canonical in HEOS_LIST_VIEW:
+        return HEOS_LIST_VIEW[canonical]
     if heos_session and canonical in HEOS_SESSION_VIEW:
         return HEOS_SESSION_VIEW[canonical]
     if sonos_session and canonical in {"Ctrl+[", "Ctrl+]"}:
@@ -3297,7 +3306,7 @@ def describe(
     """
     overrides = dict(shortcut_overrides or {})
     ctrl_f5 = ctrl_f5_presentation(session_label)
-    return [
+    rows = [
         (
             (
                 readable_shortcut(overrides[action])
@@ -3321,6 +3330,12 @@ def describe(
             or RECORDING_MONITOR_CAPABILITY in current_profile().capabilities
         )
     ]
+    if (session_label or "").casefold() == "heos" and (
+        available_actions is None or Action.PARENT_FOLDER in available_actions
+    ):
+        rows.append(("Strzałka w lewo (lista HEOS)",
+                     describe_action(Action.PARENT_FOLDER, session_label)))
+    return rows
 
 
 DOWNLOAD_HISTORY_COPY_LABELS = {
@@ -3343,6 +3358,7 @@ def describe_action(
             Action.ADD_TO_QUEUE: "Dodaj odtwarzalną pozycję na koniec kolejki HEOS",
             Action.TOGGLE_PLAY_NEXT: "Dodaj odtwarzalną pozycję jako następną w kolejce HEOS",
             Action.ACTIVATE: "Wybierz głośnik, otwórz katalog albo uruchom pozycję HEOS",
+            Action.PARENT_FOLDER: "Wróć o poziom wyżej w katalogu HEOS",
             Action.PLAY_PAUSE: "Wstrzymaj lub wznów odtwarzanie na wybranym głośniku HEOS",
             Action.TOGGLE_MUTE: "Wycisz lub włącz dźwięk wybranego głośnika HEOS",
             Action.QUEUE_NEXT: "Przejdź do następnej pozycji na głośniku HEOS",

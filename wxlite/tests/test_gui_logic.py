@@ -250,6 +250,19 @@ def test_native_list_forwards_eleven_and_twelve_session_shortcuts() -> None:
     assert calls == ["Ctrl+-", "Ctrl+="]
 
 
+def test_native_heos_list_forwards_left_and_favorites_to_dispatcher() -> None:
+    import wx
+
+    calls: list[str] = []
+    frame = object.__new__(LiteFrame)
+    frame.navigator = types.SimpleNamespace(active=SessionId.HEOS)
+    frame._screen_reader_modifier_down = lambda: False
+    frame._on_key = lambda event: calls.append(chord_from_event(event).canonical)
+    frame._on_list_shortcut_hook(FakeKeyEvent(wx.WXK_LEFT))
+    frame._on_list_shortcut_hook(FakeKeyEvent(21, ctrl=True, raw_code=0x55))
+    assert calls == ["Left", "Ctrl+U"]
+
+
 def test_physical_f5_and_ctrl_f5_reach_the_files_session_commands() -> None:
     """Use raw wx key codes, not a prebuilt Chord, to cover the GUI boundary."""
 
