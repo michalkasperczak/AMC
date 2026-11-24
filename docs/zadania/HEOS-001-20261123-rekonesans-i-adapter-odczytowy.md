@@ -1,6 +1,6 @@
 # HEOS-001 — rozpoznanie urządzenia HEOS 200 i adapter odczytowy
 
-**Status 24.11.2026: sesja HEOS jest gotowa w źródłach następnego AMC Test alpha.523; instalator z GitHub Actions zweryfikowany. Zainstalowana alpha.522 nie zawiera HEOS. Nie instalowano alpha.523 ani nie wykonano sterowania głośnikiem lub odbioru NVDA. Wcześniejsze sekcje pokazują kolejne etapy; stan końcowy znajduje się na końcu raportu.**
+**Status 24.11.2026: AMC Test alpha.523 z HEOS jest opublikowanym wydaniem GitHub, dostępnym w aktualizatorze zainstalowanej alpha.522. Zainstalowana alpha.522 nadal nie zawiera HEOS; nie instalowano alpha.523 ani nie wykonano sterowania głośnikiem lub odbioru NVDA. Wcześniejsze sekcje pokazują kolejne etapy; stan końcowy znajduje się na końcu raportu.**
 
 ## Cel i zakres
 
@@ -136,3 +136,14 @@ GitHub Actions dla commitu `822b1fd78b37bbce52bb68fa87ff76d025818f50` zakończy�
 https://github.com/michalkasperczak/AMC/actions/runs/45384808699
 
 Pobrany instalator: `D:\Projekty Codex\AMC - integracja wxPython\publish\installers-alpha523-heos-github-822b1fd7\AMC-Test-2026-11-24-1232.exe`. Manifest integralności potwierdza profil `test`, wersję `0.1.0-alpha.523`, etykietę `24.11.2026, 12:32`, ten sam commit źródeł i instalatora, `secretScan=passed` oraz dodatek AMC do NVDA 0.4.2. Plik ma **214635965 bajtów**; obliczony lokalnie SHA-256 **`f521afe1f511fe6b7340a14439b3683588d852889ffe672188be71a7cea8340e`** zgadza się z manifestem. Żadnej wersji HEOS nie opublikowano w kanale aktualizacji ani nie zainstalowano. Test fizycznego sterowania Denon Home 200 i odbiór NVDA pozostają otwarte.
+
+## Korekta definicji wydania i publikacja Test — 24.11.2026
+
+Michał doprecyzował, że interesuje go **wydanie do pobrania z GitHub**, z kompilacją po stronie GitHub, a nie lokalna kompilacja czy sam artefakt GitHub Actions. Ta decyzja zastępuje wcześniejsze traktowanie gotowego artefaktu alpha.523 jako końca zadania. Wydanie Test wymaga instalatora, opisu, manifestu aktualizacji oraz zdalnego sprawdzenia zasobów. Public z HEOS nie jest przedmiotem tego wydania.
+
+Przygotowano opis i krótkie podsumowanie w folderze instalatora, uruchomiono odczytową walidację `scripts/Publish-AMCRelease.ps1 -Profile test -Version 0.1.0-alpha.523`, a następnie publikację tego samego, wcześniej zbudowanego na GitHubie instalatora. Wydanie [AMC Test — 24.11.2026, 12:32](https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.24.1232) jest prerelease kanału Test.
+https://github.com/michalkasperczak/AMC/releases/tag/test-2026.11.24.1232
+
+Zdalny tag wskazuje dokładnie `822b1fd78b37bbce52bb68fa87ff76d025818f50`. GitHub potwierdził trzy zasoby w stanie `uploaded`: instalator **214635965 bajtów**, SHA-256 `f521afe1f511fe6b7340a14439b3683588d852889ffe672188be71a7cea8340e`; plik integralności **973 bajty**, SHA-256 `a84ef6f3359fdc9e13f7c8242737a39af6b59ac202d768d1aa66cbc8ac80ebea`; manifest `amc-update-test.json` **950 bajtów**, SHA-256 `95ccd399b2c4bd16517bc0692e6e84743ab7b0d1b8ef0e74845ccd92fd9706a4`. Zdalny digest instalatora zgadza się z lokalnym plikiem.
+
+Odczytowy `check_for_application_update` z runtime zainstalowanej alpha.522 i jej katalogu `D:\Projekty Codex\AMC Python` zwrócił `available=true`, bieżącą wersję `24.11.2026, 01:00`, nowy tag `test-2026.11.24.1232` i wersję `24.11.2026, 12:32`. To potwierdza widoczność w aktualizatorze bez pobierania przez niego instalatora i bez lokalnej instalacji. Działanie sesji HEOS na głośniku oraz odbiór NVDA nadal wymagają próby użytkowej.
