@@ -2494,6 +2494,8 @@ def _resolve_default(
     if youtube_broadcast_available is None:
         youtube_broadcast_available = youtube_account_available
     canonical = chord.canonical
+    if radio_session and canonical == "Ctrl+Q":
+        return None
     if canonical in MUSIC_CATEGORY_SHORTCUTS:
         return MUSIC_CATEGORY_SHORTCUTS[canonical]
     if spotify_session and canonical in {"Shift+,", "Shift+.", "Ctrl+."}:

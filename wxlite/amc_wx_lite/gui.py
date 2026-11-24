@@ -357,6 +357,7 @@ if "sonos.local" in _RELEASE_PROFILE.capabilities:
     from .sonos_local import LocalSonosClient
 from .heos_client import (
     HeosCommandError, HeosControlClient, HeosError, HeosListUnavailable,
+    HeosTimeout,
     discover_heos,
 )
 from .heos_navigation import HeosBrowseState
@@ -365,7 +366,7 @@ from .heos_rows import queue_rows as heos_queue_rows
 from .heos_rows import source_rows as heos_source_rows
 from .heos_rows import target_rows as heos_target_rows
 from .heos_service import HeosService
-from .heos_source import HeosItem, HeosQueueItem, HeosSource, HeosTarget
+from .heos_source import HeosItem, HeosQueueItem, HeosSource, HeosStatus, HeosTarget
 from .profile_layout import common_data_snapshot_path, resolve_layout
 from .full_backup import (
     ALL_SECTIONS,
@@ -19191,6 +19192,9 @@ class LiteFrame(wx.Frame):
         elif action is Action.VIEW_HISTORY:
             self._show_playback_history_preview()
         elif action is Action.VIEW_SAVED_QUEUE:
+            if self.navigator.active is SessionId.RADIO:
+                self.announcer.say("Kolejka nie jest dostępna w Radiu")
+                return
             if self.navigator.active is SessionId.RADIOARCHIWISTA:
                 self._open_radioarchiwista_queue()
             elif self.navigator.active is SessionId.PODCASTS:
@@ -25601,7 +25605,7 @@ class LiteFrame(wx.Frame):
             "heos-status", lambda: service.status(target.player_id), done, failed,
         )
 
-    def _heos_control(self, operation, message: str) -> None:
+    def _heos_control(self, operation, message: str | Callable[[HeosStatus], str]) -> None:
         service = self._heos_service
         target = self._heos_state.selected_target
         if service is None or target is None:
@@ -25614,24 +25618,49 @@ class LiteFrame(wx.Frame):
 
         def work():
             operation(service, target.player_id)
-            return service.status(target.player_id)
+            try:
+                return service.status(target.player_id)
+            except HeosError:
+                # The command succeeded; a later read failure does not undo it.
+                return None
 
         def done(status):
             self._heos_control_pending = False
             if self._heos_service is service and self._heos_state.selected_target == target:
-                self._heos_apply_status(status, target)
+                if status is not None:
+                    self._heos_apply_status(status, target)
                 if self.navigator.active is SessionId.HEOS:
-                    self.announcer.say(message)
+                    self.announcer.say(
+                        (message(status) if callable(message) else message)
+                        if status is not None else
+                        "HEOS przyjął polecenie, ale nie można odczytać aktualnego stanu"
+                    )
+                if status is None:
+                    self._heos_refresh_status(force=True)
 
         def failed(error):
             self._heos_control_pending = False
             if self.navigator.active is SessionId.HEOS:
-                self.announcer.say(
-                    "Nie można potwierdzić wyniku polecenia HEOS. Odczytuję stan"
-                )
+                if isinstance(error, HeosCommandError):
+                    self.announcer.say("HEOS odrzucił polecenie. Odczytuję stan")
+                elif isinstance(error, HeosTimeout):
+                    self.announcer.say(
+                        "HEOS nie potwierdził polecenia przed upływem czasu. Odczytuję stan"
+                    )
+                else:
+                    self.announcer.say(
+                        "Nie można potwierdzić wyniku polecenia HEOS. Odczytuję stan"
+                    )
             self._heos_refresh_status(force=True)
 
         self.runner.submit("heos-control", work, done, failed)
+
+    @staticmethod
+    def _heos_play_confirmation(title: str, status: HeosStatus) -> str:
+        message = f"HEOS przyjął polecenie dla {title}"
+        if status.volume == 0:
+            message += ". Głośność 0; odtwarzanie może być niesłyszalne"
+        return message
 
     def _heos_activate(self) -> None:
         state = self._heos_state
@@ -25671,13 +25700,13 @@ class LiteFrame(wx.Frame):
             elif item.can_play:
                 self._heos_control(
                     lambda service, pid: service.play_item(pid, item),
-                    f"HEOS przyjął polecenie dla {item.title}",
+                    lambda status: self._heos_play_confirmation(item.title, status),
                 )
             return
         if isinstance(item, HeosQueueItem):
             self._heos_control(
                 lambda service, pid: service.play_queue_item(pid, item),
-                f"HEOS przyjął polecenie dla {item.title}",
+                lambda status: self._heos_play_confirmation(item.title, status),
             )
 
     def _heos_selected_queue_candidate(self) -> HeosItem | None:
@@ -25749,7 +25778,9 @@ class LiteFrame(wx.Frame):
         if self.navigator.sessions[SessionId.HEOS].view is View.PLAYER:
             status = self._heos_status
             self.announcer.say(
-                status.spoken_label() if status is not None
+                (status.spoken_label() + ", Parametry strumienia niedostępne w HEOS")
+                if status is not None and getattr(status, "media_type", "") == "station"
+                else status.spoken_label() if status is not None
                 else "Brak informacji o odtwarzaniu HEOS"
             )
             return
@@ -25769,6 +25800,8 @@ class LiteFrame(wx.Frame):
             parts.append(entry.kind_label)
             if entry.detail:
                 parts.append(entry.detail)
+            if entry.media_type == "station":
+                parts.append("Parametry strumienia niedostępne w HEOS")
         elif isinstance(entry, HeosQueueItem) and entry.detail:
             parts.append(entry.detail)
         self.announcer.say(", ".join(dict.fromkeys(
@@ -25855,7 +25888,14 @@ class LiteFrame(wx.Frame):
                     raise ValueError("HEOS nie podał bieżącej głośności")
                 service.set_volume(pid, max(0, min(100, current + change)))
 
-            self._heos_control(volume, "HEOS: zmieniono głośność")
+            self._heos_control(
+                volume,
+                lambda status: (
+                    f"HEOS: głośność {status.volume}"
+                    if status.volume is not None
+                    else "HEOS zmienił głośność, ale nie podał poziomu"
+                ),
+            )
 
     # ---------------------------------------------------------------- Sonos
 
@@ -41394,6 +41434,8 @@ class LiteFrame(wx.Frame):
         )
 
     def _action_available_in_active_session(self, action: Action) -> bool:
+        if self.navigator.active is SessionId.RADIO and action is Action.VIEW_SAVED_QUEUE:
+            return False
         if action in (
             Action.OPEN_RECORDING_MONITOR, Action.RENAME_ACTIVE_RECORDING,
         ) and RECORDING_MONITOR_CAPABILITY not in current_profile().capabilities:

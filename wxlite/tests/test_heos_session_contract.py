@@ -9,7 +9,7 @@ install_wx_stub()
 from amc_wx_lite.command_palette import entries_for_session
 from amc_wx_lite import gui
 from amc_wx_lite.gui import LiteFrame
-from amc_wx_lite.heos_client import HeosListUnavailable
+from amc_wx_lite.heos_client import HeosCommandError, HeosListUnavailable, HeosTimeout
 from amc_wx_lite.heos_navigation import HeosBrowseState, HeosLocation
 from amc_wx_lite.heos_source import HeosItem
 from amc_wx_lite.menu_model import menus_for_session
@@ -138,6 +138,116 @@ def test_left_in_heos_catalog_speaks_information_without_ids():
     frame._heos_status = SimpleNamespace(spoken_label=lambda: "Utwór, odtwarzanie")
     LiteFrame._dispatch_heos(frame, Action.QUICK_INFORMATION)
     assert spoken[-1] == "Utwór, odtwarzanie"
+
+    station = HeosItem(
+        "station", "Stacja", "stacja", "sid", "", "mid", False, True,
+        media_type="station",
+    )
+    state.items = (station,)
+    session.view = View.LIST
+    session.model.selected_row = SimpleNamespace(item_id="station", title="Stacja")
+    LiteFrame._dispatch_heos(frame, Action.QUICK_INFORMATION)
+    assert spoken[-1] == "Stacja, stacja, Parametry strumienia niedostępne w HEOS"
+    session.view = View.PLAYER
+    frame._heos_status = SimpleNamespace(
+        spoken_label=lambda: "Stacja, odtwarzanie", media_type="station"
+    )
+    LiteFrame._dispatch_heos(frame, Action.QUICK_INFORMATION)
+    assert spoken[-1] == "Stacja, odtwarzanie, Parametry strumienia niedostępne w HEOS"
+
+
+def test_heos_volume_reports_read_back_level_and_separates_later_read_failure():
+    target = gui.HeosTarget("speaker", "Głośnik", "1")
+    spoken, applied, refreshed, sent = [], [], [], []
+    status = SimpleNamespace(volume=17)
+    service = SimpleNamespace(
+        set_volume=lambda pid, level: sent.append((pid, level)),
+        status=lambda _pid: status,
+    )
+
+    def submit(_name, work, done, failed):
+        try:
+            done(work())
+        except Exception as error:
+            failed(error)
+
+    frame = SimpleNamespace(
+        _heos_service=service,
+        _heos_state=SimpleNamespace(selected_target=target),
+        _heos_control_pending=False,
+        navigator=SimpleNamespace(active=SessionId.HEOS),
+        announcer=SimpleNamespace(say=spoken.append),
+        runner=SimpleNamespace(submit=submit),
+        _heos_apply_status=lambda value, _target: applied.append(value),
+        _heos_refresh_status=lambda **_kwargs: refreshed.append(True),
+    )
+    LiteFrame._heos_control(
+        frame, lambda current, pid: current.set_volume(pid, 17),
+        lambda value: f"HEOS: głośność {value.volume}",
+    )
+    assert sent == [("1", 17)]
+    assert applied == [status]
+    assert spoken == ["HEOS: głośność 17"]
+
+    service.status = lambda _pid: (_ for _ in ()).throw(HeosTimeout("late read"))
+    LiteFrame._heos_control(
+        frame, lambda current, pid: current.set_volume(pid, 18),
+        lambda value: f"HEOS: głośność {value.volume}",
+    )
+    assert sent[-1] == ("1", 18)
+    assert spoken[-1] == "HEOS przyjął polecenie, ale nie można odczytać aktualnego stanu"
+    assert refreshed == [True]
+
+    def timeout(_current, _pid):
+        raise HeosTimeout("late command")
+
+    LiteFrame._heos_control(frame, timeout, "Polecenie")
+    assert spoken[-1] == (
+        "HEOS nie potwierdził polecenia przed upływem czasu. Odczytuję stan"
+    )
+
+    def rejected(_current, _pid):
+        raise HeosCommandError("browse/play_stream", "private server text")
+
+    LiteFrame._heos_control(frame, rejected, "Polecenie")
+    assert spoken[-1] == "HEOS odrzucił polecenie. Odczytuję stan"
+    assert "private server text" not in spoken[-1]
+
+
+def test_heos_play_confirmation_warns_if_speaker_volume_is_zero():
+    assert LiteFrame._heos_play_confirmation(
+        "Stacja", SimpleNamespace(volume=0)
+    ) == (
+        "HEOS przyjął polecenie dla Stacja. "
+        "Głośność 0; odtwarzanie może być niesłyszalne"
+    )
+    assert LiteFrame._heos_play_confirmation(
+        "Stacja", SimpleNamespace(volume=15)
+    ) == "HEOS przyjął polecenie dla Stacja"
+
+
+def test_radio_has_no_queue_command_on_key_menu_or_help():
+    menu_actions = {
+        item.action for section in menus_for_session(SessionId.RADIO, ["radio", "files"])
+        for item in section.items
+    }
+    assert Action.VIEW_SAVED_QUEUE not in menu_actions
+    assert Action.VIEW_SAVED_QUEUE in {
+        item.action for section in menus_for_session(SessionId.FILES, ["radio", "files"])
+        for item in section.items
+    }
+    for player_view in (False, True):
+        assert resolve(Chord("Ctrl+Q"), player_view=player_view, radio_session=True) is None
+    assert Action.VIEW_SAVED_QUEUE not in {
+        entry.action for entry in entries_for_session(SessionId.RADIO, ["radio", "files"])
+    }
+    assert "Ctrl+Q" not in {
+        shortcut for shortcut, _label in describe("Radio", menu_actions)
+    }
+    frame = SimpleNamespace(navigator=SimpleNamespace(active=SessionId.RADIO))
+    assert not LiteFrame._action_available_in_active_session(
+        frame, Action.VIEW_SAVED_QUEUE
+    )
 
 
 def test_favorites_from_heos_player_opens_speaker_source_list():

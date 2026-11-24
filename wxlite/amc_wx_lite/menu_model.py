@@ -949,7 +949,8 @@ def build_menus(
             #   MainWindow.xaml:488 "_Historia odtwarzania" Ctrl+H
             #   MainWindow.xaml:487 "_Kolejka"              Ctrl+Q
             MenuItem("&Historia odtwarzania", Action.VIEW_HISTORY, shortcut="Ctrl+H"),
-            MenuItem("&Kolejka", Action.VIEW_SAVED_QUEUE, shortcut="Ctrl+Q"),
+            MenuItem("&Kolejka", Action.VIEW_SAVED_QUEUE, shortcut="Ctrl+Q",
+                     visible_sessions=QUEUE_SESSIONS),
             # NIE "Zakładki" jak MainWindow.xaml:489. Tamta pozycja (Ctrl+B,
             # ViewBookmarks -> GetForDisplay) pokazuje WSZYSTKIE zakladki; my
             # mamy port GetForItem, czyli zakladki JEDNEGO zaznaczonego pliku.
