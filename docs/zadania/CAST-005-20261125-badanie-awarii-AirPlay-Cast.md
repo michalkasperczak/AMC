@@ -1,6 +1,6 @@
 # CAST-005 — badanie ciszy AirPlay i niepewnego startu Cast
 
-Data zgłoszenia: 25.11.2026. Status: badanie w toku, poprawka źródłowa Cast; AirPlay wymaga próby odsłuchowej na wskazanym odbiorniku.
+Data zgłoszenia: 25.11.2026. Status: poprawka źródłowa Cast; zapora dla AirPlay skorygowana i sprawdzona; AirPlay nadal niesłyszalny na Sonosie Biuro mimo ukończenia transmisji.
 
 ## Zgłoszenie i zakres
 
@@ -25,6 +25,15 @@ Po wskazaniu Sonosa „Biuro” Michał wyraźnie zgodził się na krótki cichy
 - Reguły lokalnej Zapory Windows dla dokładnego `D:\Projekty Codex\AMC Python\runtime\python.exe`: osobne aktywne reguły `Block` dla TCP i UDP, kierunek przychodzący, wszystkie porty i adresy, profile Private i Public. Bieżące Wi-Fi „Oppo 5G” ma profil Public i adres w podsieci 192.168.0.0/24. Systemowy Python ma aktywne reguły `Allow` dla ruchu przychodzącego.
 - Ten sam skrypt z systemowym Pythonem 3.14 i tym samym zainstalowanym pakietem pyatv ukończył bezpośredni WAV do Sonosa w 4,2 s oraz tor FFmpeg → MP3 → RAOP taki jak w AMC w 5,5 s. Proces nie pozostawił uruchomionej transmisji ani pliku próbnego. To mocno wskazuje na reguły zapory przypisane do ścieżki wykonywalnej AMC, choć potwierdzenie słyszalności obu zestawów sygnałów od Michała jest jeszcze oczekiwane.
 - Przygotowano najmniejszy zakres ewentualnej korekty systemowej: wyłączyć dwie lokalne reguły blokujące tylko ten plik wykonywalny i dodać zezwolenie na ruch przychodzący wyłącznie z bieżącej podsieci Wi-Fi dla tego samego programu. Bieżący profil sieci jest Public, więc zezwolenie ograniczone do Private nie naprawiłoby próby. Zmiana ustawień bezpieczeństwa Windows czeka na jawną odpowiedź Michała. Nie wykonano jej podczas tych prób.
+
+## Korekta wyników po zgodzie użytkownika — 25.11.2026
+
+Ta korekta zastępuje powyższe historyczne zapisy o oczekiwaniu na potwierdzenie słyszalności i o niezmienionej zaporze. Michał potwierdził, że **nie słyszał** żadnego z dwóch zestawów sygnałów, choć pyatv zwróciło sukces z systemowego Pythona. Sukces `stream_file()` nie jest dowodem dźwięku na odbiorniku.
+
+- Michał zatwierdził zmianę zapory dla dokładnego Pythona AMC i bieżącej podsieci Wi-Fi. Niepodniesiona próba otrzymała „Odmowa dostępu” i nie zmieniła reguł. Pierwsza i druga podniesiona próba stworzyły odpowiednie zezwolenie i wyłączyły blokady, ale automatycznie cofnęły zmianę: kontrola końcowa błędnie oczekiwała zapisu CIDR `/24`, podczas gdy Windows zwrócił równoważne `/255.255.255.0`. Po poprawieniu porównania podniesiona próba zakończyła się kodem 0. Niezależny odczyt potwierdził: dwa lokalne bloki TCP/UDP dla programu AMC Python są **wyłączone**, a zezwolenie `AMC-AirPlay-Local-20261125` jest **aktywne** tylko dla tego programu, profilu Public, interfejsu Wi-Fi i `192.168.0.0/24`. Zapis stanu sprzed zmiany: `C:\Users\micha\Documents\Codex\2026-11-25\a\work\amc_airplay_firewall_before.json`. Nie usunięto starych reguł. To jest zmiana konfiguracji systemu, niezależna od źródeł i instalatora.
+- Po zmianie zapory Python AMC ukończył bezpośredni WAV → RAOP w 4,1 s i tor FFmpeg → MP3 → RAOP w 4,0 s, bez timeoutu `SETUP`. Michał ponownie potwierdził **brak słyszalnego sygnału**. Zapora była przyczyną timeoutu, lecz jej korekta nie naprawiła ciszy. Pliki próbne zostały usunięte; nie pozostawiono procesu testowego.
+- Odczyt Sonos potwierdził, że AirPlay „Biuro” i urządzenie Sonos „Biuro” wskazują ten sam odbiornik. Głośność Sonosa wynosiła 37, wyciszenie było wyłączone, a grupa miała jednego koordynatora. Michał zgłosił, że urządzenie w tej chwili milczy również przy innym źródle. Przeprowadzono odwracalną próbę znanego MP3 przez zwykłe odtwarzanie Sonos: pierwszą próbę Sonos odrzucił kodem UPnP 714 z powodu brakującego jawnego MIME, zanim wystartował dźwięk; po ustawieniu `audio/mpeg` stan urządzenia był `PLAYING` przez około 4 s. Zapisany wcześniej stan został przywrócony, a Michał **usłyszał** sygnał. To zastępuje przypuszczenie, że sam głośnik lub jego głośność wyjaśnia ciszę AirPlay.
+- Następny test AirPlay powinien odczytywać stan Sonosa **w trakcie** RAOP i sprawdzić rzeczywiste pakiety/poziom audio, bez kolejnych zgadywanych zmian FFmpeg. Do rozstrzygnięcia: czy odbiornik przełącza źródło na AirPlay i czy PCM dociera do niego z pyatv. Nie deklarować naprawy AirPlay ani sprzętowego zaliczenia na podstawie samego ukończenia `stream_file()`.
 
 ## Zmiana źródłowa Cast
 
