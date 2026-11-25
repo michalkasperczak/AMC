@@ -468,7 +468,7 @@ def test_direct_new_schedule_editor_uses_selected_station_and_commits():
     selected = Station(id="radio-1", name="Radio Test", url="https://example.invalid/")
     snapshot = SimpleNamespace(stations=(selected,), recording=object())
     schedule = {"id": "plan-1", "name": "Poranny plan", "stationId": selected.id}
-    received, committed, messages, focus = {}, [], [], []
+    received, committed, events, pending = {}, [], [], []
 
     class FakeDialog:
         result_schedule = schedule
@@ -486,11 +486,13 @@ def test_direct_new_schedule_editor_uses_selected_station_and_commits():
             return gui.wx.ID_OK
 
     frame = SimpleNamespace(
-        announcer=SimpleNamespace(say=messages.append),
-        _restore_focus_after_dialog=lambda: focus.append(True),
+        announcer=SimpleNamespace(say=lambda message: events.append(("speech", message))),
+        _restore_focus_after_dialog=lambda: events.append(("focus", None)),
     )
     original = gui.RadioScheduleEditorDialog
+    original_call_after = gui.wx.CallAfter
     gui.RadioScheduleEditorDialog = FakeDialog
+    gui.wx.CallAfter = lambda fn, *args: pending.append((fn, args))
     try:
         LiteFrame._open_new_radio_schedule(
             frame,
@@ -500,14 +502,40 @@ def test_direct_new_schedule_editor_uses_selected_station_and_commits():
             selected_station=selected,
             commit=lambda schedules, wake: committed.append((schedules, wake)),
         )
+        assert events == []
+        while pending:
+            fn, args = pending.pop(0)
+            fn(*args)
+        assert events == [("focus", None), ("speech", "Dodano plan Poranny plan")]
+
+        events.clear()
+
+        def reject_save(_schedules, _wake):
+            raise OSError("no storage")
+
+        LiteFrame._open_new_radio_schedule(
+            frame,
+            snapshot=snapshot,
+            schedules=[],
+            wake=False,
+            selected_station=selected,
+            commit=reject_save,
+        )
+        assert events == []
+        while pending:
+            fn, args = pending.pop(0)
+            fn(*args)
     finally:
         gui.RadioScheduleEditorDialog = original
+        gui.wx.CallAfter = original_call_after
 
     assert received["preferred_station_id"] == selected.id
     assert received["stations"] == [selected]
     assert committed == [([schedule], False)]
-    assert messages == ["Dodano plan Poranny plan"]
-    assert focus == [True]
+    assert events == [
+        ("focus", None),
+        ("speech", "Nie udało się zapisać harmonogramu. Niczego nie zmieniono"),
+    ]
 
 
 def test_real_radio_data_flows_through_gui_dispatch_without_profile_writes():

@@ -41523,13 +41523,17 @@ class LiteFrame(wx.Frame):
         try:
             commit([*schedules, schedule], wake)
         except Exception:
-            self.announcer.say(
-                "Nie udało się zapisać harmonogramu. Niczego nie zmieniono"
-            )
+            message = "Nie udało się zapisać harmonogramu. Niczego nie zmieniono"
         else:
             name = str(schedule.get("name") or schedule.get("stationName") or "plan")
-            self.announcer.say(f"Dodano plan {name}")
-        self._restore_focus_after_dialog()
+            message = f"Dodano plan {name}"
+
+        def focus_then_announce() -> None:
+            # NVDA may speak the main window title while focus returns from the modal.
+            self._restore_focus_after_dialog()
+            wx.CallAfter(self.announcer.say, message)
+
+        wx.CallAfter(focus_then_announce)
 
     @staticmethod
     def _radio_schedule_sync_payload(snapshot, state: LiteState | None = None) -> dict:
