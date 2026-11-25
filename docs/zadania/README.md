@@ -1,6 +1,6 @@
 # Rejestr zadań AMC
 
-**AMC Test i Public alpha.530 / 25.11.2026: przygotowanie wspólnego wydania GitHub.** Shift+Enter oznacza teraz „Odtwarzaj jako następne”, Ctrl+Shift+Enter wycofano, a Ctrl+Shift+Q zachowuje zwykłą kolejkę. Wspólne poprawki od 24–25 listopada trafiają do obu profili; Apple Music i HEOS pozostają w Test. [Stan, testy i rozdział profili](RELEASE-ALPHA530-20261125-Test-Public.md); [szkic instrukcji i listy zmian](ALPHA530-instrukcja-i-lista-zmian-szkic.md).
+**AMC Test i Public alpha.530 / 25.11.2026: oba wydania opublikowane i zdalnie zweryfikowane na GitHubie.** Shift+Enter oznacza teraz „Odtwarzaj jako następne”, Ctrl+Shift+Enter wycofano, a Ctrl+Shift+Q zachowuje zwykłą kolejkę. Wspólne poprawki od 24–25 listopada trafiają do obu profili; Apple Music i HEOS pozostają w Test. [Stan, testy i rozdział profili](RELEASE-ALPHA530-20261125-Test-Public.md); [szkic instrukcji i listy zmian](ALPHA530-instrukcja-i-lista-zmian-szkic.md).
 
 **AMC Test alpha.529 / 25.11.2026: poprawka samoczynnego startu wstrzymanej stacji wydana na GitHubie.** Zainstalowana alpha.528 pomijała stan pauzy przy wznowieniu po aktualizacji. Commit `06a3f3c9` przeszedł 133 testy celowane; GitHub Actions zbudował instalator, który opublikowano w `test-2026.11.25.0226`. Instalacja i próba rzeczywistej pauzy pozostają otwarte. [Przyczyna i dowody](PLAYBACK-STARTUP-20261125-pauza-po-aktualizacji.md).
 
