@@ -1,31 +1,21 @@
 # PRESET — TIDAL: skróty cyfr i natywne odtwarzanie
 
-Zgłoszenie: 25.11.2026. Priorytet: pilny. Status: skróty cyfr poprawione w źródłach i testach; natywne uruchamianie presetów albumów i playlist oraz odbiór pozostają otwarte. Bieżąca aplikacja to wxPython w `D:\Projekty Codex\AMC - integracja wxPython`; dawny WPF nie należy do zadania. Baza badania: `d8d561db`, czysta gałąź `codex/heos-next-test-20261123`.
+Zgłoszenie i decyzja użytkownika: 25.11.2026. Status: poprawka kodu i testów zapisana; kompilacja, instalacja i odbiór pozostają otwarte. Bieżąca aplikacja: wxPython w D:\Projekty Codex\AMC - integracja wxPython. Dawny WPF nie należy do zadania.
 
-## Decyzja użytkownika zastępująca projekt z 22.11.2026
+## Decyzja zastępująca opis z 22.11.2026
 
-Michał zgłosił, że w TIDAL nie działa bezpośrednie przypisanie zaznaczonego celu przez `Ctrl+Alt+Shift+1…9, 0`, mimo że `Ctrl+Alt+Shift+P` pozwala przypisywać presety. Skróty i działanie mają być spójne między sesjami wszędzie, gdzie preset jest dostępny. Jego wypowiedź zawierała przejęzyczenie „Ctrl Alt Ctrl Shift”; zapisane skróty z aktualnego kontraktu to `Ctrl+Alt+Shift+cyfra` oraz `Ctrl+Alt+Shift+P`. Sprawdzić też faktyczną nazwę skrótów w działającym wydaniu i odczyt NVDA.
+Ctrl+Alt+Shift+1…9,0 ma przypisywać zaznaczony utwór, album, playlistę lub wykonawcę TIDAL do presetu, tak jak w pozostałych sesjach. Ctrl+Alt+Shift+P nadal otwiera istniejące przypisywanie. Album lub playlista uruchomiona z presetu ma grać natywnie w AMC. Oryginalny TIDAL pozostaje jedynie jawną opcją menu kontekstowego dla utworu. Ta decyzja zastępuje dawny projekt PRESET-20261122, który kierował albumy i playlisty do oryginalnego TIDAL.
 
-Zapisane presety albumów i playlist TIDAL nie mogą uruchamiać oryginalnej aplikacji TIDAL. Powinny używać natywnego odtwarzania AMC. Oryginalny TIDAL ma pozostać jedynie jawną opcją w menu kontekstowym. Ta decyzja z 25.11.2026 **zastępuje** opis w [PRESET-20261122](PRESET-20261122-tidal-i-bezposrednie-przypisanie.md), który świadomie kierował album i playlistę do oryginalnego TIDAL. Nie utrzymywać obu wariantów jako równorzędnych.
+## Przyczyna i poprawka
 
-## Potwierdzone ścieżki kodu
+Bramka TIDAL_SUPPORTED_ACTIONS nie zawierała akcji ASSIGN_PRESET_1…10, choć mapy skrótów i metoda zapisu już istniały. Dodano te akcje w commicie 95c3bd8. Bramka jest wspólna dla wykonania i powierzchni poleceń.
 
-- `shortcuts.py`: `ASSIGN_PRESET_SHORTCUTS` mapuje `Ctrl+Alt+Shift+1…0` na akcje przypisania, a `LIST_VIEW` i `PLAYER_VIEW` zawierają tę mapę. `gui.py` kieruje te akcje przez `assign_preset_slot` do `_assign_preset(direct_slot)`.
-- `TIDAL_SUPPORTED_ACTIONS` w `shortcuts.py` zawiera `ASSIGN_PRESET` i akcje uruchamiania `PRESET_1…12`, ale **nie zawiera** `ASSIGN_PRESET_1…10`. Bramka w `gui.py` odrzuca te akcje przed wykonaniem i używa przestarzałego komunikatu o oryginalnym TIDAL. To bezpośrednia, źródłowo potwierdzona przyczyna braku działania skrótów cyfr w TIDAL. Dotychczasowe testy sprawdzały m.in. `resolve(...)`, lecz nie pełną bramkę wykonania TIDAL, więc jej nie wykryły.
-- `_activate_preset` w `gui.py` uruchamia zapisany utwór TIDAL przez `navigator.open_tidal_search_result`; album i playlistę przekazuje jako `PlayTidalContainer`. `_play_tidal_container` wywołuje `client.tidal_desktop_play_container`, czyli stary zewnętrzny tor. Wymaga zastąpienia natywnym pobraniem kolejki albumu/playlisty i uruchomieniem w AMC z właściwą pozycją, metadanymi oraz obsługą błędu; nie wystarczy zmienić etykiety.
+Presety albumów i playlist oraz Ctrl+Enter przechodziły przez PlayTidalContainer do oryginalnego TIDAL. W commicie 61eac6b9 połączono je z jedną natywną trasą. Pobiera ona pełny kontener przez hosta, wybiera pierwszy odtwarzalny utwór i uruchamia go wraz z listą źródłową AMC do przechodzenia między utworami. Brak natywnego adaptera i pusty kontener dają czytelny komunikat bez przekazania do starej aplikacji. Z menu głównego i palety usunięto przekazanie utworu do oryginalnego TIDAL; jawne polecenie pozostało w menu kontekstowym. W kodzie aplikacji nie ma już wywołania tidal_desktop_play_container, choć niewywoływana metoda klienta hosta pozostała.
 
-## Przyrost źródłowy 25.11.2026 po zgodzie na pracę przy 2% limitu
+## Sprawdzenie i odbiór
 
-Michał wyraźnie pozwolił kontynuować pracę mimo 2% pozostałego limitu. W `TIDAL_SUPPORTED_ACTIONS` dodano dziesięć akcji `ASSIGN_PRESET_1…10`. To uzupełnia jedną wspólną bramkę używaną przez wykonanie, menu, paletę i pomoc; mapy klawiszy i metoda zapisu istniały wcześniej. Inne sesje z presetami sprawdzono pod kątem tej samej luki: Spotify, Sonos, HEOS i Radio Archiwista mają akcję przypisania cyfry; WiiM korzysta z własnego modelu presetów urządzenia. Nowy test wykrywa brak tych akcji w bramce TIDAL, czego stare testy samego `resolve(...)` nie robiły.
+Celowane testy: 64 zaliczone. Obejmują bramkę skrótów TIDAL, zapis i uruchomienie presetów albumu i playlisty, brak automatycznego powrotu do starego TIDAL, Ctrl+Enter, intencje nawigacji i źródłową listę natywnego odtwarzania. Szerszy przebieg test_tidal_native_gui.py przed tą zmianą miał 60 zaliczonych i 5 błędów niepełnych atrap SimpleNamespace w nietkniętych ścieżkach GUI; nie jest to zaliczona pełna regresja.
 
-Wynik: `test_profile_presets.py` **28 zaliczonych**; `test_preset_gui_wiring.py` **4 zaliczone** po dołączeniu wxPython z runtime AMC. Pierwszy wspólny przebieg przerwał się na zbieraniu testów GUI, bo systemowy Python nie miał wxPython; nie przedstawia się go jako zaliczonego. Zmiana kodu i testu: commit `95c3bd8`. Nie zbudowano ani nie zainstalowano nowej paczki; ręczny odbiór NVDA pozostaje otwarty.
+Nie zbudowano, nie zainstalowano i nie opublikowano nowego wydania. Ręczny test NVDA i prawdziwego konta TIDAL pozostaje do zrobienia: początkowy fokus, strzałki, powrót po zapisaniu i anulowaniu, ponowne otwarcie, dźwięk, pełna kolejność playlisty, następny utwór i zachowanie przy błędzie pobierania.
 
-Druga usterka nie jest jeszcze poprawiona. `gui.py::_play_tidal_container` nadal wywołuje zewnętrzny TIDAL. Istniejące `gui.py::_open_tidal_container` pobiera album/playlistę do listy AMC, a `_play_tidal_native_row` potrafi zbudować źródło odtwarzania z pobranych wierszy. Przed zastąpieniem starej trasy należy jednak rozstrzygnąć pełną kolejkę przy stronicowaniu, start pierwszego utworu, przejścia między utworami i powrót po błędzie. Nie kierować presetu albumu/playlisty tylko do pierwszego wiersza bez zachowania całego kontenera.
-
-## Wymagany rezultat i weryfikacja
-
-- `Ctrl+Alt+Shift+cyfra` w TIDAL zapisuje prawidłowy zaznaczony utwór, album, playlistę lub wykonawcę zgodnie z tym samym kontraktem zajętego miejsca, anulowania i potwierdzenia co inne sesje. Sprawdzić listę i odtwarzacz, wyszukiwanie, kolekcję oraz wiersz bez identyfikatora; w każdym wypadku NVDA ma dostać czytelną informację.
-- Preset utworu, albumu i playlisty uruchamia natywny TIDAL w AMC. Preset wykonawcy otwiera właściwy katalog. Uruchomienie presetu nigdy nie wywołuje `tidal_desktop_play_container` ani nie otwiera zewnętrznej aplikacji. Jawna opcja kontekstowa „Otwórz w oryginalnym TIDAL” zachowuje osobne znaczenie.
-- Wspólny model poleceń ma utrzymywać zgodność realnego wykonania, dostępności, menu Presety, `Ctrl+F1`, pełnej pomocy, palety `Ctrl+Shift+K` i dokumentacji w reprezentatywnych sesjach. Dodać test przechodzący przez faktyczną bramkę TIDAL, nie tylko mapę skrótów; testy natywnego uruchomienia kontenerów i błędów oraz ręczny odbiór NVDA.
-
-Stan w chwili zapisu: analiza źródeł i karta zadania, **bez zmiany kodu**, testu nowej poprawki, kompilacji, instalacji i publikacji. Poprzedni `PRESET-20261122` opisywał testy i wydanie tamtej wersji; nie stanowią odbioru tej korekty. Ostatni odczyt limitu Codex: 98% wykorzystane, 2% pozostało; szeroka naprawa i pakowanie wymagają nowego przydziału. Commit dokumentacji do uzupełnienia w historii gałęzi.
+Historia: karta 45ce36ff, skróty 95c3bd8, częściowy zapis e9e0f440, natywne odtwarzanie 61eac6b9. W chwili ostatniego odczytu limitu Codex wykorzystano 98%, pozostało 2%, reset 27.11.2026 o 22:53 CET. Użytkownik wyraźnie pozwolił kontynuować poniżej progu 15%.
