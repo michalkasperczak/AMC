@@ -592,6 +592,13 @@ def test_tidal_track_album_and_playlist_are_preset_targets() -> None:
     )) is None
 
 
+def test_tidal_direct_assignment_is_allowed_by_execution_and_discovery_gate() -> None:
+    from amc_wx_lite.shortcuts import ASSIGN_PRESET_ACTIONS, TIDAL_SUPPORTED_ACTIONS
+
+    assert all(action in TIDAL_SUPPORTED_ACTIONS
+               for action in ASSIGN_PRESET_ACTIONS.values())
+
+
 def test_direct_preset_assignment_resolves_in_list_and_player() -> None:
     from amc_wx_lite.shortcuts import (
         ASSIGN_PRESET_ACTIONS, chord_from_canonical, resolve,

@@ -873,6 +873,7 @@ TIDAL_SUPPORTED_ACTIONS = frozenset({
     Action.IMPORT_BACKUP,
     Action.TOGGLE_SEEK_MESSAGES,
     Action.ASSIGN_PRESET,
+    *(Action[f"ASSIGN_PRESET_{slot}"] for slot in range(1, 11)),
     Action.PRESET_1,
     Action.PRESET_2,
     Action.PRESET_3,
