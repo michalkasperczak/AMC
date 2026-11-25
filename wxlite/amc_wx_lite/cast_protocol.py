@@ -409,8 +409,9 @@ class CastConnection:
         if status.get("type") != "MEDIA_STATUS":
             raise CastError("cast.error.unplayable")
         media_status = status["status"][0]
-        if media_status.get("playerState") == "IDLE" and media_status.get("idleReason") == "ERROR":
-            raise CastError("cast.error.unplayable")
+        if media_status.get("playerState") == "IDLE":
+            raise CastError("cast.error.unplayable" if media_status.get("idleReason") == "ERROR"
+                            else "cast.error.notStarted")
         self._session_id = media_status.get("mediaSessionId")
         if media_status.get("playerState") == "BUFFERING":
             confirmed = self._wait(lambda ns, value: ns == _MEDIA and any(
