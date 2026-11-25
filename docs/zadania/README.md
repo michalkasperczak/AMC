@@ -1,6 +1,10 @@
 # Rejestr zadań AMC
 
-**Podcasty / 25.11.2026: poprawka zaznaczenia po `Ctrl+Shift+L` i potwierdzenia po `Delete` gotowa w źródłach.** Wyszukiwarka zachowuje dotychczasowy wybór po dodaniu źródła, a usunięcie wybiera sąsiada. 195 testów celowanych przeszło; GitHub, instalacja i odbiór NVDA pozostają otwarte. TIDAL zachowuje strony po 150 wierszy, a `Ctrl+F` szuka w pełnej pobranej kolekcji i katalogu. [Zadanie i wyniki](PODCAST-LIBRARY-FOCUS-20261125.md).
+**Podcasty / 25.11.2026: nowe zgłoszenie po `Ctrl+D`.** Gdy użytkownik idzie dalej po liście w czasie pobierania odcinka, ukończenie pobierania cofa kursor na pierwotny odcinek. Przyczyna jest wskazana w kodzie; poprawka i testy pozostają do wykonania. [Opis i kryteria](PODCAST-DOWNLOAD-FOCUS-20261125.md).
+
+**AMC Test alpha.528 / 25.11.2026: wydanie GitHub opublikowane, instalacja lokalna odłożona.** GitHub Actions zbudował instalator ze źródeł `4ba3ea7d`; wydanie `test-2026.11.25.0200` ma zweryfikowany instalator, plik integralności i manifest aktualizacji. Przed instalacją sterowanie komputerem zostało zatrzymane klawiszem Escape, więc stan nagrywania w AMC nie został potwierdzony i instalacji nie rozpoczęto. [Poprawki Podcastów](PODCAST-LIBRARY-FOCUS-20261125.md).
+
+**Podcasty / 25.11.2026: poprawka zaznaczenia po `Ctrl+Shift+L` i potwierdzenia po `Delete` wydana w alpha.528.** Wyszukiwarka zachowuje dotychczasowy wybór po dodaniu źródła, a usunięcie wybiera sąsiada. 195 testów celowanych przeszło; instalacja i odbiór NVDA pozostają otwarte. TIDAL zachowuje strony po 150 wierszy, a `Ctrl+F` szuka w pełnej pobranej kolekcji i katalogu. [Zadanie i wyniki](PODCAST-LIBRARY-FOCUS-20261125.md).
 
 **SCHED-004 / AMC Test alpha.527 (25.11.2026): wydane na GitHub, zainstalowane i uruchomione.** Wynik zapisu planu ma być wypowiedziany po przywróceniu fokusu listy harmonogramów. 142 testy celowane, kompilacja GitHub, SHA-256 wydania, 3658 plików instalacji i jedna instancja nowej wersji potwierdzone; rzeczywisty odbiór NVDA po Enter nadal otwarty. Konfigurowalny układ tytułu okna zachowano. [Zgłoszenie i przyczyna](SCHED-004-20261125-komunikat-po-zapisie-planu.md); [dowody wydania](RELEASE-ALPHA527-20261125.md).
 

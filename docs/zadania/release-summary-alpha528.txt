@@ -1,0 +1,1 @@
+Poprawiono zachowanie zaznaczenia w Bibliotece podcastów po Ctrl+Shift+L i komunikat po usunięciu odcinka.
