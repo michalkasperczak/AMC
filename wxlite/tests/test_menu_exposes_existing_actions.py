@@ -207,11 +207,14 @@ def test_shortcut_shown_in_menu_is_the_shortcut_that_really_works() -> None:
             continue
         if item.action in (
             Action.OPEN_RECORDING_MONITOR,
+            Action.OPEN_RECORDING_MONITOR_ALTERNATE,
             Action.RECORDING_OUTPUT_INFORMATION,
             Action.RENAME_ACTIVE_RECORDING,
         ):
             assert resolve(
-                Chord(item.shortcut),
+                (Chord("Return", ctrl=True)
+                 if item.action is Action.OPEN_RECORDING_MONITOR_ALTERNATE
+                 else Chord(item.shortcut)),
                 player_view=False,
                 radio_session=True,
                 radio_recording_context=True,
@@ -273,7 +276,7 @@ def test_no_duplicate_labels_or_shortcuts() -> None:
     assert set(duplicates) <= {
         "Ctrl+O", "Ctrl+Shift+O", "Ctrl+N", "Ctrl+E", "Ctrl+D", "Ctrl+Shift+D", "Ctrl+S",
         "Alt+1", "Alt+2", "Alt+3", "Ctrl+Alt+1", "Ctrl+Alt+2", "Ctrl+Alt+3",
-        "Alt+D", "F5", "Ctrl+F5", "Ctrl+Shift+L",
+        "Alt+D", "F5", "Ctrl+F5", "Ctrl+Shift+L", "Ctrl+Return",
             "Ctrl+Shift+U", "Ctrl+Shift+P",
         "B", "Shift+B", "Ctrl+Shift+B", "Ctrl+X", "Ctrl+V",
         "Alt+Up", "Alt+Down", "F2", "Delete", "Right", "Return",

@@ -7,6 +7,7 @@ on:
     paths:
       - Directory.Build.props
       - .github/workflows/amc-test-public-alpha531-build.yml
+      - wxlite/amc_wx_lite/shortcuts.py
   workflow_dispatch:
 
 permissions:

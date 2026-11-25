@@ -5,6 +5,16 @@ Poprzednia decyzja z 23.11 o starcie od początku bufora i oknie z osobnymi
 przyciskami jest zastąpiona korektą użytkownika z 25.11. Zmiana nazwy
 aktywnego pliku F2 działa według odbioru użytkownika.
 
+**Kolejna korekta użytkownika 25.11.2026:** Enter na liście Nagrywane
+otwiera odsłuch według zapisanego wyboru, a Ctrl+Enter natychmiast
+otwiera go w przeciwnym trybie. Przy domyślnym „Na żywo” Ctrl+Enter
+zaczyna od początku dostępnego fragmentu. Jeśli użytkownik wybierze
+„Od początku dostępnego fragmentu”, Ctrl+Enter zacznie na żywo.
+Oba polecenia są widoczne w menu, palecie, pomocy i menu kontekstowym
+tylko przy wybranym aktywnym nagraniu. To uzupełnia poniższe
+doprecyzowanie ustawienia początku. Użytkownik ponownie potwierdził,
+że F2 zmiany nazwy pliku działa w praktyce.
+
 **Doprecyzowanie użytkownika 25.11.2026:** w Ustawieniach, karta Radio,
 wybiera się początek odsłuchu: „Na żywo” albo „Od początku dostępnego
 fragmentu”. Domyślnie „Na żywo”. To zastępuje bezwarunkowy start na

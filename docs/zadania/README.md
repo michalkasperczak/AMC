@@ -1,6 +1,6 @@
 # Rejestr zadań AMC
 
-**AMC Test i Public alpha.531 / 25.11.2026: przygotowanie nowego wydania.** Odsłuch nagrania ma ustawienie początku, oś czasu i zwykłe skróty; Ctrl+D w Podcastach zachowuje kursor. [Stan i testy](RELEASE-ALPHA531-20261125-Test-Public.md); [szkic instrukcji](ALPHA531-instrukcja-i-lista-zmian-szkic.md).
+**AMC Test i Public alpha.531 / 25.11.2026: przygotowanie nowego wydania.** Odsłuch nagrania ma ustawienie początku, Enter/Ctrl+Enter, oś czasu i zwykłe skróty; Ctrl+D w Podcastach zachowuje kursor. [Stan i testy](RELEASE-ALPHA531-20261125-Test-Public.md); [szkic instrukcji](ALPHA531-instrukcja-i-lista-zmian-szkic.md).
 
 
 **AMC Test i Public alpha.530 / 25.11.2026: oba wydania opublikowane i zdalnie zweryfikowane na GitHubie.** Shift+Enter oznacza teraz „Odtwarzaj jako następne”, Ctrl+Shift+Enter wycofano, a Ctrl+Shift+Q zachowuje zwykłą kolejkę. Wspólne poprawki od 24–25 listopada trafiają do obu profili; Apple Music i HEOS pozostają w Test. [Stan, testy i rozdział profili](RELEASE-ALPHA530-20261125-Test-Public.md); [szkic instrukcji i listy zmian](ALPHA530-instrukcja-i-lista-zmian-szkic.md).

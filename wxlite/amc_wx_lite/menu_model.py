@@ -332,7 +332,9 @@ def menus_for_session(
             } and VIDEO_PREVIEW_CAPABILITY not in current_profile().capabilities:
                 continue
             if entry.action in {
-                Action.OPEN_RECORDING_MONITOR, Action.RENAME_ACTIVE_RECORDING,
+                Action.OPEN_RECORDING_MONITOR,
+                Action.OPEN_RECORDING_MONITOR_ALTERNATE,
+                Action.RENAME_ACTIVE_RECORDING,
             } and RECORDING_MONITOR_CAPABILITY not in current_profile().capabilities:
                 continue
             if (session_id is SessionId.TIDAL
@@ -1396,6 +1398,16 @@ def build_menus(
                 "Odsłu&chaj nagrywany materiał",
                 Action.OPEN_RECORDING_MONITOR,
                 shortcut="Return",
+                accelerator=False,
+                needs_radio_session=True,
+                needs_active_radio_recording_view=True,
+                needs_selection=True,
+                visible_sessions=RADIO_ONLY,
+            ),
+            MenuItem(
+                "Odsłuchaj nagranie (tryb &2)",
+                Action.OPEN_RECORDING_MONITOR_ALTERNATE,
+                shortcut="Ctrl+Return",
                 accelerator=False,
                 needs_radio_session=True,
                 needs_active_radio_recording_view=True,

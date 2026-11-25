@@ -697,6 +697,7 @@ class OpenRecordingMonitor:
 
     recording_id: str
     title: str
+    alternate: bool = False
 
 
 @dataclass(slots=True)

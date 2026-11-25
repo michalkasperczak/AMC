@@ -672,6 +672,7 @@ _LIST_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
     (
         Action.APPLE_MUSIC_OPEN_ORIGINAL,
         Action.OPEN_RECORDING_MONITOR,
+        Action.OPEN_RECORDING_MONITOR_ALTERNATE,
         Action.ACTIVATE,
         Action.PLAY_LOCAL_VIDEO,
         Action.PLAY_LOCAL_AUDIO,
@@ -9513,7 +9514,7 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
         )
         self.monitor_start.SetName("Początek odsłuchu nagrania")
         self.monitor_start.SetHelpText(
-            "Wybierz, od którego momentu rozpoczyna się odsłuch po Enter na liście Nagrywane"
+            "Enter używa wybranego początku, a Ctrl+Enter uruchamia odsłuch w drugim trybie"
         )
         selected_start = getattr(options, "radio_recording_monitor_start", "live")
         self.monitor_start.SetSelection(
@@ -12457,12 +12458,16 @@ class LiteFrame(wx.Frame):
                 enabled = False
             if entry.action in (
                 Action.OPEN_RECORDING_MONITOR,
+                Action.OPEN_RECORDING_MONITOR_ALTERNATE,
                 Action.RENAME_ACTIVE_RECORDING,
             ) and not (
                 active_radio_recording_view
                 and selected_row is not None
                 and selected_row.service_id
-                and (entry.action is Action.OPEN_RECORDING_MONITOR or selected_row.path)
+                and (entry.action in (
+                    Action.OPEN_RECORDING_MONITOR,
+                    Action.OPEN_RECORDING_MONITOR_ALTERNATE,
+                ) or selected_row.path)
             ):
                 enabled = False
             if entry.needs_podcast_session and not podcasts:
@@ -18982,6 +18987,12 @@ class LiteFrame(wx.Frame):
             self._activate_selected_if_ready()
         elif action is Action.OPEN_RECORDING_MONITOR:
             self._activate_selected_if_ready()
+        elif action is Action.OPEN_RECORDING_MONITOR_ALTERNATE:
+            self._run([
+                replace(intent, alternate=True)
+                if isinstance(intent, OpenRecordingMonitor) else intent
+                for intent in self.navigator.activate_selected()
+            ])
         elif action is Action.PARENT_FOLDER:
             if not LiteFrame._restore_transient_preview(self, announce=False):
                 self._run(self.navigator.go_to_parent())
@@ -36483,9 +36494,14 @@ class LiteFrame(wx.Frame):
         if client is None:
             self.announcer.say("Silnik odsłuchu jest niedostępny")
             return
+        start_position = self.options.radio_recording_monitor_start
+        if intent.alternate:
+            start_position = (
+                "beginning" if start_position == "live" else "live"
+            )
         dialog = RecordingMonitorDialog(
             self, client, self.runner, intent, self.options.volume,
-            self.options.radio_recording_monitor_start,
+            start_position,
         )
         try:
             dialog.ShowModal()
@@ -42396,12 +42412,15 @@ class LiteFrame(wx.Frame):
         if self.navigator.active is SessionId.RADIO and action is Action.VIEW_SAVED_QUEUE:
             return False
         if action in (
-            Action.OPEN_RECORDING_MONITOR, Action.RENAME_ACTIVE_RECORDING,
+            Action.OPEN_RECORDING_MONITOR,
+            Action.OPEN_RECORDING_MONITOR_ALTERNATE,
+            Action.RENAME_ACTIVE_RECORDING,
         ) and RECORDING_MONITOR_CAPABILITY not in current_profile().capabilities:
             return False
         if action in (
             Action.STATION_EDIT,
             Action.OPEN_RECORDING_MONITOR,
+            Action.OPEN_RECORDING_MONITOR_ALTERNATE,
             Action.RENAME_ACTIVE_RECORDING,
         ):
             in_recordings = (
@@ -42413,11 +42432,18 @@ class LiteFrame(wx.Frame):
             if (action is Action.STATION_EDIT and in_recordings
                     and RECORDING_MONITOR_CAPABILITY in current_profile().capabilities):
                 return False
-            if action in (Action.OPEN_RECORDING_MONITOR, Action.RENAME_ACTIVE_RECORDING):
+            if action in (
+                Action.OPEN_RECORDING_MONITOR,
+                Action.OPEN_RECORDING_MONITOR_ALTERNATE,
+                Action.RENAME_ACTIVE_RECORDING,
+            ):
                 row = self.navigator.session.model.selected_row
             return bool(
                     in_recordings and row and row.service_id
-                    and (action is Action.OPEN_RECORDING_MONITOR or row.path)
+                    and (action in (
+                        Action.OPEN_RECORDING_MONITOR,
+                        Action.OPEN_RECORDING_MONITOR_ALTERNATE,
+                    ) or row.path)
                 )
         if (action in YOUTUBE_AUDIO_HOST_ONLY_ACTIONS
                 and getattr(self, "_youtube_playback_active", lambda: False)()):

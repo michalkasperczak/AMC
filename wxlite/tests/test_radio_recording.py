@@ -866,6 +866,16 @@ def test_active_recording_enter_is_exposed_as_monitor_command() -> None:
     )
     assert active is Action.OPEN_RECORDING_MONITOR
     assert ordinary is Action.ACTIVATE
+    alternate = resolve(
+        Chord("Return", ctrl=True), player_view=False, radio_session=True,
+        radio_recording_context=True,
+    )
+    ordinary_ctrl = resolve(
+        Chord("Return", ctrl=True), player_view=False, radio_session=True,
+        radio_recording_context=False,
+    )
+    assert alternate is Action.OPEN_RECORDING_MONITOR_ALTERNATE
+    assert ordinary_ctrl is not Action.OPEN_RECORDING_MONITOR_ALTERNATE
     menu_item = next(
         item for menu in menu_model.build_menus() for item in menu.items
         if item.action is Action.OPEN_RECORDING_MONITOR
@@ -882,6 +892,23 @@ def test_active_recording_enter_is_exposed_as_monitor_command() -> None:
         shortcut == "Enter (Nagrywane)"
         and "nagrywany materiał" in description
         for shortcut, description in describe("Radio", {Action.OPEN_RECORDING_MONITOR})
+    )
+    alternate_item = next(
+        item for menu in menu_model.build_menus() for item in menu.items
+        if item.action is Action.OPEN_RECORDING_MONITOR_ALTERNATE
+    )
+    assert alternate_item.shortcut == "Ctrl+Return"
+    assert alternate_item.needs_active_radio_recording_view
+    assert any(
+        entry.action is Action.OPEN_RECORDING_MONITOR_ALTERNATE
+        for entry in entries_for_session(SessionId.RADIO)
+    )
+    assert any(
+        shortcut == "Ctrl+Enter (Nagrywane)"
+        and "drugim trybie" in description
+        for shortcut, description in describe(
+            "Radio", {Action.OPEN_RECORDING_MONITOR_ALTERNATE}
+        )
     )
 
 
@@ -1378,3 +1405,88 @@ def test_recording_monitor_keys_announce_buffer_and_stop_selected_recording() ->
 
     assert spoken == ["Odsłuch nagrania", "Do końca bufora 0:30"]
     assert dialog.stop_recording_requested
+
+
+def test_recording_monitor_enter_and_ctrl_enter_use_opposite_saved_start_modes(monkeypatch):
+    from amc_wx_lite.navigation import OpenRecordingMonitor
+
+    starts = []
+
+    class Dialog:
+        stop_recording_requested = False
+
+        def __init__(self, _parent, _client, _runner, _intent, _volume, start):
+            starts.append(start)
+
+        def ShowModal(self):
+            return None
+
+        def Destroy(self):
+            return None
+
+    monkeypatch.setattr(gui, "RecordingMonitorDialog", Dialog)
+    monkeypatch.setattr(gui, "current_profile", lambda: SimpleNamespace(
+        capabilities={gui.RECORDING_MONITOR_CAPABILITY}
+    ))
+    frame = SimpleNamespace(
+        client=object(),
+        runner=object(),
+        options=SimpleNamespace(volume=35, radio_recording_monitor_start="live"),
+        _active_list=lambda: SimpleNamespace(SetFocus=lambda: None),
+    )
+    for saved in ("live", "beginning"):
+        frame.options.radio_recording_monitor_start = saved
+        gui.LiteFrame._open_recording_monitor(
+            frame, OpenRecordingMonitor("recording-id", "Nazwa")
+        )
+        gui.LiteFrame._open_recording_monitor(
+            frame, OpenRecordingMonitor("recording-id", "Nazwa", alternate=True)
+        )
+    assert starts == ["live", "beginning", "beginning", "live"]
+
+
+def test_recording_monitor_alternate_dispatch_marks_navigation_intent():
+    from amc_wx_lite.navigation import OpenRecordingMonitor
+
+    routed = []
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(
+            active=SessionId.RADIO,
+            activate_selected=lambda: [OpenRecordingMonitor("recording-id", "Nazwa")],
+        ),
+        client=None,
+        announcer=SimpleNamespace(say=lambda _message: None),
+        _run=routed.append,
+    )
+    gui.LiteFrame._dispatch(frame, Action.OPEN_RECORDING_MONITOR_ALTERNATE)
+    assert len(routed) == 1
+    assert routed[0][0].recording_id == "recording-id"
+    assert routed[0][0].alternate is True
+
+
+def test_alternate_monitor_command_enabled_only_on_selected_active_recording():
+    model = SimpleNamespace(selected_row=Row(
+        "station", "Nagranie", "station", service_id="recording-id"
+    ))
+    state = SimpleNamespace(
+        view=View.LIST,
+        library_view=LibraryView.ACTIVE_RADIO_RECORDINGS,
+        model=model,
+    )
+    frame = SimpleNamespace(navigator=SimpleNamespace(
+        active=SessionId.RADIO, session=state
+    ))
+    assert LiteFrame._action_available_in_active_session(
+        frame, Action.OPEN_RECORDING_MONITOR_ALTERNATE
+    )
+    model.selected_row = None
+    assert not LiteFrame._action_available_in_active_session(
+        frame, Action.OPEN_RECORDING_MONITOR_ALTERNATE
+    )
+    model.selected_row = Row(
+        "station", "Nagranie", "station", service_id="recording-id"
+    )
+    state.library_view = LibraryView.FAVORITES
+    assert not LiteFrame._action_available_in_active_session(
+        frame, Action.OPEN_RECORDING_MONITOR_ALTERNATE
+    )

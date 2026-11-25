@@ -8,6 +8,8 @@ zatwierdzonej instrukcji bez odbioru.
 W Ustawieniach → Radio wybierz „Rozpocznij odsłuch nagrania”: „Na żywo”
 albo „Od początku dostępnego fragmentu”. Domyślne ustawienie to „Na żywo”.
 Podczas nagrywania naciśnij Alt+R, wybierz nagranie i naciśnij Enter.
+Ctrl+Enter otwiera to samo nagranie w przeciwnym trybie początku,
+bez zmieniania ustawienia.
 Odsłuch odtwarza dźwięk lokalnie; nagrywanie i radio na innym urządzeniu
 działają dalej. Użyj suwaka albo strzałek, aby cofnąć odsłuch, Home przechodzi
 do początku bufora, End wraca na żywo. F1 w oknie podaje wszystkie skróty.

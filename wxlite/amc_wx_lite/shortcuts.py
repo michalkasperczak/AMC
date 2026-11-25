@@ -343,6 +343,7 @@ class Action(Enum):
     RECORD_STOP_ALL = "radio.recording.stopAll"
     VIEW_ACTIVE_RECORDINGS = "radio.recording.activeView"
     OPEN_RECORDING_MONITOR = "radio.recording.monitor"
+    OPEN_RECORDING_MONITOR_ALTERNATE = "radio.recording.monitorAlternate"
     RECORDING_OUTPUT_INFORMATION = "radio.recording.outputInformation"
     RENAME_ACTIVE_RECORDING = "radio.recording.renameActive"
     VIEW_RECORDED_RADIO_FILES = "radio.recording.completedView"
@@ -2702,6 +2703,14 @@ def _resolve_default(
         not player_view
         and radio_session
         and radio_recording_context
+        and canonical == "Ctrl+Return"
+        and RECORDING_MONITOR_CAPABILITY in current_profile().capabilities
+    ):
+        return Action.OPEN_RECORDING_MONITOR_ALTERNATE
+    if (
+        not player_view
+        and radio_session
+        and radio_recording_context
         and canonical == "Right"
     ):
         return Action.RECORDING_OUTPUT_INFORMATION
@@ -3012,7 +3021,12 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.RECORD_SPLIT: "Zapisz biezaca czesc i rozpocznij nowa",
         Action.RECORD_STOP_ALL: "Zatrzymaj wszystkie nagrania radia",
         Action.VIEW_ACTIVE_RECORDINGS: "Pokaż aktualnie nagrywane pliki",
-        Action.OPEN_RECORDING_MONITOR: "Odsłuchaj nagrywany materiał i cofnij odtwarzanie",
+        Action.OPEN_RECORDING_MONITOR: (
+            "Odsłuchaj nagrywany materiał od momentu wybranego w ustawieniach Radia"
+        ),
+        Action.OPEN_RECORDING_MONITOR_ALTERNATE: (
+            "Odsłuchaj nagrywany materiał w drugim trybie początku: na żywo albo od początku dostępnego fragmentu"
+        ),
         Action.RECORDING_OUTPUT_INFORMATION: (
             "Podaj format, nazwę pliku i folder bieżącego nagrania"
         ),
@@ -3279,6 +3293,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
     for chord, action in (
         ("Ctrl+S (film internetowy)", Action.SAVE_YOUTUBE_VIDEO_AS),
         ("Enter (Nagrywane)", Action.OPEN_RECORDING_MONITOR),
+        ("Ctrl+Enter (Nagrywane)", Action.OPEN_RECORDING_MONITOR_ALTERNATE),
         ("Strzałka w prawo (Nagrywane)", Action.RECORDING_OUTPUT_INFORMATION),
         ("F2 (Nagrywane)", Action.RENAME_ACTIVE_RECORDING),
     ):
@@ -3361,7 +3376,11 @@ def describe(
         for chord, _label, action in _help_entries()
         if (available_actions is None or action in available_actions)
         and (
-            action not in {Action.OPEN_RECORDING_MONITOR, Action.RENAME_ACTIVE_RECORDING}
+            action not in {
+                Action.OPEN_RECORDING_MONITOR,
+                Action.OPEN_RECORDING_MONITOR_ALTERNATE,
+                Action.RENAME_ACTIVE_RECORDING,
+            }
             or RECORDING_MONITOR_CAPABILITY in current_profile().capabilities
         )
     ]

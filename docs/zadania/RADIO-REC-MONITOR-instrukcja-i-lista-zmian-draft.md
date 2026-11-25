@@ -2,6 +2,11 @@
 
 Do korekty i zatwierdzenia przez użytkownika. Nie publikować automatycznie.
 
+Korekta szkicu 25.11.2026: Enter używa ustawionego początku odsłuchu,
+a Ctrl+Enter otwiera ten sam materiał od drugiego końca (na żywo
+albo od początku dostępnego fragmentu). F2 zmiany nazwy nagrania
+użytkownik potwierdził w praktyce.
+
 Aktualizacja szkicu 25.11.2026: w Ustawieniach → Radio jest wybór
 „Rozpocznij odsłuch nagrania”: „Na żywo” (domyślnie) albo
 „Od początku dostępnego fragmentu”. Po wejściu Alt+R, Enter
