@@ -262,6 +262,7 @@ from .navigation import (
 )
 from .shortcuts import (
     Action,
+    command_presentation,
     describe_action,
     APPLE_MUSIC_SUPPORTED_ACTIONS,
     Chord,
@@ -13021,6 +13022,16 @@ class LiteFrame(wx.Frame):
                 source = available.get(action)
                 if source is None:
                     if (
+                        action is Action.TIDAL_OPEN_ORIGINAL
+                        and has_row
+                        and self._action_available_in_active_session(action)
+                    ):
+                        presentation = command_presentation(action)
+                        if presentation is not None:
+                            commands.append(_ContextMenuCommand(
+                                label=presentation.name, action=action,
+                            ))
+                    if (
                         action is Action.APPLE_MUSIC_RELATIONS
                         and has_row
                         and getattr(self.navigator, "active", None) is SessionId.APPLE_MUSIC
@@ -22548,11 +22559,15 @@ class LiteFrame(wx.Frame):
                     self._run(self.navigator.open_tidal_search_result(row))
                     return
                 if tidal_kind in {"album", "playlist"}:
+                    if self._tidal_native_adapter is None:
+                        self.announcer.say("Odtwarzacz TIDAL w AMC jest niedostępny")
+                        return
                     self._last_preset_slot_by_session[session] = slot
-                    self._run([PlayTidalContainer(
+
+                    self._play_tidal_native_container(OpenTidalContainer(
                         item_id=entry.target_id, title=entry.title,
                         service_id=entry.location, kind=tidal_kind,
-                    )])
+                    ))
                     return
                 if tidal_kind == "artist":
                     self._last_preset_slot_by_session[session] = slot
@@ -33283,18 +33298,30 @@ class LiteFrame(wx.Frame):
             return None
         return row
 
+    def _play_tidal_native_container(self, intent: OpenTidalContainer) -> None:
+        """Play a complete TIDAL album or playlist with AMC's native queue."""
+        if self._tidal_native_adapter is None:
+            self.announcer.say("Odtwarzacz TIDAL w AMC jest niedostępny")
+            return
+
+        def start_native_container() -> None:
+            rows = self.navigator.sessions[SessionId.TIDAL].model.rows
+            first = next((row for row in rows
+                          if row.kind == "track"
+                          and native_track_id(row.service_id) is not None), None)
+            if first is None:
+                self.announcer.say(i18n.tr("presets.activate.tidalEmpty"))
+                return
+            self._play_tidal_native_row(first)
+
+        self._open_tidal_container(intent, after_open=start_native_container)
+
     def _play_tidal_container(self, intent: PlayTidalContainer) -> None:
-        """Hand a whole album or playlist to original TIDAL."""
-        self._play_tidal_item(
-            intent,
-            lambda client, restart_consent: client.tidal_desktop_play_container(
-                item_id=intent.item_id,
-                external_id=intent.service_id,
-                title=intent.title,
-                kind=intent.kind,
-                restart_consent=restart_consent,
-            ),
-        )
+        """Ctrl+Enter starts a complete album or playlist in AMC."""
+        self._play_tidal_native_container(OpenTidalContainer(
+            item_id=intent.item_id, title=intent.title,
+            service_id=intent.service_id, kind=intent.kind,
+        ))
 
     def _toggle_tidal_membership(self, *, favorite: bool) -> None:
         """Ctrl+Shift+U/L: zmień prawdziwą kolekcję konta TIDAL."""

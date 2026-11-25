@@ -6,7 +6,8 @@ import json
 from types import SimpleNamespace
 
 from amc_wx_lite.gui import LiteFrame
-from amc_wx_lite.navigation import Navigator, PlayTidalContainer, PlayTidalTrack, SessionId
+from amc_wx_lite.navigation import Navigator, OpenTidalContainer, PlayTidalContainer, PlayTidalTrack, SessionId
+from amc_wx_lite.list_model import Row
 from amc_wx_lite.profile_presets import PresetTarget, ResolvedPreset
 
 
@@ -31,6 +32,7 @@ def _frame(tmp_path):
     frame.runner = SimpleNamespace(
         submit=lambda _name, work, done, _failed: done(work())
     )
+    frame._play_tidal_native_container = lambda intent: LiteFrame._play_tidal_native_container(frame, intent)
     return frame, spoken, intents
 
 
@@ -48,20 +50,70 @@ def test_free_tidal_slot_saves_immediately_and_plays_selected_track(tmp_path) ->
     assert any(isinstance(intent, PlayTidalTrack) for intent in intents)
 
 
-def test_tidal_album_preset_plays_whole_container(tmp_path) -> None:
+def test_tidal_album_and_playlist_presets_start_native_full_container(tmp_path) -> None:
+    for kind in ("album", "playlist"):
+        frame, spoken, intents = _frame(tmp_path)
+        frame._current_preset_target = lambda kind=kind: PresetTarget(
+            f"tidal:{kind}:456", f"tidal-{kind}", "Cały kontener", "456"
+        )
+        frame._tidal_native_adapter = object()
+        opened = []
+        started = []
+        tracks = [
+            Row("tidal:track:1", "Pierwszy", "track", service_id="1"),
+            Row("tidal:track:2", "Drugi", "track", service_id="2"),
+        ]
+
+        def open_container(intent, *, after_open):
+            opened.append(intent)
+            frame.navigator.session.model.replace(tracks)
+            after_open()
+
+        frame._open_tidal_container = open_container
+        frame._play_tidal_native_row = lambda row: started.append(row) or True
+        LiteFrame._assign_preset(frame, 5)
+        LiteFrame._activate_preset(frame, 5)
+
+        assert len(opened) == 1 and isinstance(opened[0], OpenTidalContainer)
+        assert (opened[0].kind, opened[0].service_id) == (kind, "456")
+        assert started == [tracks[0]]
+        assert intents == []
+        assert spoken[-1] == "Zapisano preset 5: Cały kontener"
+
+
+def test_ctrl_enter_album_uses_same_native_container_as_preset(tmp_path) -> None:
+    frame, spoken, _intents = _frame(tmp_path)
+    frame._tidal_native_adapter = object()
+    opened = []
+    started = []
+    first = Row("tidal:track:1", "Pierwszy", "track", service_id="1")
+
+    def open_container(intent, *, after_open):
+        opened.append(intent)
+        frame.navigator.session.model.replace([first])
+        after_open()
+
+    frame._open_tidal_container = open_container
+    frame._play_tidal_native_row = lambda row: started.append(row) or True
+    LiteFrame._play_tidal_container(frame, PlayTidalContainer(
+        item_id="tidal:album:456", title="Cała płyta",
+        service_id="456", kind="album",
+    ))
+    assert len(opened) == 1 and isinstance(opened[0], OpenTidalContainer)
+    assert started == [first]
+    assert spoken == []
+
+
+def test_tidal_container_preset_never_falls_back_to_original_player(tmp_path) -> None:
     frame, spoken, intents = _frame(tmp_path)
     frame._current_preset_target = lambda: PresetTarget(
         "tidal:album:456", "tidal-album", "Cała płyta", "456"
     )
-
+    frame._tidal_native_adapter = None
     LiteFrame._assign_preset(frame, 5)
     LiteFrame._activate_preset(frame, 5)
-
-    container = next(intent for intent in intents if isinstance(intent, PlayTidalContainer))
-    assert (container.kind, container.title, container.service_id) == (
-        "album", "Cała płyta", "456"
-    )
-    assert spoken[-1] == "Zapisano preset 5: Cała płyta"
+    assert spoken[-1] == "Odtwarzacz TIDAL w AMC jest niedostępny"
+    assert intents == []
 
 
 def test_english_preset_labels_menu_and_missing_target(tmp_path) -> None:

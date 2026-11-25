@@ -47,12 +47,11 @@ def test_native_command_has_one_surface_in_test_and_public(
         entry.action for entry in entries_for_session(SessionId.TIDAL)
     }
     monkeypatch.setenv("AMC_RELEASE_PROFILE", "test")
-    original = next(
-        entry for entry in entries_for_session(SessionId.TIDAL)
-        if entry.action is Action.TIDAL_OPEN_ORIGINAL
-    )
-    assert original.name == "Przekaż utwór do oryginalnego TIDALa"
-    assert Action.TIDAL_OPEN_ORIGINAL in _menu_actions()
+    assert Action.TIDAL_OPEN_ORIGINAL not in _menu_actions()
+    assert Action.TIDAL_OPEN_ORIGINAL not in {
+        entry.action for entry in entries_for_session(SessionId.TIDAL)
+    }
+    assert Action.TIDAL_OPEN_ORIGINAL in _LIST_CONTEXT_ACTION_GROUPS[0]
 
 
 def test_native_track_id_accepts_real_catalog_ids_and_rejects_other_kinds() -> None:

@@ -982,12 +982,6 @@ def build_menus(
                 if "tidal.native-playback" in current_profile().capabilities else ()
             ),
             MenuItem(
-                "Przekaż utwór do ory&ginalnego TIDALa",
-                Action.TIDAL_OPEN_ORIGINAL,
-                needs_selection=True,
-                visible_sessions=TIDAL_ONLY,
-            ),
-            MenuItem(
                 "Otwórz utwór w oryginalnym Apple &Music",
                 Action.APPLE_MUSIC_OPEN_ORIGINAL,
                 needs_selection=True,

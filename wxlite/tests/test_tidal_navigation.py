@@ -140,7 +140,7 @@ def test_tidal_album_activation_requests_the_shared_online_catalog() -> None:
     assert not any(isinstance(event, OpenLibraryView) for event in events)
 
 
-def test_ctrl_enter_hands_a_whole_tidal_album_to_original_tidal() -> None:
+def test_ctrl_enter_requests_a_whole_tidal_album_for_native_playback() -> None:
     nav = Navigator()
     nav.active = SessionId.TIDAL
     album = Row(
@@ -164,10 +164,6 @@ def test_ctrl_enter_hands_a_whole_tidal_album_to_original_tidal() -> None:
     )]
     assert nav.session.view.value == "list"
 
-    nav.note_tidal_playback_started(
-        album.item_id, album.title, uses_external_queue=True
-    )
-    assert nav.step_playback_source(True) is None
 
 
 def test_ctrl_enter_refuses_a_track_without_leaking_its_identity() -> None:

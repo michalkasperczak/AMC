@@ -729,7 +729,7 @@ class PlayTidalTrack:
 
 @dataclass(slots=True)
 class PlayTidalContainer:
-    """Przekaz caly album albo playliste do oryginalnego TIDALa."""
+    """Odtworz caly album albo playliste natywnie w AMC."""
 
     item_id: str
     title: str
@@ -2265,7 +2265,7 @@ class Navigator:
         return self.activate_tidal_search_relation(row, choice)
 
     def play_selected_tidal_container(self) -> list[object]:
-        """Ctrl+Enter: oddaj album lub playliste oryginalnemu TIDALowi."""
+        """Ctrl+Enter: odtworz album lub playliste natywnie w AMC."""
         state = self.session
         if state.session_id is not SessionId.TIDAL:
             return [Announce("To polecenie działa tylko w TIDAL")]
@@ -2279,7 +2279,7 @@ class Navigator:
         if row.service_kind != row.kind or not row.service_id:
             return [Announce(
                 "Ten element nie ma danych potrzebnych do odtworzenia "
-                "w oryginalnym TIDALu"
+                "w AMC"
             )]
 
         state.list_anchor_id = row.item_id
