@@ -1,0 +1,1 @@
+Poprawiono zachowanie pauzy: AMC Test nie uruchamia wstrzymanej stacji po aktualizacji.

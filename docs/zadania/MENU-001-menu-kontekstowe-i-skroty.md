@@ -3,6 +3,14 @@
 Status: **W trakcie; korekta natywnej granicy `Ctrl+Shift+0` jest przetestowana
 w źródłach, ale jeszcze niezainstalowana**.
 
+## Korekta użytkownika z 25.11.2026 — przegląd wszystkich sesji
+
+Użytkownik nadal słyszy cyfry na początku niektórych pozycji menu kontekstowego. Poprzednie testy etykiet nie zamykają tego zgłoszenia; trzeba odczytać faktyczne menu z NVDA w każdej sesji i ustalić, czy cyfra pochodzi z natywnego klawisza dostępu, etykiety menu, drugiej kolumny czy innej warstwy. Nie zakładać, że jest to identyfikator wewnętrzny bez pomiaru. NVDA ma otrzymać tylko nazwę czynności i ewentualnie jeden prawdziwy skrót.
+
+Kolejność menu listy powinna zaczynać się od działania na wybranym materiale: „Odtwarzaj”, potem dostępne dodanie jako następne, do Ulubionych lub playlisty. Dalej powinny być „Kopiuj”, „Kopiuj ścieżkę/adres” i pozostałe właściwe operacje. Obecny kod buduje grupy z działań menu głównego, ale ma informacje przed Ulubionymi i playlistą oraz inne pozycje między nimi; wymaga to przeglądu semantycznego z każdą sesją. Nie pokazywać martwych poleceń.
+
+Test odbiorczy: otwarcie `Shift+F10` i klawiszem menu na reprezentatywnym wierszu w Plikach, Radiu, Podcastach, TIDAL, Spotify, Apple Music, Radio Archiwiście, HEOS i obsługiwanych urządzeniach; początkowy fokus, strzałki, pierwszy znak odczytanej nazwy, Enter, Escape, ponowne otwarcie i powrót fokusu. Porównać nazwę, skrót, dostępność i wykonanie z `Ctrl+F1`, pełną pomocą i `Ctrl+Shift+K`. To nowe zgłoszenie jest otwarte; nie ma jeszcze poprawki, testów NVDA ani wydania.
+
 ## Materiał do dokumentacji użytkownika
 
 `Shift+F10` albo klawisz menu otwiera menu bieżącej listy lub odtwarzacza.

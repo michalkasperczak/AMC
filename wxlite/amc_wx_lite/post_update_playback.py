@@ -14,7 +14,11 @@ def normalize_snapshot(raw: object) -> list[dict]:
     result: list[dict] = []
     seen: set[str] = set()
     for value in raw:
-        if not isinstance(value, dict) or value.get("playing") is not True:
+        if (
+            not isinstance(value, dict)
+            or value.get("playing") is not True
+            or value.get("paused") is True
+        ):
             continue
         session = value.get("sessionId")
         source = value.get("source")

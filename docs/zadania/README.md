@@ -1,8 +1,12 @@
 # Rejestr zadań AMC
 
+**Odtwarzanie po aktualizacji / 25.11.2026: zgłoszono samoczynny start wstrzymanej stacji.** Instalacja ma już manifest alpha.528 (`25.11.2026, 02:00`); źródła wznowienia pomijały stan pauzy. W źródłach dodano bramkę i zaliczono 133 testy celowane; nowe wydanie i próba rzeczywistego aktualizatora otwarte. [Przyczyna i test](PLAYBACK-STARTUP-20261125-pauza-po-aktualizacji.md).
+
+**Dostępność i kolejka / 25.11.2026: trzy dalsze zadania.** [Konfigurowalne zapowiedzi utworów z innych sesji](ACCESS-ANNOUNCE-20261125-inne-sesje.md); [przywrócenie `Shift+Enter` dla „Odtwarzaj jako następne”](QUEUE-004-20261125-shift-enter-nastepne.md); [pełny przegląd menu kontekstowego i cyfr słyszanych przez NVDA](MENU-001-menu-kontekstowe-i-skroty.md). Na razie zapis wymagań, bez wdrożenia.
+
 **Podcasty / 25.11.2026: nowe zgłoszenie po `Ctrl+D`.** Gdy użytkownik idzie dalej po liście w czasie pobierania odcinka, ukończenie pobierania cofa kursor na pierwotny odcinek. Przyczyna jest wskazana w kodzie; poprawka i testy pozostają do wykonania. [Opis i kryteria](PODCAST-DOWNLOAD-FOCUS-20261125.md).
 
-**AMC Test alpha.528 / 25.11.2026: wydanie GitHub opublikowane, instalacja lokalna odłożona.** GitHub Actions zbudował instalator ze źródeł `4ba3ea7d`; wydanie `test-2026.11.25.0200` ma zweryfikowany instalator, plik integralności i manifest aktualizacji. Przed instalacją sterowanie komputerem zostało zatrzymane klawiszem Escape, więc stan nagrywania w AMC nie został potwierdzony i instalacji nie rozpoczęto. [Poprawki Podcastów](PODCAST-LIBRARY-FOCUS-20261125.md).
+**AMC Test alpha.528 / 25.11.2026: wydanie GitHub opublikowane i zainstalowane przez użytkownika.** GitHub Actions zbudował instalator ze źródeł `4ba3ea7d`; wydanie `test-2026.11.25.0200` ma zweryfikowany instalator, plik integralności i manifest aktualizacji. Odczyt lokalnego `bundle-manifest.json` potwierdził etykietę `25.11.2026, 02:00` i ten sam commit. Nie wykonano niezależnej kontroli żywego procesu ani odbioru NVDA. [Poprawki Podcastów](PODCAST-LIBRARY-FOCUS-20261125.md).
 
 **Podcasty / 25.11.2026: poprawka zaznaczenia po `Ctrl+Shift+L` i potwierdzenia po `Delete` wydana w alpha.528.** Wyszukiwarka zachowuje dotychczasowy wybór po dodaniu źródła, a usunięcie wybiera sąsiada. 195 testów celowanych przeszło; instalacja i odbiór NVDA pozostają otwarte. TIDAL zachowuje strony po 150 wierszy, a `Ctrl+F` szuka w pełnej pobranej kolekcji i katalogu. [Zadanie i wyniki](PODCAST-LIBRARY-FOCUS-20261125.md).
 

@@ -1,6 +1,6 @@
 # Podcasty: wybór po zmianie Biblioteki i komunikat po odświeżeniu
 
-Stan: 25.11.2026 — kod i testy celowane gotowe; wydanie GitHub alpha.528 opublikowane; instalacja i odbiór NVDA otwarte.
+Stan: 25.11.2026 — kod i testy celowane gotowe; wydanie GitHub alpha.528 opublikowane i zainstalowane przez użytkownika; odbiór NVDA otwarty.
 
 ## Cel i korekta użytkownika
 
@@ -31,10 +31,10 @@ W Podcastach naciśnij `Ctrl+Shift+L`, aby dodać lub usunąć podcast z Bibliot
 
 - Nie wykonano jeszcze rzeczywistej próby NVDA i fizycznego fokusu w zainstalowanym AMC Test.
 - Jeśli podcast otwarto bez wcześniejszego odczytu głównej Biblioteki, brak zapamiętanej kolejności źródeł; po usunięciu całego źródła wybór może spaść na pierwszy pozostały wiersz.
-- Nie wykonano pełnego zestawu testów ani lokalnej instalacji. Przed instalacją sterowanie komputerem zostało przerwane klawiszem Escape; nie potwierdzono stanu nagrywania.
+- Nie wykonano pełnego zestawu testów ani niezależnego odbioru NVDA. Użytkownik przeprowadził aktualizację; późniejszy odczyt lokalnego manifestu potwierdził wersję alpha.528 i commit źródeł, ale nie wykonano kontroli integralności wszystkich plików tej instalacji.
 
 ## Wersja i commit
 
-Źródła: commit `4ba3ea7dbcfcb359415b4384411d4ce61a263c78` na gałęzi `codex/heos-next-test-20261123`. GitHub Actions run `45522175254` zakończył się powodzeniem. Wydanie testowe `test-2026.11.25.0200` zawiera instalator `AMC-Test-2026-11-25-0200.exe`, 214638869 bajtów, SHA-256 `7cf5652e2da765ac713a336e98c11e978995fb845e5715a672e2720097c6bc9b`; plik integralności i manifest aktualizacji są opublikowane. Bieżąca instalacja lokalna pozostaje AMC Test alpha.527 (`test-2026.11.25.0046`).
+Źródła: commit `4ba3ea7dbcfcb359415b4384411d4ce61a263c78` na gałęzi `codex/heos-next-test-20261123`. GitHub Actions run `45522175254` zakończył się powodzeniem. Wydanie testowe `test-2026.11.25.0200` zawiera instalator `AMC-Test-2026-11-25-0200.exe`, 214638869 bajtów, SHA-256 `7cf5652e2da765ac713a336e98c11e978995fb845e5715a672e2720097c6bc9b`; plik integralności i manifest aktualizacji są opublikowane. Lokalny manifest instalacji wskazuje tę wersję i commit; użytkownik potwierdził uruchomienie po aktualizacji.
 
-Następny krok: po bezpiecznym odczycie stanu nagrywania zainstalować wydanie alpha.528 i wykonać odbiór `Ctrl+Shift+L`, `Delete` oraz fokusu NVDA na rzeczywistym widoku Podcastów.
+Następny krok: wykonać odbiór `Ctrl+Shift+L`, `Delete` oraz fokusu NVDA na rzeczywistym widoku Podcastów.

@@ -50,3 +50,5 @@ Istniejące `queue.set` w hoście przyjmuje elementy jako lokalne utwory i tworz
 5. Test odbiorczy obejmuje: odczyt bez uruchomienia dźwięku; Pliki → Podcasty i odwrotnie; odcinek HTTP(S) i pobrany; zachowanie wznowienia, tempa, postępu i wyjścia audio; brak źródła; koniec kolejki; zmianę trybu przy aktywnym odtwarzaniu; restart; osobne kolejki po powrocie; fokus, etykiety NVDA i parytet menu, palety, pomocy i skrótów.
 
 Zakres pierwszej wersji obejmujący usługi zewnętrzne pozostaje do ustalenia z Michałem. Do tego czasu nie dodawać ustawienia, które obiecuje wspólną kolejkę bez działającego dyspozytora odtwarzania. Brak zmian w źródłach oraz brak testów implementacji na tym etapie.
+
+Korekta 25.11.2026: osobne zadanie [QUEUE-004](QUEUE-004-20261125-shift-enter-nastepne.md) zapisuje przywrócenie `Shift+Enter` i kolejność pozycji „Odtwarzaj jako następne”. Skrót ma działać przewidywalnie zarówno przy obecnych osobnych kolejkach, jak i w przyszłym trybie wspólnym; ten zapis nie oznacza wdrożenia żadnego z nich.

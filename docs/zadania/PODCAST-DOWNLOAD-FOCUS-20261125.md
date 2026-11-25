@@ -30,6 +30,6 @@ Do szkicu po wykonaniu poprawki: „Po uruchomieniu pobierania odcinka przez `Ct
 
 ## Wersja i commit
 
-Zgłoszenie zapisano w commicie dokumentacji `d08b5ed813e703d94072f168aa4876e7a85797b0`, po opublikowaniu AMC Test alpha.528 (`test-2026.11.25.0200`), którego jeszcze nie zainstalowano lokalnie. Poprawka nie należy do alpha.528.
+Zgłoszenie zapisano w commicie dokumentacji `d08b5ed813e703d94072f168aa4876e7a85797b0`, po opublikowaniu AMC Test alpha.528 (`test-2026.11.25.0200`). Użytkownik później zainstalował tę wersję; lokalny manifest wskazuje commit `4ba3ea7d`. Poprawka nie należy do alpha.528.
 
 Następny krok: poprawić wybór po asynchronicznym zakończeniu `Ctrl+D`, dodać test odroczonego zakończenia i wykonać odbiór NVDA.

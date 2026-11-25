@@ -66,6 +66,32 @@ def test_close_snapshot_reads_live_transport_and_ignores_stopped_session() -> No
     assert [entry["sessionId"] for entry in frame.state.playback_before_update] == ["radio"]
 
 
+def test_paused_station_is_not_restarted_after_update(monkeypatch) -> None:
+    """An open station paused before update must stay silent on relaunch."""
+
+    frame = gui.LiteFrame.__new__(gui.LiteFrame)
+    frame.state = LiteState()
+    frame._playing_sessions = {SessionId.RADIO}
+    frame.client = SimpleNamespace(
+        alive=True,
+        status=lambda _session: dict(
+            sessionId="radio", source="https://example.org/live",
+            id="station-1", title="Stacja", playing=True, paused=True,
+        ),
+    )
+
+    gui.LiteFrame._capture_playback_before_close(frame)
+
+    assert frame.state.playback_before_update == []
+    starts = []
+    frame.client = SimpleNamespace(play_station=lambda *args, **kwargs: starts.append((args, kwargs)))
+    frame._save_state = lambda: True
+    monkeypatch.setenv("AMC_POST_UPDATE_RESUME", "1")
+    gui.LiteFrame._resume_playback_after_update(frame)
+
+    assert starts == []
+
+
 def test_post_update_launch_consumes_snapshot_and_starts_station(monkeypatch) -> None:
     frame = gui.LiteFrame.__new__(gui.LiteFrame)
     calls = []
