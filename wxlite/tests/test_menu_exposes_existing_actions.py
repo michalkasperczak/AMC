@@ -591,7 +591,7 @@ def test_queue_membership_menu_matches_supported_sessions() -> None:
         menu_model.SessionId.RADIOARCHIWISTA,
         menu_model.SessionId.HEOS,
     }
-    assert play_next.shortcut == "Ctrl+Shift+Return"
+    assert play_next.shortcut == "Shift+Return"
     assert play_next.needs_selection and play_next.needs_play_next_item
     assert set(play_next.visible_sessions) == {
         menu_model.SessionId.FILES,

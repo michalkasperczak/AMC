@@ -7,6 +7,7 @@ Każdy wpis prowadzi do istniejącej :class:`Action`, tej samej co menu i skrót
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Iterable, Mapping
 
 from . import i18n
@@ -31,7 +32,8 @@ class CommandPaletteEntry:
 
 
 def _plain_label(value: str) -> str:
-    return " ".join(value.replace("&", "").split()).strip()
+    without_access_key = re.sub(r"\s*\(&[^)&]\)", "", value)
+    return " ".join(without_access_key.replace("&", "").split()).strip()
 
 
 def _shortcut_label(value: str | None) -> str | None:

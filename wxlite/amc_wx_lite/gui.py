@@ -3102,10 +3102,10 @@ class SearchDialog(wx.Dialog):
             self._complete_selected(SearchResultAction.TOGGLE_PLAYBACK)
             return
         if code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and shift and not (ctrl or alt):
-            self._complete_selected(SearchResultAction.QUEUE)
-            return
-        if code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and ctrl and shift and not alt:
             self._complete_selected(SearchResultAction.PLAY_NEXT)
+            return
+        if ctrl and shift and not alt and code in (ord("Q"), ord("q")):
+            self._complete_selected(SearchResultAction.QUEUE)
             return
         if ctrl and shift and code in (ord("U"), ord("u")):
             self._complete_selected(SearchResultAction.FAVORITE)
@@ -18355,7 +18355,7 @@ class LiteFrame(wx.Frame):
                 "Ctrl+Shift+P",
                 "Ctrl+Shift+L",
                 "Ctrl+Shift+Q",
-                "Ctrl+Shift+Return",
+                "Shift+Return",
                 "Ctrl+Shift+H",
                 "Ctrl+R",
                 "Ctrl+T",

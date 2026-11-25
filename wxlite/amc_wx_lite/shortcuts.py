@@ -1660,10 +1660,10 @@ LIST_VIEW: dict[str, Action] = {
     # Biblioteki z KAZDEGO nazwanego widoku (Ulubione, Historia, ...).
     "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
     # Jednoznaczny zestaw bez dawnego duplikatu Shift+Enter:
-    # Ctrl+Shift+Q zmienia zwykla kolejke, Ctrl+Shift+Enter ustawia blok
-    # „odtworz nastepne”. Sam Shift+Enter zostaje wolny na przyszla funkcje.
+    # Ctrl+Shift+Q zmienia zwykla kolejke, Shift+Enter ustawia blok
+    # „odtworz nastepne”. Ctrl+Shift+Enter pozostaje wolny.
     "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
-    "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
+    "Shift+Return": Action.TOGGLE_PLAY_NEXT,
     "Ctrl+Shift+U": Action.TOGGLE_FAVORITE,
     "Ctrl+Shift+P": Action.MANAGE_PLAYLIST_MEMBERSHIP,
     # Ctrl+B to ViewBookmarks oryginalu (MainWindow.xaml:489): WSZYSTKIE
@@ -1880,7 +1880,7 @@ PLAYER_VIEW: dict[str, Action] = {
     "Prior": Action.QUEUE_PREVIOUS,
     "Next": Action.QUEUE_NEXT,
     "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
-    "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
+    "Shift+Return": Action.TOGGLE_PLAY_NEXT,
     "Ctrl+Shift+U": Action.TOGGLE_FAVORITE,
     "Ctrl+Shift+P": Action.MANAGE_PLAYLIST_MEMBERSHIP,
     "Alt+T": Action.QUICK_INFORMATION,
@@ -2184,7 +2184,7 @@ RADIOARCHIWISTA_SESSION_VIEW: dict[str, Action] = {
     "Ctrl+Shift+C": Action.COPY_ADDRESS,
     "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
     "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
-    "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
+    "Shift+Return": Action.TOGGLE_PLAY_NEXT,
     "Ctrl+D": Action.RADIOARCHIWISTA_DOWNLOAD,
     "Ctrl+Shift+D": Action.RADIOARCHIWISTA_DOWNLOAD_FRAGMENT,
 }
@@ -2223,7 +2223,7 @@ HEOS_SESSION_VIEW: dict[str, Action] = {
     "Ctrl+P": Action.VIEW_PLAYLISTS,
     "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
     "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
-    "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
+    "Shift+Return": Action.TOGGLE_PLAY_NEXT,
 }
 
 SONOS_OWN_STREAMS_VIEW: dict[str, Action] = {

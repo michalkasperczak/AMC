@@ -1111,7 +1111,7 @@ def build_menus(
             MenuItem(
                 "Odtwarzaj jako następne (&X)",
                 Action.TOGGLE_PLAY_NEXT,
-                shortcut="Ctrl+Shift+Return",
+                shortcut="Shift+Return",
                 accelerator=False,
                 needs_selection=True,
                 needs_play_next_item=True,

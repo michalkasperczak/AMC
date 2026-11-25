@@ -204,7 +204,7 @@ Sprawdź kolejno:
    listy zamiast zostawiać odłączony widok.
 4. `Ctrl+Shift+Q` na odcinku dodaje go do kolejki podcastów albo usuwa.
    `Ctrl+Q` ma pokazać zgodny stan także po ponownym uruchomieniu.
-   `Ctrl+Shift+Enter` osobno przełącza „Odtwarzaj jako następne”.
+   `Shift+Enter` osobno przełącza „Odtwarzaj jako następne”.
 5. W Radiu zaznacz stację i naciśnij `Shift+R`. Powinien od razu otworzyć się
    formularz nowego planu z wybraną tą stacją. `Ctrl+Shift+H` nadal otwiera
    listę wszystkich harmonogramów.
@@ -440,7 +440,7 @@ Odbiór wyszukiwania z NVDA:
    nazwy, a `Ctrl+Shift+C` adresy. Przy wyłączonym zewnętrznym ogłaszaniu
    poleceń schowka pozostaje jeden celowy polski komunikat AMC.
 3. Zaznacz zakres Shiftem i nieprzylegające wiersze przez `Ctrl+Spacja`.
-   Sprawdź `Ctrl+Shift+Q`, `Ctrl+Shift+Enter`, `Ctrl+Shift+U`, `Ctrl+Shift+L`,
+   Sprawdź `Ctrl+Shift+Q`, `Shift+Enter`, `Ctrl+Shift+U`, `Ctrl+Shift+L`,
    `Ctrl+Shift+P`, `Ctrl+Alt+Shift+P`, `Alt+Enter`, `Ctrl+D` i `Ctrl+S` w
    pasujących sesjach. Wyniki z różnych usług nie mogą zostać potraktowane
    jako jedna operacja.
@@ -962,7 +962,7 @@ Bez przekierowania `APPDATA`/`LOCALAPPDATA` aplikacja domyślnie czyta profil w�
 
 10. Widoki aktywności. Ctrl+H historia, Ctrl+Q kolejka, Ctrl+Shift+B zakładki ZAZNACZONEGO pliku. Trzy rzeczy do sprawdzenia poza samą licznością:
     - Etykieta kolejki odpowiada stanowi hosta. Przed pierwszą inicjalizacją jest to „Kolejka (zapisana)”; potem „Kolejka odtwarzania”, także „pusto” po ostatnim utworze. Pozostaw Ctrl+Q otwarte przy B→A→C: wiersze mają ubywać bez ponownego skrótu, a po ponownym wejściu nie mogą wrócić z zapisu. Wybrany nadal istniejący wiersz i widok pozostają; przejście pliku nie zmienia bieżącej stacji w oglądanej sesji Radia.
-    - Zaznacz kilka plików Shiftem, potem kilka nieprzyległych przez Ctrl+Spację. Ctrl+Shift+Q dodaje albo usuwa całe zaznaczenie ze zwykłej kolejki. Ctrl+Shift+Enter ustawia albo zdejmuje „odtwórz następne”. Shift+Enter niczego nie przechwytuje. Jeśli plik już gra, żadna z tych operacji nie może przerwać dźwięku ani wyzerować czasu.
+    - Zaznacz kilka plików Shiftem, potem kilka nieprzyległych przez Ctrl+Spację. Ctrl+Shift+Q dodaje albo usuwa całe zaznaczenie ze zwykłej kolejki. Shift+Enter ustawia albo zdejmuje „odtwórz następne”. Ctrl+Shift+Enter pozostaje wolny. Jeśli plik już gra, żadna z tych operacji nie może przerwać dźwięku ani wyzerować czasu.
     - W kolejce zawierającej bieżący B, zwykły A i oznaczony jako następny C widok ma pokazać B, C, A, a naturalny koniec B ma rzeczywiście uruchomić C.
     - Ctrl+Shift+B, nie Ctrl+B. Ctrl+B to teraz OSOBNY, szerszy widok zbiorczy (`GetForDisplay` / `all_bookmark_rows`); Ctrl+Shift+B zostaje przy węższym `GetForItem` dla jednego pliku. Dwa skróty, dwa widoki — sprawdzaj, że się nie podmieniają.
     - W obu widokach zakładek zaznacz kilka wpisów, także nieprzylegających
@@ -1053,7 +1053,7 @@ Przed publikacją potrzebny jest osobny, pełny odbiór niezmienianej paczki. Te
 
 ## Znane ograniczenia
 
-Wymienione wyżej przypadki mowy list są odebrane. Nie rozszerzaj tego na wszystkie możliwe scenariusze i czytniki. Całość nie ma jeszcze wszystkich usług i ustawień oryginału. Kolejka żywego silnika DZIAŁA (`Ctrl+Q` pokazuje stan, `Ctrl+Shift+Q` zmienia zwykłą kolejkę, a `Ctrl+Shift+Enter` blok „Odtwórz następny”); naturalne przejścia i trwały zapis prywatnej kolejki zostały zmierzone. Tempo i wybór silników mają osobne wcześniejsze kwity — odbiór list ich nie powtarza.
+Wymienione wyżej przypadki mowy list są odebrane. Nie rozszerzaj tego na wszystkie możliwe scenariusze i czytniki. Całość nie ma jeszcze wszystkich usług i ustawień oryginału. Kolejka żywego silnika DZIAŁA (`Ctrl+Q` pokazuje stan, `Ctrl+Shift+Q` zmienia zwykłą kolejkę, a `Shift+Enter` blok „Odtwórz następny”); naturalne przejścia i trwały zapis prywatnej kolejki zostały zmierzone. Tempo i wybór silników mają osobne wcześniejsze kwity — odbiór list ich nie powtarza.
 
 Pełne dowody robocze: `amc_pomoc/wx-full-profile-after421/library-gui-after422/REPORT.md` i `parent-acceptance/`. Nie kopiuj prywatnych tytułów/profilu do repo ani paczki.
 

@@ -39,7 +39,7 @@ Lewa strzałka w Podcastach przekazuje teraz do wspólnego formatera autora,
 adres źródła, czas, rozmiar i typ medium, jeżeli te dane są znane. Nie dopisuje
 ich do zwykłej nazwy dostępnej wiersza. `Ctrl+Shift+U` dociera do istniejącej
 operacji Ulubionych, `Ctrl+Shift+L` zmienia Bibliotekę podcastu także wtedy,
-gdy zaznaczony jest jego odcinek, a `Ctrl+Shift+Q` i `Ctrl+Shift+Enter`
+gdy zaznaczony jest jego odcinek, a `Ctrl+Shift+Q` i `Shift+Enter`
 zmieniają trwałą kolejkę odcinków. Kolejka podcastów nie jest mieszana z
 kolejką plików lokalnych. `Shift+R` na stacji otwiera nowy plan nagrania z tą
 stacją już wybraną; `Ctrl+Shift+H` nadal zarządza wszystkimi planami.
@@ -500,7 +500,7 @@ własnej normalizacji diakrytyków.
   stronicowanie i `Delete` działają bez ujawniania technicznych identyfikatorów;
   usunięcie czyści flagi odcinka oraz wszystkie trzy tabele kolejności jedną
   transakcją C#. `Ctrl+Shift+Q` przyrostowo dodaje lub usuwa całe zaznaczenie
-  ze zwykłej kolejki, a `Ctrl+Shift+Enter` przełącza blok „Odtwórz następny”.
+  ze zwykłej kolejki, a `Shift+Enter` przełącza blok „Odtwórz następny”.
   Host zachowuje stabilny porządek obu bloków, zapisuje go i zużywa kolejkę po
   naturalnym końcu odcinka bez przebudowy toru odtwarzania.
 - Radio ma działające nagrywanie ręczne i w tle, historię, podział pliku,
