@@ -90,6 +90,14 @@
   publikacji poprawki Huberta poinformuj go w odpowiednim zgłoszeniu GitHub
   albo innym jawnie wskazanym kanale; nie przedstawiaj samego commitu lub
   kompilacji jako wydania. Zapisz wyniki i ograniczenia na D dla Hermesa.
+- Korekta użytkownika z 25 listopada 2026 r.: instalator każdego użytkowego
+  wydania AMC Test i AMC Public buduj na stałe w GitHub Actions z dokładnego,
+  wysłanego commitu źródeł. Przed publikacją sprawdź pomyślny wynik tego
+  uruchomienia, rewizję w manifeście, profil, wersję, rozmiar i SHA-256
+  instalatora oraz kontrolę sekretów. Lokalny build może służyć diagnozie i
+  testom, ale nie jest artefaktem wydania ani dowodem, że GitHub zbudował
+  instalator. Kanał aktualizacji ma wskazywać wyłącznie zweryfikowany zasób
+  GitHub Releases.
 - Po publikacji wydania usuń jego lokalny ZIP z `publish` dopiero po
   zweryfikowaniu, że odpowiadający mu załącznik GitHub Releases został
   skutecznie wysłany i jest dostępny (nazwa, rozmiar i, gdy dostępny, SHA-256).
