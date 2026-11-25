@@ -33,6 +33,15 @@ def _run(*, row: Row | None, player: bool, modal_result: int):
     spoken: list[str] = []
     shown: list[dict] = []
     focus: list[str] = []
+    events: list[str] = []
+
+    def say(message: str) -> None:
+        spoken.append(message)
+        events.append("speech")
+
+    def restore_focus() -> None:
+        focus.append("focus")
+        events.append("focus")
 
     class Client:
         def podcast_playback_options(self, item_id, target):
@@ -82,11 +91,11 @@ def _run(*, row: Row | None, player: bool, modal_result: int):
         ),
         client=Client(),
         runner=SimpleNamespace(submit=submit),
-        announcer=SimpleNamespace(say=spoken.append),
+        announcer=SimpleNamespace(say=say),
         status_field=SimpleNamespace(SetLabel=lambda _text: None),
         status_bar=SimpleNamespace(show=lambda _text: None),
         _podcast_options_pending=False,
-        _restore_focus_after_dialog=lambda: focus.append("focus"),
+        _restore_focus_after_dialog=restore_focus,
     )
     original = gui.PodcastPlaybackOptionsDialog
     gui.PodcastPlaybackOptionsDialog = Dialog
@@ -101,6 +110,7 @@ def _run(*, row: Row | None, player: bool, modal_result: int):
         spoken=spoken,
         shown=shown,
         focus=focus,
+        events=events,
     )
 
 
@@ -121,7 +131,39 @@ def test_podcast_options_read_and_write_keep_model_values_out_of_speech() -> Non
     ]
     assert "private-podcast-id" not in result.spoken[0]
     assert result.focus == ["focus"]
+    assert result.events == ["focus", "speech"]
     assert not result.frame._podcast_options_pending
+
+
+def test_result_announcement_waits_for_focus_and_live_window(monkeypatch) -> None:
+    pending = []
+    events = []
+    alive = [True]
+    monkeypatch.setattr(
+        gui.wx, "CallAfter", lambda fn, *args: pending.append((fn, args))
+    )
+    frame = SimpleNamespace(
+        _window_alive=lambda: alive[0],
+        _restore_focus_after_dialog=lambda: events.append("focus"),
+        announcer=SimpleNamespace(say=lambda message: events.append(message)),
+    )
+    gui.LiteFrame._restore_focus_then_announce(frame, "Zapisano")
+    assert events == []
+    fn, args = pending.pop(0)
+    fn(*args)
+    assert events == ["focus"]
+    fn, args = pending.pop(0)
+    fn(*args)
+    assert events == ["focus", "Zapisano"]
+
+    events.clear()
+    gui.LiteFrame._restore_focus_then_announce(frame, "Nie zapisano")
+    fn, args = pending.pop(0)
+    fn(*args)
+    alive[0] = False
+    fn, args = pending.pop(0)
+    fn(*args)
+    assert events == ["focus"]
 
 
 def test_cancel_closes_options_without_writing() -> None:

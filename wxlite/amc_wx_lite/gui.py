@@ -21337,15 +21337,16 @@ class LiteFrame(wx.Frame):
         def done(payload: object) -> None:
             result = payload if isinstance(payload, dict) else {}
             count = int(result.get("exportedCount") or 0)
-            self.announcer.say(f"Wyeksportowano strumienie WiiM: {count}")
-            self._restore_focus_after_dialog()
+            LiteFrame._restore_focus_then_announce(
+                self, f"Wyeksportowano strumienie WiiM: {count}"
+            )
 
         self.runner.submit(
             "wiim-stream-export",
             lambda: client.wiim_export_network_streams(path),
             done,
-            lambda error: self.announcer.say(
-                f"Nie można zapisać playlisty: {error}"
+            lambda error: LiteFrame._restore_focus_then_announce(
+                self, f"Nie można zapisać playlisty: {error}"
             ),
         )
 
@@ -27407,15 +27408,16 @@ class LiteFrame(wx.Frame):
         def done(payload: object) -> None:
             result = payload if isinstance(payload, dict) else {}
             count = int(result.get("exportedCount") or 0)
-            self.announcer.say(f"Wyeksportowano stacje Sonos: {count}")
-            self._restore_focus_after_dialog()
+            LiteFrame._restore_focus_then_announce(
+                self, f"Wyeksportowano stacje Sonos: {count}"
+            )
 
         self.runner.submit(
             "sonos-own-stream-export",
             lambda: client.sonos_export_own_streams(path),
             done,
-            lambda error: self.announcer.say(
-                f"Nie można zapisać playlisty: {error}"
+            lambda error: LiteFrame._restore_focus_then_announce(
+                self, f"Nie można zapisać playlisty: {error}"
             ),
         )
 
@@ -28076,12 +28078,12 @@ class LiteFrame(wx.Frame):
                         completion_message=message,
                     )
                 else:
-                    self.announcer.say(message)
-                    self._restore_focus_after_dialog()
+                    LiteFrame._restore_focus_then_announce(self, message)
 
             def save_failed(error: Exception) -> None:
-                self.announcer.say(f"Nie zapisano źródeł skrzynki podcastów: {error}")
-                self._restore_focus_after_dialog()
+                LiteFrame._restore_focus_then_announce(
+                    self, f"Nie zapisano źródeł skrzynki podcastów: {error}"
+                )
 
             self.runner.submit(
                 "podcast-inbox-sources-save",
@@ -30432,13 +30434,13 @@ class LiteFrame(wx.Frame):
                     message += ". Ustawienia toru dźwięku obowiązują od następnego otwarcia materiału"
                 self.status_field.SetLabel(message)
                 self.status_bar.show(message)
-                self.announcer.say(message)
-                self._restore_focus_after_dialog()
+                LiteFrame._restore_focus_then_announce(self, message)
 
             def save_failed(error: Exception) -> None:
                 self._podcast_options_pending = False
-                self.announcer.say(f"Nie zapisano opcji odtwarzania: {error}")
-                self._restore_focus_after_dialog()
+                LiteFrame._restore_focus_then_announce(
+                    self, f"Nie zapisano opcji odtwarzania: {error}"
+                )
 
             self.runner.submit(
                 "podcast-options-save",
@@ -37298,6 +37300,22 @@ class LiteFrame(wx.Frame):
         )
         if target is not None:
             target.SetFocus()
+
+    def _restore_focus_then_announce(self, message: str) -> None:
+        """Return focus before the result, so NVDA does not replace it with the title."""
+        def alive() -> bool:
+            checker = getattr(self, "_window_alive", None)
+            return checker() if callable(checker) else True
+
+        def after_modal() -> None:
+            if not alive():
+                return
+            self._restore_focus_after_dialog()
+            wx.CallAfter(
+                lambda: self.announcer.say(message) if alive() else None
+            )
+
+        wx.CallAfter(after_modal)
 
     def _play_pause(self) -> None:
         if self.navigator.active is SessionId.HEOS:
