@@ -205,6 +205,10 @@ def test_ctrl_shift_l_failed_write_keeps_selection_and_announces_once() -> None:
 
 def test_removing_open_podcast_returns_to_main_library() -> None:
     row = Row("episode-1", "Odcinek", "episode", parent_id="podcast-1")
+    library_rows = [
+        Row("podcast-1", "Usuwany podcast", "podcast"),
+        Row("podcast-2", "Sąsiedni podcast", "podcast"),
+    ]
     state = SimpleNamespace(
         view=View.LIST,
         library_view=LibraryView.PODCAST_EPISODES,
@@ -223,6 +227,7 @@ def test_removing_open_podcast_returns_to_main_library() -> None:
         runner=SimpleNamespace(submit=_submit),
         announcer=SimpleNamespace(say=lambda text: None),
         _podcast_library_pending=False,
+        _podcast_library_rows=library_rows,
         _selected_action_rows=lambda: [row],
         _open_podcast_library=lambda **kwargs: opened.append(kwargs),
         _reload_podcast_list_after_download=lambda *_args: False,
@@ -232,7 +237,40 @@ def test_removing_open_podcast_returns_to_main_library() -> None:
 
     assert state.library_view is LibraryView.PODCAST_LIBRARY
     assert state.library_playlist_id is None
-    assert opened == [{"completion_message": "Usunięto z Biblioteki: Odcinek"}]
+    assert opened == [{
+        "preferred_id": "podcast-2",
+        "completion_message": "Usunięto z Biblioteki: Odcinek",
+    }]
+
+
+@pytest.mark.parametrize(
+    "view",
+    (
+        LibraryView.PODCAST_LIBRARY,
+        LibraryView.PODCAST_EPISODES,
+        LibraryView.PODCAST_FAVORITES,
+    ),
+)
+def test_podcast_profile_refresh_delivers_confirmation_after_list_update(view) -> None:
+    """Delete must pass its completion callback through every podcast list."""
+
+    opened = []
+    callback = lambda: None
+    state = SimpleNamespace(library_view=view, library_playlist_id="source-1")
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(active=SessionId.PODCASTS, session=state),
+        _open_podcast_library=lambda **kwargs: opened.append(kwargs),
+        _open_podcast_view=lambda _intent, **kwargs: opened.append(kwargs),
+        _open_podcast_aggregate=lambda _intent, **kwargs: opened.append(kwargs),
+    )
+
+    gui.LiteFrame._refresh_profile_view(
+        frame, preferred_id="next-row", after_refresh=callback,
+    )
+
+    assert opened == [{"announce_result": False, "after_refresh": callback, **(
+        {"preferred_id": "next-row"} if view is LibraryView.PODCAST_LIBRARY else {}
+    )}]
 
 
 def test_podcast_queue_sends_only_episode_ids_and_keeps_local_queue_separate() -> None:

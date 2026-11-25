@@ -1,5 +1,7 @@
 # Rejestr zadań AMC
 
+**Podcasty / 25.11.2026: poprawka zaznaczenia po `Ctrl+Shift+L` i potwierdzenia po `Delete` gotowa w źródłach.** Wyszukiwarka zachowuje dotychczasowy wybór po dodaniu źródła, a usunięcie wybiera sąsiada. 195 testów celowanych przeszło; GitHub, instalacja i odbiór NVDA pozostają otwarte. TIDAL zachowuje strony po 150 wierszy, a `Ctrl+F` szuka w pełnej pobranej kolekcji i katalogu. [Zadanie i wyniki](PODCAST-LIBRARY-FOCUS-20261125.md).
+
 **SCHED-004 / AMC Test alpha.527 (25.11.2026): wydane na GitHub, zainstalowane i uruchomione.** Wynik zapisu planu ma być wypowiedziany po przywróceniu fokusu listy harmonogramów. 142 testy celowane, kompilacja GitHub, SHA-256 wydania, 3658 plików instalacji i jedna instancja nowej wersji potwierdzone; rzeczywisty odbiór NVDA po Enter nadal otwarty. Konfigurowalny układ tytułu okna zachowano. [Zgłoszenie i przyczyna](SCHED-004-20261125-komunikat-po-zapisie-planu.md); [dowody wydania](RELEASE-ALPHA527-20261125.md).
 
 **AMC Test alpha.526 (25.11.2026): historyczne wydanie GitHub, pominięte w instalacji lokalnej na rzecz alpha.527.** GitHub Actions zbudował instalator ze źródeł `c3cd2952`; zdalne zasoby i SHA-256 są zgodne. Wersja zawiera HEOS, Cast/AirPlay i listę `Shift+F6` ze Spacją. [Lista źródeł](NEXT-TEST-20261124-instrukcja-i-lista-zmian-szkic.md).

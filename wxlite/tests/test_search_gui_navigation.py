@@ -10,7 +10,7 @@ from amc_wx_lite.gui import LiteFrame
 from amc_wx_lite.apple_music_source import records_from_resources
 from amc_wx_lite.apple_music_library import AppleMusicLibraryError
 from amc_wx_lite.apple_music_library import AppleMusicRelationChoice
-from amc_wx_lite.list_model import Row
+from amc_wx_lite.list_model import ListModel, Row
 from amc_wx_lite.navigation import (
     LibraryView,
     Navigator,
@@ -2322,9 +2322,69 @@ def test_remote_library_write_is_confirmed_inside_search_dialog(
         if remote_kind == "youtubeVideo"
         else f"Dodano do Biblioteki: {title}"
     )
-    assert spoken == ["Przygotowywanie wyniku katalogu", expected_confirmation]
+    assert spoken == ["Zmienianie Biblioteki", expected_confirmation]
     assert ("refresh", "saved-source") in calls
     assert frame._podcast_add_pending is False
+
+
+def test_search_library_refresh_keeps_selected_podcast_after_add() -> None:
+    """A newly added source must not jump the list to its sorted position."""
+
+    state = SimpleNamespace(
+        view=View.LIST,
+        library_view=LibraryView.PODCAST_LIBRARY,
+        model=SimpleNamespace(selected_id="current-source"),
+    )
+    opened = []
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(
+            active=SessionId.PODCASTS,
+            sessions={SessionId.PODCASTS: state},
+        ),
+        _open_podcast_library=lambda **kwargs: opened.append(kwargs),
+    )
+
+    LiteFrame._refresh_visible_podcast_library_after_search_add(frame, "new-source")
+
+    assert opened == [{
+        "preferred_id": "current-source",
+        "announce_result": False,
+    }]
+
+
+def test_search_library_refresh_selects_neighbour_after_remove() -> None:
+    model = ListModel()
+    model.replace([
+        Row("source-1", "Pierwszy", "podcast"),
+        Row("source-2", "Usuwany", "podcast"),
+        Row("source-3", "Następny", "podcast"),
+    ])
+    model.select_id("source-2")
+    state = SimpleNamespace(
+        view=View.LIST,
+        library_view=LibraryView.PODCAST_LIBRARY,
+        model=model,
+    )
+    opened = []
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(
+            active=SessionId.PODCASTS,
+            sessions={SessionId.PODCASTS: state},
+        ),
+        _open_podcast_library=lambda **kwargs: opened.append(kwargs),
+    )
+
+    LiteFrame._refresh_visible_podcast_search_membership(
+        frame,
+        "source-2",
+        preferred_episode_id=None,
+        source_removed=True,
+    )
+
+    assert opened == [{
+        "preferred_id": "source-3",
+        "announce_result": False,
+    }]
 
 
 def test_remote_library_removes_already_saved_podcast() -> None:

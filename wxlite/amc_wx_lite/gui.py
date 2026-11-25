@@ -14220,6 +14220,10 @@ class LiteFrame(wx.Frame):
         started = (
             "Otwieranie wyniku katalogu"
             if action is SearchResultAction.OPEN
+            else "Zmienianie Biblioteki"
+            if action is SearchResultAction.LIBRARY
+            else "Zmienianie Ulubionych"
+            if action is SearchResultAction.FAVORITE
             else "Przygotowywanie wyniku katalogu"
         )
         self.status_field.SetLabel(started)
@@ -14509,8 +14513,16 @@ class LiteFrame(wx.Frame):
         if self.navigator.active is not SessionId.PODCASTS or state.view is not View.LIST:
             return
         if state.library_view is LibraryView.PODCAST_LIBRARY:
+            selected_id = state.model.selected_id
+            preferred_id = (
+                LiteFrame._preferred_item_after_removal(
+                    list(state.model.rows), {subscription_id},
+                )
+                if source_removed and selected_id == subscription_id
+                else selected_id
+            )
             self._open_podcast_library(
-                preferred_id=None if source_removed else subscription_id,
+                preferred_id=preferred_id,
                 announce_result=False,
             )
             return
@@ -14521,7 +14533,13 @@ class LiteFrame(wx.Frame):
             if source_removed:
                 state.library_view = LibraryView.PODCAST_LIBRARY
                 state.library_playlist_id = None
-                self._open_podcast_library(announce_result=False)
+                self._open_podcast_library(
+                    preferred_id=LiteFrame._preferred_item_after_removal(
+                        list(getattr(self, "_podcast_library_rows", ())),
+                        {subscription_id},
+                    ),
+                    announce_result=False,
+                )
             else:
                 self._open_podcast_view(OpenPodcastView(
                     subscription_id=subscription_id,
@@ -27562,8 +27580,10 @@ class LiteFrame(wx.Frame):
                     or state.library_view is not LibraryView.PODCAST_LIBRARY
                 ):
                     return
+            library_rows = subscription_rows(subscriptions)
+            self._podcast_library_rows = library_rows
             events = self.navigator.apply_podcast_library(
-                subscription_rows(subscriptions),
+                library_rows,
                 preferred_id=preferred_id,
                 sort_label=sort_label,
                 order_matches_amc=order_matches_amc,
@@ -27591,7 +27611,7 @@ class LiteFrame(wx.Frame):
         self,
         preferred_id: str,
     ) -> None:
-        """Pokaż nowy wpis po zamknięciu wyszukiwarki, bez dodatkowej mowy."""
+        """Odśwież Bibliotekę pod wyszukiwarką, zachowując bieżący wybór."""
 
         state = self.navigator.sessions[SessionId.PODCASTS]
         if (
@@ -27600,7 +27620,10 @@ class LiteFrame(wx.Frame):
             and state.library_view is LibraryView.PODCAST_LIBRARY
         ):
             self._open_podcast_library(
-                preferred_id=preferred_id,
+                preferred_id=(
+                    getattr(getattr(state, "model", None), "selected_id", None)
+                    or preferred_id
+                ),
                 announce_result=False,
             )
 
@@ -28694,6 +28717,7 @@ class LiteFrame(wx.Frame):
         completion_message: str = "",
         announce_single_item: bool = False,
         announce_result: bool = True,
+        after_refresh: Callable[[], None] | None = None,
     ) -> None:
         if intent.view not in (
             LibraryView.PODCAST_FAVORITES,
@@ -28824,6 +28848,8 @@ class LiteFrame(wx.Frame):
                 self._announce_transient_preview(events)
             else:
                 self._apply_podcast_result(events)
+            if after_refresh is not None:
+                after_refresh()
 
         def failed(error: Exception) -> None:
             if not inbox_is_current():
@@ -30242,7 +30268,10 @@ class LiteFrame(wx.Frame):
                 state.view is View.LIST
                 and state.library_view is LibraryView.PODCAST_LIBRARY
             )
-            else None
+            else LiteFrame._preferred_item_after_removal(
+                list(getattr(self, "_podcast_library_rows", ())),
+                set(subscription_ids),
+            )
         )
         self._podcast_library_pending = True
 
@@ -30269,7 +30298,10 @@ class LiteFrame(wx.Frame):
                 # zostawiać odłączoną listę odcinków usuniętego źródła.
                 state.library_view = LibraryView.PODCAST_LIBRARY
                 state.library_playlist_id = None
-                self._open_podcast_library(completion_message=message)
+                self._open_podcast_library(
+                    preferred_id=removal_preferred_id,
+                    completion_message=message,
+                )
                 return
             if state.library_view is LibraryView.PODCAST_LIBRARY:
                 self._open_podcast_library(
@@ -39143,14 +39175,20 @@ class LiteFrame(wx.Frame):
         if self.navigator.active is SessionId.PODCASTS:
             if state.library_view is LibraryView.PODCAST_LIBRARY:
                 self._open_podcast_library(
-                    preferred_id=preferred_id, announce_result=announce_result
+                    preferred_id=preferred_id,
+                    announce_result=announce_result and after_refresh is None,
+                    after_refresh=after_refresh,
                 )
             elif state.library_view is LibraryView.PODCAST_EPISODES:
                 if state.library_playlist_id:
-                    self._open_podcast_view(OpenPodcastView(
-                        subscription_id=state.library_playlist_id,
-                        preferred_id=preferred_id,
-                    ), announce_result=announce_result)
+                    self._open_podcast_view(
+                        OpenPodcastView(
+                            subscription_id=state.library_playlist_id,
+                            preferred_id=preferred_id,
+                        ),
+                        announce_result=announce_result and after_refresh is None,
+                        after_refresh=after_refresh,
+                    )
             elif state.library_view in (
                 LibraryView.PODCAST_FAVORITES,
                 LibraryView.PODCAST_HISTORY,
@@ -39158,10 +39196,14 @@ class LiteFrame(wx.Frame):
                 LibraryView.PODCAST_INBOX,
                 LibraryView.PODCAST_DOWNLOADS,
             ):
-                self._open_podcast_aggregate(OpenPodcastAggregateView(
-                    state.library_view,
-                    preferred_id=preferred_id,
-                ), announce_result=announce_result)
+                self._open_podcast_aggregate(
+                    OpenPodcastAggregateView(
+                        state.library_view,
+                        preferred_id=preferred_id,
+                    ),
+                    announce_result=announce_result and after_refresh is None,
+                    after_refresh=after_refresh,
+                )
             elif state.library_view is LibraryView.PODCAST_PLAYLISTS:
                 self._open_podcast_playlist_view(
                     OpenPodcastPlaylistView(preferred_id=preferred_id),
