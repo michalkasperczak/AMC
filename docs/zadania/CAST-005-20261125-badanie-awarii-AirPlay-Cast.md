@@ -46,3 +46,7 @@ Testy: `python -m pytest -q -p no:cacheprovider -o pythonpath=wxlite wxlite/test
 Potrzebna jest wskazana przez Michała kombinacja odbiornika i materiału oraz krótka świadoma próba dźwiękowa, gdy nie przerwie ważnego odtwarzania. Należy osobno sprawdzić RAOP bezpośrednio i przez AMC, zachować kategorię rzeczywistego błędu RTSP lub FFmpeg bez prywatnych URL i dopiero wtedy korygować transport. Dla Cast sprawdzić konkretny zawodny format/strumień i odbiornik; różnice formatów i dostępu do URL są prawdopodobną klasą problemu, lecz nie zdiagnozowanym wynikiem tej próby.
 
 Wersja źródłowa: zmiana po wydaniu alpha.531, bez numeru nowej paczki. Commit kodu: `e8f99af2`. Żaden wynik testu kodu nie oznacza działającego wydania lub instalacji.
+
+## Stan wydania 25.11.2026
+
+Poprawka wykrywania stanu Google Cast jest w wydaniach Test i Public alpha.532 z commitu b830c954. Tagi: test-2026.11.25.2256 oraz public-2026.11.25.2256. Zapis szczegółów w RELEASE-ALPHA532-20261125-Test-Public.md. AirPlay na Sonos „Biuro” nadal nie odtworzył dźwięku i pozostaje do diagnozy; lokalna zmiana zapory nie wchodzi do instalatora.

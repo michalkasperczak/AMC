@@ -19,3 +19,7 @@ Celowane testy: 64 zaliczone. Obejmują bramkę skrótów TIDAL, zapis i uruchom
 Nie zbudowano, nie zainstalowano i nie opublikowano nowego wydania. Ręczny test NVDA i prawdziwego konta TIDAL pozostaje do zrobienia: początkowy fokus, strzałki, powrót po zapisaniu i anulowaniu, ponowne otwarcie, dźwięk, pełna kolejność playlisty, następny utwór i zachowanie przy błędzie pobierania.
 
 Historia: karta 45ce36ff, skróty 95c3bd8, częściowy zapis e9e0f440, natywne odtwarzanie 61eac6b9. W chwili ostatniego odczytu limitu Codex wykorzystano 98%, pozostało 2%, reset 27.11.2026 o 22:53 CET. Użytkownik wyraźnie pozwolił kontynuować poniżej progu 15%.
+
+## Stan wydania 25.11.2026
+
+Następcza wersja alpha.532 została skompilowana na GitHub Actions z commitu b830c954 i opublikowana w obu profilach. Tagi: test-2026.11.25.2256 oraz public-2026.11.25.2256. Profil Public nie zawiera Apple Music ani HEOS. Szczegóły kompilacji, SHA-256 i ograniczenia odbioru: RELEASE-ALPHA532-20261125-Test-Public.md. Wcześniejszy zapis o braku kompilacji dotyczył stanu sprzed tego wydania; ręczny odbiór NVDA i konta TIDAL nadal pozostaje otwarty.
