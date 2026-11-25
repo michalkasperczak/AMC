@@ -1,6 +1,6 @@
 # Rejestr zadań AMC
 
-**Odtwarzanie po aktualizacji / 25.11.2026: zgłoszono samoczynny start wstrzymanej stacji.** Instalacja ma już manifest alpha.528 (`25.11.2026, 02:00`); źródła wznowienia pomijały stan pauzy. W źródłach dodano bramkę i zaliczono 133 testy celowane; nowe wydanie i próba rzeczywistego aktualizatora otwarte. [Przyczyna i test](PLAYBACK-STARTUP-20261125-pauza-po-aktualizacji.md).
+**AMC Test alpha.529 / 25.11.2026: poprawka samoczynnego startu wstrzymanej stacji wydana na GitHubie.** Zainstalowana alpha.528 pomijała stan pauzy przy wznowieniu po aktualizacji. Commit `06a3f3c9` przeszedł 133 testy celowane; GitHub Actions zbudował instalator, który opublikowano w `test-2026.11.25.0226`. Instalacja i próba rzeczywistej pauzy pozostają otwarte. [Przyczyna i dowody](PLAYBACK-STARTUP-20261125-pauza-po-aktualizacji.md).
 
 **Dostępność i kolejka / 25.11.2026: trzy dalsze zadania.** [Konfigurowalne zapowiedzi utworów z innych sesji](ACCESS-ANNOUNCE-20261125-inne-sesje.md); [przywrócenie `Shift+Enter` dla „Odtwarzaj jako następne”](QUEUE-004-20261125-shift-enter-nastepne.md); [pełny przegląd menu kontekstowego i cyfr słyszanych przez NVDA](MENU-001-menu-kontekstowe-i-skroty.md). Na razie zapis wymagań, bez wdrożenia.
 

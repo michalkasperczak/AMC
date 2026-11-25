@@ -1,6 +1,6 @@
 # Odtwarzanie po aktualizacji: zachowanie pauzy
 
-Stan: 25.11.2026 — poprawka źródłowa i test celowany gotowe; nowe wydanie oraz odbiór po aktualizacji otwarte.
+Stan: 25.11.2026 — poprawka źródłowa i 133 testy celowane gotowe; AMC Test alpha.529 wydane na GitHubie; instalacja i odbiór po aktualizacji otwarte.
 
 ## Zgłoszenie i decyzja
 
@@ -23,4 +23,4 @@ Jeśli przed aktualizacją wstrzymasz odtwarzanie, AMC Test nie uruchomi go sam 
 
 ## Znane ograniczenia, wersja i commit
 
-Bieżąca instalacja użytkownika ma etykietę `25.11.2026, 02:00` i manifest źródeł `4ba3ea7dbcfcb359415b4384411d4ce61a263c78` (AMC Test alpha.528). Poprawka nie należy do alpha.528. Kandydat następnego wydania to AMC Test alpha.529; commit do uzupełnienia po zatwierdzeniu. Następny krok: zbudować i opublikować poprawkę na GitHubie, a potem sprawdzić aktualizator na wstrzymanej stacji bez naruszania nagrań.
+Bieżąca instalacja użytkownika ma etykietę `25.11.2026, 02:00` i manifest źródeł `4ba3ea7dbcfcb359415b4384411d4ce61a263c78` (AMC Test alpha.528). Poprawka nie należy do alpha.528. Źródła alpha.529: commit `06a3f3c9767cce1cffc0fb599cd1f768da983ef6`. GitHub Actions run `45525484120` zakończył się powodzeniem dla tego commitu. Wydanie `test-2026.11.25.0226` zawiera instalator `AMC-Test-2026-11-25-0226.exe`, 214672890 bajtów, SHA-256 `768f31bc4bb16bff87d82bf17f18d6698d213ba22c5525c11410a8ef27e2cec9`; kontrola sekretów przeszła, a plik integralności i manifest aktualizacji są opublikowane. Wydania jeszcze nie zainstalowano lokalnie i nie sprawdzono z prawdziwie wstrzymaną stacją. Następny krok: odbiór po aktualizacji bez naruszania nagrań użytkownika.
