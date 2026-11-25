@@ -529,6 +529,8 @@ internal sealed class LiteEngineHandlers : IDisposable
                 _recordings.Split(request.Args),
             ["radio.recordingBookmark"] = (request, _) =>
                 _recordings.AddBookmark(request.Args),
+            ["radio.recordingStopOne"] = (request, _) =>
+                _recordings.StopOne(request.Args),
             ["radio.recordingStopAll"] = (_, _) => _recordings.StopAll(),
             ["radio.recordingStatus"] = (_, _) => _recordings.Status(),
             ["radio.recordingHistory"] = (_, _) => _recordings.History(),

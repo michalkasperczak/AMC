@@ -2,6 +2,14 @@
 
 Stan: zgłoszone 25.11.2026; przyczyna wskazana w kodzie; poprawka, testy i wydanie jeszcze niepowstałe.
 
+**Aktualizacja 25.11.2026:** poprawka jest w źródłach gałęzi AMC Test.
+Po Ctrl+D wynik pobierania zachowuje pozycję listy aktualną przy zakończeniu
+pobierania, a druga asynchroniczna faza odświeżenia odczytuje ją ponownie tuż
+przed podmianą danych. Dodano test przejścia z odcinka A na B w trakcie
+pobierania. Skupione testy Pythona: 62/62. Ręczny odbiór NVDA na
+zainstalowanej aplikacji nadal oczekuje. Ta aktualizacja zastępuje poniższy
+stan „tylko diagnoza”; starszy tekst pozostaje jako historia zgłoszenia.
+
 ## Zgłoszenie i zachowanie użytkowe
 
 W sesji Podcasty i YouTube użytkownik naciska `Ctrl+D` na odcinku, a podczas pobierania idzie dalej po liście. Gdy pobieranie się kończy, kursor wraca na odcinek, na którym rozpoczęto pobieranie. To przerywa czytanie i nawigację.

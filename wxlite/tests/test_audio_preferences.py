@@ -117,3 +117,16 @@ def test_podcast_global_settings_are_clamped_or_return_to_inheritance():
     assert options.podcast_rss_refresh_interval_minutes is None
     assert options.podcast_youtube_refresh_interval_minutes is None
     assert options.podcast_automatic_refresh_batch_size is None
+
+
+def test_recording_monitor_start_setting_round_trips_and_defaults_to_live():
+    assert Options().radio_recording_monitor_start == "live"
+    with tempfile.TemporaryDirectory() as folder:
+        store = StateStore(folder)
+        state = LiteState()
+        state.options.radio_recording_monitor_start = "beginning"
+        store.save(state)
+        assert store.load().options.radio_recording_monitor_start == "beginning"
+        state.options.radio_recording_monitor_start = "invalid"
+        store.save(state)
+        assert store.load().options.radio_recording_monitor_start == "live"

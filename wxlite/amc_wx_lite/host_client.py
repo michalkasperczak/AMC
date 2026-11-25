@@ -2771,6 +2771,10 @@ class LiteHostClient:
             args["name"] = name
         return self.call("radio.recordingBookmark", args, timeout=10.0)
 
+    def stop_radio_recording(self, recording_id: str) -> Any:
+        return self.call("radio.recordingStopOne",
+                         {"recordingId": recording_id}, timeout=10.0)
+
     def stop_all_radio_recordings(self) -> Any:
         return self.call("radio.recordingStopAll", timeout=10.0)
 
@@ -2779,13 +2783,15 @@ class LiteHostClient:
 
     def radio_recording_monitor(
         self, recording_id: str, action: str, *, volume: int = 35,
-        seconds: int = 0,
+        seconds: int = 0, rate: float = 1.0,
+        start_position: str = "live",
     ) -> Any:
         """Control a listener attached to the private capture buffer."""
         return self.call(
             "radio.recordingMonitor",
             {"recordingId": recording_id, "action": action,
-             "volume": volume, "seconds": seconds},
+             "volume": volume, "seconds": seconds, "rate": rate,
+             "startPosition": start_position},
             timeout=5.0,
         )
 

@@ -381,6 +381,8 @@ class Options:
     radio_recording_format: str | None = None
     radio_recording_bitrate_kbps: int | None = None
     radio_recordings_folder: str | None = None
+    # Odsłuch aktywnego nagrania zaczyna się na żywo lub od początku bufora.
+    radio_recording_monitor_start: str = "live"
     radio_use_podcast_downloads_folder: bool | None = None
     radio_separate_station_folders: bool = False
     radio_prefer_station_folder_in_new_schedules: bool | None = None
@@ -588,6 +590,8 @@ class Options:
                     self.radio_recording_bitrate_kbps = min(
                         bitrates, key=lambda item: abs(item - requested_bitrate)
                     )
+        if self.radio_recording_monitor_start not in ("live", "beginning"):
+            self.radio_recording_monitor_start = "live"
         if self.radio_recordings_folder is not None:
             self.radio_recordings_folder = str(
                 self.radio_recordings_folder

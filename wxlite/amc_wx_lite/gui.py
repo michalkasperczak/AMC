@@ -3208,70 +3208,92 @@ class StationDialog(wx.Dialog):
 
 
 class RecordingMonitorDialog(wx.Dialog):
-    """A listener for a growing recording; it never controls the encoder."""
+    """Local listener for a growing recording; capture remains independent."""
 
-    def __init__(self, parent: wx.Window, client, runner, intent, volume: int) -> None:
-        super().__init__(parent, title=f"Odsłuch nagrania: {intent.title}")
+    # One context model drives both keyboard execution and F1 help.
+    _COMMANDS = {
+        "Left": ("move", -10, "cofnij o 10 sekund"),
+        "Right": ("move", 10, "przejdź o 10 sekund naprzód"),
+        "Shift+Left": ("move", -30, "cofnij o 30 sekund"),
+        "Shift+Right": ("move", 30, "przejdź o 30 sekund naprzód"),
+        "Ctrl+Left": ("move", -60, "cofnij o minutę"),
+        "Ctrl+Right": ("move", 60, "przejdź o minutę naprzód"),
+        "Home": ("start", 0, "początek dostępnego fragmentu"),
+        "End": ("live", 0, "na żywo"),
+        "Up": ("volume", 5, "głośniej o 5"),
+        "Down": ("volume", -5, "ciszej o 5"),
+        "Shift+Up": ("volume", 1, "głośniej o 1"),
+        "Shift+Down": ("volume", -1, "ciszej o 1"),
+        "Shift+,": ("rate", -1, "wolniej"),
+        "Shift+.": ("rate", 1, "szybciej"),
+        "Ctrl+.": ("rate_reset", 0, "normalna prędkość"),
+        "Ctrl+Shift+E": ("elapsed", 0, "czas od początku dostępnego fragmentu"),
+        "Ctrl+Shift+R": ("remaining", 0, "czas do końca bufora"),
+        "Ctrl+Shift+T": ("total", 0, "długość dostępnego fragmentu"),
+        "Ctrl+R": ("stop_recording", 0, "zatrzymaj to nagranie"),
+        "F1": ("help", 0, "pomoc odsłuchu"),
+    }
+
+    def __init__(self, parent: wx.Window, client, runner, intent, volume: int,
+                 start_position: str = "live") -> None:
+        super().__init__(parent, title="Odsłuch nagrania")
         self.client = client
         self.runner = runner
         self.recording_id = intent.recording_id
-        self.volume = volume
+        self.volume = max(0, min(100, volume))
+        self.start_position = ("beginning" if start_position == "beginning" else "live")
+        self.stop_recording_requested = False
         self._busy = False
         self._closing = False
+        self._syncing = False
+        self._pending: tuple[str, int, int | None, float | None] | None = None
         self._snapshot: dict = {}
         self._stream = f"recording-monitor-{id(self)}"
+
         outer = wx.BoxSizer(wx.VERTICAL)
         self.status = wx.StaticText(self, label="Uruchamianie odsłuchu nagrania")
         self.status.SetName("Stan odsłuchu nagrania")
         outer.Add(self.status, 0, wx.ALL | wx.EXPAND, 10)
-        info = wx.StaticText(
-            self,
-            label="Odsłuch nie wstrzymuje ani nie zmienia zapisywanego pliku. "
-                  "Dostępny początek zależy od długości bufora Time Shift.",
-        )
-        outer.Add(info, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 10)
-        row = wx.BoxSizer(wx.HORIZONTAL)
+        self.timeline = wx.Slider(self, value=0, minValue=0, maxValue=1,
+                                  style=wx.SL_HORIZONTAL)
+        self.timeline.SetName("Pozycja odsłuchu nagrania")
+        self.timeline.Disable()
+        outer.Add(self.timeline, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 10)
+        self.time_label = wx.StaticText(self, label="Dostępny fragment: 0:00")
+        outer.Add(self.time_label, 0, wx.ALL, 10)
+
+        controls = wx.BoxSizer(wx.HORIZONTAL)
         self.pause_button = wx.Button(self, label="Wstrzymaj odsłuch")
-        self.pause_button.SetName("Wstrzymaj odsłuch nagrania")
+        self.pause_button.SetName("Wstrzymaj odsłuch")
         self.pause_button.Disable()
-        row.Add(self.pause_button, 0, wx.RIGHT, 6)
-        back = wx.Button(self, label="Cofnij o 30 sekund")
-        back.SetName("Cofnij odsłuch o 30 sekund")
-        row.Add(back, 0, wx.RIGHT, 6)
-        forward = wx.Button(self, label="Przejdź 30 sekund naprzód")
-        forward.SetName("Przejdź w odsłuchu 30 sekund naprzód")
-        row.Add(forward)
-        outer.Add(row, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
-        row2 = wx.BoxSizer(wx.HORIZONTAL)
-        beginning = wx.Button(self, label="Początek dostępnego nagrania")
-        beginning.SetName("Początek dostępnego nagrania")
-        row2.Add(beginning, 0, wx.RIGHT, 6)
-        live = wx.Button(self, label="Koniec nagrania, na żywo")
-        live.SetName("Koniec nagrania, na żywo")
-        row2.Add(live)
-        outer.Add(row2, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
-        time_row = wx.BoxSizer(wx.HORIZONTAL)
-        time_label = wx.StaticText(self, label="Przejdź do czasu, minuty:sekundy:")
-        time_row.Add(time_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
-        self.time_field = wx.TextCtrl(self, value="0:00", size=(90, -1))
-        self.time_field.SetName("Czas od początku nagrania, minuty i sekundy")
-        time_row.Add(self.time_field, 0, wx.RIGHT, 6)
-        go = wx.Button(self, label="Przejdź")
-        go.SetName("Przejdź do podanego czasu nagrania")
-        time_row.Add(go)
-        outer.Add(time_row, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        controls.Add(self.pause_button, 0, wx.RIGHT, 8)
+        controls.Add(wx.StaticText(self, label="Głośność:"), 0,
+                     wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        self.volume_slider = wx.Slider(self, value=self.volume, minValue=0,
+                                       maxValue=100, style=wx.SL_HORIZONTAL)
+        self.volume_slider.SetName(f"Głośność odsłuchu {self.volume} procent")
+        controls.Add(self.volume_slider, 1, wx.RIGHT, 8)
+        controls.Add(wx.StaticText(self, label="Prędkość:"), 0,
+                     wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 5)
+        self.rate_choice = wx.Choice(
+            self, choices=[playback_rate_choice_label(rate) for rate in PLAYBACK_RATES],
+        )
+        self.rate_choice.SetName("Prędkość odsłuchu")
+        self.rate_choice.SetSelection(PLAYBACK_RATES.index(1.0))
+        controls.Add(self.rate_choice, 0)
+        outer.Add(controls, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 10)
+
         close = wx.Button(self, wx.ID_CANCEL, "Zamknij odsłuch")
         close.SetName("Zamknij odsłuch nagrania")
         outer.Add(close, 0, wx.ALL | wx.ALIGN_RIGHT, 10)
         self.SetSizerAndFit(outer)
-        self.SetMinSize((570, -1))
+        self.SetMinSize((680, -1))
+        self.timeline.Bind(wx.EVT_SLIDER, self._seek_slider)
+        self.volume_slider.Bind(wx.EVT_SLIDER, self._volume_slider)
+        self.rate_choice.Bind(wx.EVT_CHOICE, self._rate_choice)
         self.pause_button.Bind(wx.EVT_BUTTON, self._toggle_pause)
-        back.Bind(wx.EVT_BUTTON, lambda _event: self._move(-30))
-        forward.Bind(wx.EVT_BUTTON, lambda _event: self._move(30))
-        beginning.Bind(wx.EVT_BUTTON, lambda _event: self._go_to_start())
-        live.Bind(wx.EVT_BUTTON, lambda _event: self._issue("live"))
-        go.Bind(wx.EVT_BUTTON, self._go_to_time)
         close.Bind(wx.EVT_BUTTON, self._close)
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
         self.Bind(wx.EVT_CLOSE, self._close)
         self._timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, lambda _event: self._issue("status"), self._timer)
@@ -3285,27 +3307,72 @@ class RecordingMonitorDialog(wx.Dialog):
         minutes, seconds = divmod(remainder, 60)
         return f"{hours}:{minutes:02}:{seconds:02}" if hours else f"{minutes}:{seconds:02}"
 
-    def _show_status(self, payload: dict, *, speak: bool) -> None:
+    def _show_status(self, payload: dict) -> None:
         self._snapshot = payload
         first = float(payload.get("firstSeconds") or 0)
         end = float(payload.get("endSeconds") or 0)
         position = float(payload.get("positionSeconds") or 0)
-        state = "wstrzymany" if payload.get("paused") else "gra"
-        message = (
-            f"Odsłuch {state}. Pozycja {self._clock(position)}. "
-            f"Dostępne od {self._clock(first)} do {self._clock(end)}."
-        )
+        remaining = max(0, end - position)
+        state = "Wstrzymany" if payload.get("paused") else (
+            "Na żywo" if remaining < 2 else "Odsłuch")
+        message = f"{state}. {self._clock(position)}. Do końca bufora {self._clock(remaining)}"
         self.status.SetLabel(message)
         self.status.SetName(message)
+        self.time_label.SetLabel(
+            f"Dostępne od {self._clock(first)} do {self._clock(end)}"
+        )
+        self._syncing = True
+        try:
+            lower, upper = max(0, int(first)), max(1, int(end))
+            if upper <= lower:
+                upper = lower + 1
+            self.timeline.SetRange(lower, upper)
+            self.timeline.SetValue(max(lower, min(upper, int(position))))
+            self.timeline.SetName(
+                f"Pozycja odsłuchu {self._clock(position)}. "
+                f"Dostępne od {self._clock(first)} do {self._clock(end)}"
+            )
+            self.volume = max(0, min(100, int(payload.get("volume", self.volume))))
+            self.volume_slider.SetValue(self.volume)
+            self.volume_slider.SetName(f"Głośność odsłuchu {self.volume} procent")
+            rate = float(payload.get("playbackRate") or 1)
+            closest = min(range(len(PLAYBACK_RATES)),
+                          key=lambda i: abs(PLAYBACK_RATES[i] - rate))
+            self.rate_choice.SetSelection(closest)
+            self.rate_choice.Enable(bool(payload.get("supportsPlaybackRate", True)))
+        finally:
+            self._syncing = False
         self.pause_button.SetLabel(
             "Wznów odsłuch" if payload.get("paused") else "Wstrzymaj odsłuch"
         )
         self.pause_button.SetName(self.pause_button.GetLabel())
-        if speak:
-            self.GetParent().announcer.say(message)
 
-    def _issue(self, action: str, *, seconds: int = 0) -> None:
-        if self._closing or self._busy:
+    def _announce_action(self, action: str, payload: dict) -> None:
+        if action == "status":
+            return
+        if action == "start":
+            message = "Odsłuch nagrania"
+        elif action == "volume":
+            message = f"Głośność odsłuchu {self.volume} procent"
+        elif action == "rate":
+            message = playback_rate_choice_label(float(payload.get("playbackRate") or 1))
+        elif action == "pause":
+            message = "Wstrzymano odsłuch"
+        elif action == "resume":
+            message = "Wznowiono odsłuch"
+        elif action == "live":
+            message = "Na żywo"
+        else:
+            message = self.status.GetLabel()
+        self.GetParent().announcer.say(message)
+
+    def _issue(self, action: str, *, seconds: int = 0,
+               volume: int | None = None, rate: float | None = None) -> None:
+        if self._closing:
+            return
+        if self._busy:
+            if action != "status":
+                self._pending = (action, seconds, volume, rate)
             return
         self._busy = True
 
@@ -3315,10 +3382,16 @@ class RecordingMonitorDialog(wx.Dialog):
                 self._stop_after_close()
                 return
             self.pause_button.Enable()
-            self._show_status(payload, speak=action != "status")
+            self.timeline.Enable()
+            self._show_status(payload)
+            self._announce_action(action, payload)
             if action == "start":
                 self._timer.Start(1000)
-                self.pause_button.SetFocus()
+                self.timeline.SetFocus()
+            pending, self._pending = self._pending, None
+            if pending is not None:
+                wx.CallAfter(self._issue, pending[0], seconds=pending[1],
+                             volume=pending[2], rate=pending[3])
 
         def failed(error: Exception) -> None:
             self._busy = False
@@ -3334,52 +3407,102 @@ class RecordingMonitorDialog(wx.Dialog):
         self.runner.submit(
             self._stream,
             lambda: self.client.radio_recording_monitor(
-                self.recording_id, action, volume=self.volume, seconds=seconds,
+                self.recording_id, action,
+                volume=self.volume if volume is None else volume,
+                seconds=seconds, rate=1.0 if rate is None else rate,
+                start_position=self.start_position,
             ),
-            done,
-            failed,
+            done, failed,
         )
 
-    def _toggle_pause(self, _event: wx.CommandEvent) -> None:
+    def _seek_slider(self, _event: wx.CommandEvent) -> None:
+        if not self._syncing:
+            self._issue("seek", seconds=self.timeline.GetValue())
+
+    def _volume_slider(self, _event: wx.CommandEvent) -> None:
+        if not self._syncing:
+            self._issue("volume", volume=self.volume_slider.GetValue())
+
+    def _rate_choice(self, _event: wx.CommandEvent) -> None:
+        if not self._syncing:
+            index = self.rate_choice.GetSelection()
+            if 0 <= index < len(PLAYBACK_RATES):
+                self._issue("rate", rate=PLAYBACK_RATES[index])
+
+    def _toggle_pause(self, _event: wx.CommandEvent | None = None) -> None:
         self._issue("resume" if self._snapshot.get("paused") else "pause")
 
     def _move(self, delta: int) -> None:
         position = int(float(self._snapshot.get("positionSeconds") or 0)) + delta
-        self._issue("seek", seconds=max(0, position))
+        first = int(float(self._snapshot.get("firstSeconds") or 0))
+        end = int(float(self._snapshot.get("endSeconds") or 0))
+        self._issue("seek", seconds=max(first, min(end, position)))
 
-    def _go_to_start(self) -> None:
-        self._issue("seek", seconds=int(float(self._snapshot.get("firstSeconds") or 0)))
-
-    def _go_to_time(self, _event: wx.CommandEvent) -> None:
-        parts = self.time_field.GetValue().strip().split(":")
-        if len(parts) not in (2, 3) or any(not part.isdigit() for part in parts):
-            self.GetParent().announcer.say("Podaj czas jako minuty:sekundy albo godziny:minuty:sekundy")
-            self.time_field.SetFocus()
+    def _on_key(self, event: wx.KeyEvent) -> None:
+        chord = chord_from_event(event).canonical
+        if chord in ("Escape",):
+            self._close(event)
             return
-        numbers = [int(part) for part in parts]
-        if numbers[-1] > 59 or (len(numbers) == 3 and numbers[-2] > 59):
-            self.GetParent().announcer.say("Sekundy i minuty muszą być mniejsze niż 60")
-            self.time_field.SetFocus()
+        if chord in ("Return", "Space"):
+            if wx.Window.FindFocus() is self.timeline:
+                if chord == "Return":
+                    self.GetParent().announcer.say("Odsłuch nagrania")
+                else:
+                    self._toggle_pause()
+                return
+            event.Skip()
             return
-        seconds = numbers[-1] + 60 * numbers[-2]
-        if len(numbers) == 3:
-            seconds += 3600 * numbers[0]
-        first = float(self._snapshot.get("firstSeconds") or 0)
-        end = float(self._snapshot.get("endSeconds") or 0)
-        if seconds < first or seconds > end:
-            self.GetParent().announcer.say(
-                f"Dostępny fragment: od {self._clock(first)} do {self._clock(end)}"
+        command = self._COMMANDS.get(chord)
+        if command is None:
+            event.Skip()
+            return
+        kind, amount, _description = command
+        if kind in ("move", "volume", "rate") and wx.Window.FindFocus() not in (
+                self.timeline, self.volume_slider, self.rate_choice, self.pause_button):
+            event.Skip()
+            return
+        if kind == "move":
+            self._move(amount)
+        elif kind == "start":
+            self._issue("seek", seconds=int(float(self._snapshot.get("firstSeconds") or 0)))
+        elif kind == "live":
+            self._issue("live")
+        elif kind == "volume":
+            self._issue("volume", volume=max(0, min(100, self.volume + amount)))
+        elif kind == "rate":
+            current = float(self._snapshot.get("playbackRate") or 1)
+            self._issue("rate", rate=next_playback_rate(current, amount))
+        elif kind == "rate_reset":
+            self._issue("rate", rate=1.0)
+        elif kind in ("elapsed", "remaining", "total"):
+            if not self._snapshot:
+                self.GetParent().announcer.say("Odsłuch jest uruchamiany")
+                return
+            first = float(self._snapshot.get("firstSeconds") or 0)
+            end = float(self._snapshot.get("endSeconds") or 0)
+            position = float(self._snapshot.get("positionSeconds") or 0)
+            if kind == "elapsed":
+                message = f"Od początku dostępnego fragmentu {self._clock(position - first)}"
+            elif kind == "remaining":
+                message = f"Do końca bufora {self._clock(end - position)}"
+            else:
+                message = f"Dostępny fragment {self._clock(end - first)}"
+            self.GetParent().announcer.say(message)
+        elif kind == "help":
+            help_text = ". ".join(
+                f"{key}: {description}" for key, (_kind, _value, description)
+                in self._COMMANDS.items()
             )
-            self.time_field.SetFocus()
-            return
-        self._issue("seek", seconds=seconds)
+            self.GetParent().announcer.say("Odsłuch nagrania. " + help_text)
+        elif kind == "stop_recording":
+            self.stop_recording_requested = True
+            self._close(event)
 
     def _stop_after_close(self) -> None:
         self.runner.submit(
             self._stream + "-stop",
             lambda: self.client.radio_recording_monitor(self.recording_id, "stop"),
-            lambda _payload: None,
-            lambda _error: None,
+            lambda _payload: None, lambda _error: None,
         )
 
     def _close(self, _event: wx.Event) -> None:
@@ -9381,6 +9504,25 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
         recording_heading.SetName("Sekcja zapisywanie nagrań radia")
         radio_layout.Add(recording_heading, 0, wx.BOTTOM | wx.EXPAND, 8)
 
+        monitor_start_label = wx.StaticText(
+            radio, label="&Rozpocznij odsłuch nagrania:"
+        )
+        self._monitor_start_values = ["live", "beginning"]
+        self.monitor_start = wx.Choice(
+            radio, choices=["Na żywo", "Od początku dostępnego fragmentu"]
+        )
+        self.monitor_start.SetName("Początek odsłuchu nagrania")
+        self.monitor_start.SetHelpText(
+            "Wybierz, od którego momentu rozpoczyna się odsłuch po Enter na liście Nagrywane"
+        )
+        selected_start = getattr(options, "radio_recording_monitor_start", "live")
+        self.monitor_start.SetSelection(
+            self._monitor_start_values.index(selected_start)
+            if selected_start in self._monitor_start_values else 0
+        )
+        radio_layout.Add(monitor_start_label, 0, wx.BOTTOM, 4)
+        radio_layout.Add(self.monitor_start, 0, wx.BOTTOM | wx.EXPAND, 10)
+
         folder_mode_label = wx.StaticText(
             radio, label="&Położenie nagrań Radia:"
         )
@@ -11179,6 +11321,9 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             ],
             "timeshift_buffer_folder": (self._timeshift_folder_value or None),
             "radio_recordings_folder": self._recording_folder_value,
+            "radio_recording_monitor_start": self._monitor_start_values[
+                max(0, self.monitor_start.GetSelection())
+            ],
             "radio_separate_station_folders": (
                 self.radio_separate_station_folders.GetValue()
             ),
@@ -27755,6 +27900,8 @@ class LiteFrame(wx.Frame):
             subscription, page = result
             self._podcast_loaded_counts[subscription_id] = page.loaded_count
             preferred = intent.preferred_id
+            if completion_message:
+                preferred = state.model.selected_id or preferred
             if intent.load_more and previous_count < len(page.rows):
                 candidate = page.rows[previous_count]
                 if candidate.kind == "episode":
@@ -28875,6 +29022,8 @@ class LiteFrame(wx.Frame):
             ):
                 self._podcast_inbox_sort_mode = page.sort_mode
             preferred = intent.preferred_id
+            if completion_message:
+                preferred = state.model.selected_id or preferred
             if intent.load_more and previous_count < len(page.rows):
                 candidate = page.rows[previous_count]
                 if candidate.kind in ("podcast", "episode"):
@@ -29531,7 +29680,12 @@ class LiteFrame(wx.Frame):
                 )
             self.status_field.SetLabel(message)
             self.status_bar.show(message)
-            if not self._reload_podcast_list_after_download(preferred_id, message):
+            current_id = preferred_id
+            if self.navigator.active is SessionId.PODCASTS:
+                current_state = self.navigator.sessions[SessionId.PODCASTS]
+                if current_state.view is View.LIST:
+                    current_id = current_state.model.selected_id or preferred_id
+            if not self._reload_podcast_list_after_download(current_id, message):
                 self.announcer.say(message)
 
         def failed(error: Exception) -> None:
@@ -36331,12 +36485,23 @@ class LiteFrame(wx.Frame):
             return
         dialog = RecordingMonitorDialog(
             self, client, self.runner, intent, self.options.volume,
+            self.options.radio_recording_monitor_start,
         )
         try:
             dialog.ShowModal()
         finally:
+            stop_recording = dialog.stop_recording_requested
             dialog.Destroy()
             self._active_list().SetFocus()
+        if stop_recording:
+            self.runner.submit(
+                "radio-recording-command",
+                lambda: client.stop_radio_recording(intent.recording_id),
+                lambda _payload: self.announcer.say("Zatrzymuję nagrywanie"),
+                lambda error: self.announcer.say(
+                    f"Nie można zatrzymać nagrywania: {error}"
+                ),
+            )
 
     def _pause_on_player_exit_if_needed(self, session: SessionId) -> None:
         """Wstrzymaj po wyjsciu z odtwarzacza, jesli TA sesja tak ma ustawione.
@@ -42498,6 +42663,16 @@ class LiteFrame(wx.Frame):
                 downloaded_files=self._in_download_history(),
             )
         ]
+        if (self.navigator.active is SessionId.RADIO
+                and self.navigator.view is View.LIST
+                and self.navigator.session.library_view
+                is LibraryView.ACTIVE_RADIO_RECORDINGS):
+            lines.append("Odsłuch nagrania: Enter otwiera od bieżącego momentu.")
+            lines.extend(
+                f"{key}\t{description}"
+                for key, (_kind, _value, description) in
+                RecordingMonitorDialog._COMMANDS.items()
+            )
         wx.MessageBox("\n".join(lines), "Skroty klawiszowe", wx.OK | wx.ICON_INFORMATION, self)
 
     def _show_problem_report(self) -> None:

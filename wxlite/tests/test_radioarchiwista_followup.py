@@ -60,7 +60,7 @@ def test_archive_shortcuts_route_in_list_and_player() -> None:
         "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
         "Ctrl+L": Action.VIEW_LIBRARY,
         "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
-        "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
+        "Shift+Return": Action.TOGGLE_PLAY_NEXT,
         "Space": Action.PLAY_PAUSE,
     }
     for player in (False, True):
@@ -109,7 +109,7 @@ def test_archive_queue_menu_and_copy_label() -> None:
     assert entries[Action.VIEW_SAVED_QUEUE].shortcut == "Ctrl+Q"
     assert entries[Action.VIEW_LIBRARY].shortcut == "Ctrl+L"
     assert entries[Action.ADD_TO_QUEUE].shortcut == "Ctrl+Shift+Q"
-    assert entries[Action.TOGGLE_PLAY_NEXT].shortcut == "Ctrl+Shift+Return"
+    assert entries[Action.TOGGLE_PLAY_NEXT].shortcut == "Shift+Return"
     assert entries[Action.COPY_ADDRESS].shortcut == "Ctrl+Shift+C"
     assert "link do nagrania" in entries[Action.COPY_ADDRESS].label
     assert "link do nagrania" in describe_action(
@@ -477,7 +477,7 @@ def test_open_archive_day_list_relocalizes_through_saved_language_change(
         other_rows = tuple(other_state.model.rows)
 
         options = Options(interface_language="pl")
-        lists = [MediaList() for _ in range(9)]
+        lists = [MediaList() for _ in range(10)]
         source_calls: list[str] = []
         sync_calls: list[str] = []
         frame = SimpleNamespace(
@@ -510,6 +510,7 @@ def test_open_archive_day_list_relocalizes_through_saved_language_change(
             frontier_smart_list=lists[6],
             radioarchiwista_list=lists[7],
             sonos_list=lists[8],
+            heos_list=lists[9],
             announcer=SimpleNamespace(say=lambda _message: None),
             _save_state=lambda: True,
             _restore_focus_after_dialog=lambda: None,
@@ -535,7 +536,7 @@ def test_open_archive_day_list_relocalizes_through_saved_language_change(
             "_with_radio_recording_options",
             lambda _self, snapshot: snapshot,
         )
-        monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: ())
+        monkeypatch.setattr(gui.wx, "GetTopLevelWindows", lambda: (), raising=False)
 
         LiteFrame._show_general_playback_options(frame)
         assert [row.title for row in archive_state.model.rows] == [

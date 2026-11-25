@@ -280,6 +280,20 @@ internal sealed partial class LiteRadioRecordingCoordinator : IDisposable
         };
     }
 
+    public object StopOne(JsonElement args)
+    {
+        var id = LiteArgs.RequireText(args, "recordingId");
+        ActiveRecording active;
+        lock (_gate)
+        {
+            ThrowIfDisposed();
+            if (!_active.TryGetValue(id, out active!))
+                throw new LiteRequestException("To nagranie już się zakończyło.");
+        }
+        RequestStop(active);
+        return new { stopping = true };
+    }
+
     public object StopAll()
     {
         ActiveRecording[] recordings;
@@ -343,7 +357,9 @@ internal sealed partial class LiteRadioRecordingCoordinator : IDisposable
                 if (previous is not null && previous.Id != active.Id)
                     previous.Control.GetMediaOutput()?.StopRecordingMonitor();
                 var volume = LiteArgs.ReadInt(args, "volume", 35, 0, 100);
-                if (!output.StartRecordingMonitor(volume))
+                var startPosition = LiteArgs.ReadText(args, "startPosition");
+                if (!output.StartRecordingMonitor(volume,
+                    startAtLive: startPosition != "beginning"))
                     throw new LiteRequestException("Nie udało się uruchomić odsłuchu nagrania.");
                 break;
             case "pause":
@@ -363,6 +379,14 @@ internal sealed partial class LiteRadioRecordingCoordinator : IDisposable
                 RequireMonitor(active.Id);
                 output.JumpToLive();
                 break;
+            case "volume":
+                RequireMonitor(active.Id);
+                output.SetVolume(LiteArgs.ReadInt(args, "volume", output.Volume, 0, 100));
+                break;
+            case "rate":
+                RequireMonitor(active.Id);
+                output.SetPlaybackRate(LiteArgs.ReadDouble(args, "rate", 1d, 0.5d, 2d));
+                break;
             case "status":
                 RequireMonitor(active.Id);
                 break;
@@ -377,7 +401,10 @@ internal sealed partial class LiteRadioRecordingCoordinator : IDisposable
             positionSeconds = output.Position.TotalSeconds,
             endSeconds = output.CapturedPosition.TotalSeconds,
             firstSeconds = output.EarliestBufferedPosition.TotalSeconds,
-            behindLiveSeconds = output.BehindLive.TotalSeconds
+            behindLiveSeconds = output.BehindLive.TotalSeconds,
+            volume = output.Volume,
+            playbackRate = output.PlaybackRate,
+            supportsPlaybackRate = output.SupportsPlaybackRate
         };
     }
 

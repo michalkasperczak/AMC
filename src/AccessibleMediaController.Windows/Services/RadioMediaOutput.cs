@@ -253,7 +253,7 @@ public sealed class RadioMediaOutput(
     }
 
     /// <summary>Attach an audio output to an already recording private pipeline.</summary>
-    public bool StartRecordingMonitor(int volume)
+    public bool StartRecordingMonitor(int volume, bool startAtLive = true)
     {
         if (!recordingMonitorBuffer) return false;
         RadioPipeline? pipeline;
@@ -262,17 +262,22 @@ public sealed class RadioMediaOutput(
         {
             if (_disposed || _pipeline?.Buffer.IsRecording != true) return false;
             pipeline = _pipeline;
-            deviceId = _outputDeviceId;
+            // The private recording listener uses the laptop's default output,
+            // independent of the station's Cast/Mirror destination.
+            deviceId = null;
             _volume = Math.Clamp(volume, 0, 100);
             pipeline.Volume.Volume = _volume / 100f;
             _pauseRequested = false;
         }
+        // Start according to the listener preference. The buffer boundary
+        // may have moved as older samples are overwritten.
+        if (startAtLive) JumpToLive();
+        else Seek(pipeline.Buffer.EarliestBufferedPosition);
         if (pipeline.Output is not null)
         {
             ResumeRecordingMonitor();
             return true;
         }
-        pipeline.Buffer.Seek(pipeline.Buffer.EarliestBufferedPosition);
         return ReplacePlaybackOutput(pipeline, deviceId, announceFallback: true);
     }
 
@@ -1243,6 +1248,11 @@ public sealed class RadioMediaOutput(
             }
         }
         pipeline.TempoStage.Reposition(pipeline.Buffer.JumpToLive, returnToLive: true);
+    }
+
+    public int Volume
+    {
+        get { lock (_gate) return _volume; }
     }
 
     public void SetVolume(int volume)

@@ -17,6 +17,7 @@ from test_gui_logic import install_wx_stub
 
 install_wx_stub()
 
+import amc_wx_lite.gui as gui
 from amc_wx_lite.gui import LiteFrame, radio_timeshift_label
 from amc_wx_lite.host_client import LiteHostClient
 from amc_wx_lite.library_db import LibraryDatabase, LibraryItem
@@ -895,16 +896,24 @@ def test_recording_monitor_and_rename_client_routes_keep_ids_out_of_labels() -> 
     client.call = call  # type: ignore[method-assign]
     client.radio_recording_monitor("internal-456", "start", volume=42)
     client.radio_recording_monitor("internal-456", "seek", seconds=93)
+    client.radio_recording_monitor(
+        "internal-456", "start", start_position="beginning"
+    )
+    client.stop_radio_recording("internal-456")
     client.rename_active_radio_recording("internal-456", "Nowa audycja")
     assert [item[0] for item in calls] == [
-        "radio.recordingMonitor", "radio.recordingMonitor", "radio.recordingRename",
+        "radio.recordingMonitor", "radio.recordingMonitor",
+        "radio.recordingMonitor", "radio.recordingStopOne",
+        "radio.recordingRename",
     ]
     assert calls[0][1] == {
         "recordingId": "internal-456", "action": "start", "volume": 42,
-        "seconds": 0,
+        "seconds": 0, "rate": 1.0, "startPosition": "live",
     }
     assert calls[1][1]["seconds"] == 93
-    assert calls[2][1] == {"recordingId": "internal-456", "name": "Nowa audycja"}
+    assert calls[2][1]["startPosition"] == "beginning"
+    assert calls[3][1] == {"recordingId": "internal-456"}
+    assert calls[4][1] == {"recordingId": "internal-456", "name": "Nowa audycja"}
 
 
 def test_radio_navigator_accepts_active_recordings_and_back_returns_to_stations() -> None:
@@ -1310,3 +1319,62 @@ def test_escape_and_backspace_share_the_recording_preview_exit_action() -> None:
         )
         assert resolve(chord, player_view=False, radio_session=True) is expected
         assert resolve(chord, player_view=False, radio_session=False) is expected
+
+
+def test_recording_monitor_keys_announce_buffer_and_stop_selected_recording() -> None:
+    from types import SimpleNamespace
+
+    spoken = []
+    timeline = object()
+    dialog = SimpleNamespace(
+        timeline=timeline,
+        volume_slider=object(),
+        rate_choice=object(),
+        pause_button=object(),
+        _snapshot={"firstSeconds": 30, "positionSeconds": 100,
+                   "endSeconds": 130},
+        _COMMANDS=gui.RecordingMonitorDialog._COMMANDS,
+        _clock=gui.RecordingMonitorDialog._clock,
+        GetParent=lambda: SimpleNamespace(announcer=SimpleNamespace(say=spoken.append)),
+        _close=lambda _event: None,
+        stop_recording_requested=False,
+    )
+
+    class Key:
+        def __init__(self, code, *, ctrl=False, shift=False):
+            self.code = code
+            self.ctrl = ctrl
+            self.shift = shift
+
+        def GetKeyCode(self):
+            return self.code
+
+        def GetRawKeyCode(self):
+            return -1
+
+        def ControlDown(self):
+            return self.ctrl
+
+        def ShiftDown(self):
+            return self.shift
+
+        def AltDown(self):
+            return False
+
+        def Skip(self):
+            raise AssertionError("Shortcut unexpectedly passed to a control")
+
+    original_focus = getattr(gui.wx.Window, "FindFocus", None)
+    gui.wx.Window.FindFocus = staticmethod(lambda: timeline)
+    try:
+        gui.RecordingMonitorDialog._on_key(dialog, Key(gui.wx.WXK_RETURN))
+        gui.RecordingMonitorDialog._on_key(dialog, Key(ord("R"), ctrl=True, shift=True))
+        gui.RecordingMonitorDialog._on_key(dialog, Key(ord("R"), ctrl=True))
+    finally:
+        if original_focus is None:
+            del gui.wx.Window.FindFocus
+        else:
+            gui.wx.Window.FindFocus = original_focus
+
+    assert spoken == ["Odsłuch nagrania", "Do końca bufora 0:30"]
+    assert dialog.stop_recording_requested

@@ -1,12 +1,6 @@
 name: AMC Test i Public alpha.530 — build GitHub
 
 on:
-  push:
-    branches:
-      - codex/heos-next-test-20261123
-    paths:
-      - Directory.Build.props
-      - .github/workflows/amc-test-public-alpha530-build.yml
   workflow_dispatch:
 
 permissions:

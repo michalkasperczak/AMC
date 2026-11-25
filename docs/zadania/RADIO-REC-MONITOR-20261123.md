@@ -2,6 +2,15 @@
 
 **Korekta użytkownika 24.11.2026:** gotowy odsłuch trwającego nagrania (Alt+R, Enter) i zmiana nazwy F2 są wspólne w Test/Public alpha.522. Zastępuje to starsze ograniczenie tylko do Test. Apple Music pozostaje tylko w Test. [Wydanie i rzeczywista instalacja](RELEASE-ALPHA522-20261124-Cast-instalacja.md).
 
+**Korekta użytkownika 25.11.2026:** Enter na liście „Nagrywane” ma
+rozpoczynać odsłuch na żywo przez domyślne lokalne wyjście audio. Starszy opis
+startu od najstarszej próbki i osobnych przycisków czasu zastępuje normalny
+profil odtwarzacza: suwak, Home/End, strzałki, głośność, tempo, odczyt czasu
+bufora oraz Ctrl+R zatrzymujące wybrane nagranie. Zmiana nazwy F2 została
+potwierdzona przez użytkownika w praktyce. Szczegóły i wyniki:
+`RADIO-REC-MONITOR-20261125.md`. Tekst z 23.11 poniżej pozostaje historią
+poprzedniej decyzji.
+
 Stan na 23.11.2026: implementacja źródłowa i testy celowane. Bez instalacji,
 wydania i ręcznego odbioru NVDA. Bieżąca gałąź:
 `codex/amc-current-d-20261123`, punkt bazowy `faf67433`. Katalog:

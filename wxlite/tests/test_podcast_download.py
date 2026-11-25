@@ -224,3 +224,20 @@ def test_ctrl_s_uses_suggested_name_and_speaks_only_the_file_name() -> None:
     exposed = " ".join(spoken + statuses)
     assert "private-episode" not in exposed
     assert "D:/Inny folder" not in exposed
+
+
+def test_ctrl_d_keeps_cursor_moved_during_download() -> None:
+    frame = _frame()
+    pending = {}
+
+    def defer(_name, work, done, failed):
+        pending.update(work=work, done=done, failed=failed)
+
+    frame.runner.submit = defer
+    gui.LiteFrame._download_podcast_episodes(frame)
+    assert frame._podcast_download_pending
+    frame.navigator.sessions[SessionId.PODCASTS].model.select_index(1)
+    pending["done"](pending["work"]())
+
+    assert frame.reloaded == [("private-episode-2", "Pobrano: 2")]
+    assert not frame._podcast_download_pending

@@ -23,6 +23,7 @@ internal static class RecordingMonitorTests
         var captured = type.GetProperty("CapturedPosition", flags)!;
         var earliest = type.GetProperty("EarliestBufferedPosition", flags)!;
         var seek = type.GetMethod("Seek", flags)!;
+        var jumpToLive = type.GetMethod("JumpToLive", flags)!;
         var playback = type.GetProperty("PlaybackPosition", flags)!;
         var data = Enumerable.Repeat((byte)0x5A, format.AverageBytesPerSecond).ToArray();
         void Feed(int seconds)
@@ -52,6 +53,11 @@ internal static class RecordingMonitorTests
         Check(((TimeSpan)earliest.GetValue(buffer)!).TotalSeconds == 3
               && ((TimeSpan)playback.GetValue(buffer)!).TotalSeconds == 3,
             "Po nadpisaniu pierścienia odsłuch wyszedł poza dostępny fragment.");
+        jumpToLive.Invoke(buffer, null);
+        var lag = ((TimeSpan)captured.GetValue(buffer)!).TotalSeconds
+            - ((TimeSpan)playback.GetValue(buffer)!).TotalSeconds;
+        Check(lag >= 0 && lag <= 0.26,
+            "Powrót na żywo przekroczył ochronny zapas 0,25 sekundy.");
     }
 
     private static void RenamingUnpublishedRecordingKeepsAudio()
