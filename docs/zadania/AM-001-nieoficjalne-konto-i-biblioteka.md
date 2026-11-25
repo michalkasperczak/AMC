@@ -193,3 +193,5 @@ Commit sond bez ujawniania danych: `71dcd385`.
 - `wxlite/tests/test_apple_music_safe_diagnostic.py`
 
 Commit stronicowanego odczytu: `55935bb7`.
+
+**Decyzja użytkownika 25.11.2026:** rozwój Apple Music jest chwilowo odłożony. Nie traktować wcześniejszych planów jako polecenia rozpoczęcia nowej pracy nad Apple Music przed powrotem użytkownika do tego tematu.

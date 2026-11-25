@@ -301,3 +301,5 @@ Na przypiętym Pythonie i wxPython 4.3.1 przeszło **191 celowanych testów** kl
 ### Materiał do instrukcji użytkownika — szkic
 
 Enter na stacji z Ulubionych HEOS ma uruchamiać tę samą stację na wybranym głośniku. Presety AMC zapisują konkretną stację, nie jej numer na liście; po usunięciu stacji program zgłasza jej brak. Komunikat o odmowie urządzenia nie może być zastąpiony ostrzeżeniem o głośności. Ten opis jest szkicem przyszłego wydania, nie instrukcją zainstalowanej alpha.525.
+
+**Decyzja 25.11.2026:** użytkownik będzie mógł sprawdzić fizyczny głośnik jutro z pracy. Do tego czasu nie ponawiamy próby zmieniającej odtwarzanie; pozostałe zadania AMC mogą postępować niezależnie.

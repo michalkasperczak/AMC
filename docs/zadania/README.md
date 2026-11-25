@@ -2,7 +2,9 @@
 
 **AMC Test alpha.529 / 25.11.2026: poprawka samoczynnego startu wstrzymanej stacji wydana na GitHubie.** Zainstalowana alpha.528 pomijała stan pauzy przy wznowieniu po aktualizacji. Commit `06a3f3c9` przeszedł 133 testy celowane; GitHub Actions zbudował instalator, który opublikowano w `test-2026.11.25.0226`. Instalacja i próba rzeczywistej pauzy pozostają otwarte. [Przyczyna i dowody](PLAYBACK-STARTUP-20261125-pauza-po-aktualizacji.md).
 
-**Dostępność i kolejka / 25.11.2026: trzy dalsze zadania.** [Konfigurowalne zapowiedzi utworów z innych sesji](ACCESS-ANNOUNCE-20261125-inne-sesje.md); [przywrócenie `Shift+Enter` dla „Odtwarzaj jako następne”](QUEUE-004-20261125-shift-enter-nastepne.md); [pełny przegląd menu kontekstowego i cyfr słyszanych przez NVDA](MENU-001-menu-kontekstowe-i-skroty.md). Na razie zapis wymagań, bez wdrożenia.
+**Dostępność i kolejka / 25.11.2026:** [Zapowiedzi nowych utworów](ACCESS-ANNOUNCE-20261125-inne-sesje.md) mają kod i testy celowane, z domyślnym wyborem globalnym oraz wyborem osobno w sesji; bez wydania i odbioru NVDA. [Przywrócenie `Shift+Enter` dla „Odtwarzaj jako następne”](QUEUE-004-20261125-shift-enter-nastepne.md) i [pełny przegląd menu kontekstowego i cyfr słyszanych przez NVDA](MENU-001-menu-kontekstowe-i-skroty.md) pozostają otwarte. Decyzja użytkownika z 25.11: Apple Music chwilowo odłożone, HEOS do sprawdzenia jutro na głośniku; pozostałe poprawki kontynuować.
+
+**Kontrakt nowej sesji:** [ACCESS-SESSION — audyt każdej sesji, dziedziczenie ustawień, listy i NVDA](ACCESS-SESSION-20261125-parytet-sesji.md). Zachowanie klawiatury list jest osobnym torem od zapowiedzi utworów.
 
 **Podcasty / 25.11.2026: nowe zgłoszenie po `Ctrl+D`.** Gdy użytkownik idzie dalej po liście w czasie pobierania odcinka, ukończenie pobierania cofa kursor na pierwotny odcinek. Przyczyna jest wskazana w kodzie; poprawka i testy pozostają do wykonania. [Opis i kryteria](PODCAST-DOWNLOAD-FOCUS-20261125.md).
 

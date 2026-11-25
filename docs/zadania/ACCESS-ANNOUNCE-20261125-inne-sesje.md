@@ -1,30 +1,41 @@
-# Komunikaty o zmianie utworu z innej sesji
+# ACCESS-ANNOUNCE — zapowiedzi nowych utworów
 
-Stan: wymaganie zapisane 25.11.2026; bez zmiany kodu, testu, kompilacji i wydania.
+Stan 25.11.2026: kod i testy celowane gotowe do odbioru; bez kompilacji, wydania, instalacji i odbioru NVDA. Ta zmiana **nie jest** częścią wydanego AMC Test alpha.529.
 
-## Zgłoszenie
+## Zgłoszenie i korekta decyzji
 
-Gdy w TIDAL zaczyna się kolejny utwór, AMC mówi jego tytuł przez NVDA także wtedy, gdy użytkownik pracuje w lokalnej Kolejce albo innej sesji. Informacja bywa przydatna, lecz może przerywać czytanie i przenoszenie plików. Użytkownik chce móc decydować o tych automatycznych komunikatach. Nie chodzi o wyłączenie informacji na żądanie ani o zmianę tego, czy Enter otwiera odtwarzacz.
+TIDAL mówi tytuł kolejnego utworu, gdy użytkownik pracuje w innej sesji, np. w lokalnej kolejce. Podobnie mogą przerywać odczyt metadane Radia i automatyczne przejścia innych źródeł. Użytkownik chce decydować osobno dla każdej sesji, z prostym domyślnym ustawieniem globalnym. Wypowiedź z 25.11.2026 zastępuje wcześniejszy pomysł **wyłącznie globalnego** przełącznika. Otwieranie odtwarzacza po Enter, automatyczna mowa i zawartość tytułu okna są odrębnymi decyzjami.
 
-## Projekt zachowania
+## Dostępny interfejs i zapis
 
-- W **Ustawienia programu → Dostępność** dodać jasną preferencję zapowiedzi zmiany odtwarzanego materiału, zwłaszcza gdy gra inna sesja niż aktualnie przeglądana. Rozważyć wybór: „zawsze”, „tylko w aktywnej sesji”, „nigdy automatycznie”; zachować odczyt na żądanie i komunikaty błędów.
-- Zmiana utworu nie może przejmować fokusu ani przenosić kursora na odtwarzany wiersz w innej sesji. W aktywnej liście oznaczenie pozycji odtwarzanej i mowa NVDA powinny mieć spójną politykę, bez podwójnego odczytu.
-- Sprawdzić Radio, TIDAL, Spotify, Podcasty, Pliki, Radio Archiwistę oraz odbiorniki. Zdarzenie `radio.nowPlaying` i automatyczna zmiana TIDAL mają dziś odrębne ścieżki mowy; jedna preferencja musi być stosowana w punktach wysyłających komunikaty, nie w samym ogólnym wyłączniku wszystkich komunikatów dostępności.
-- W ustawieniach sesji TIDAL istnieje już osobny wybór „Po uruchomieniu materiału Enterem: Otwórz odtwarzacz / Pozostań na liście”. `Alt+Shift+Enter` w obecnych skrótach dotyczy opcji odtwarzania Podcastów, nie ustawienia TIDAL. Te dwa zachowania trzeba jasno rozdzielić w pomocy.
+- **Ustawienia programu → Dostępność i komunikaty → Automatyczne zapowiedzi nowych utworów**: „Zawsze oznajmiaj nowy utwór”, „Oznajmiaj tylko w bieżącej sesji”, „Nie oznajmiaj automatycznie”. Domyślnie „Zawsze”, aby nie zmienić istniejących profili bez wyboru użytkownika.
+- **Ctrl+Alt+Enter → Ustawienia sesji → Automatyczne zapowiedzi nowych utworów tej sesji**: te same trzy warianty i „Jak ustawienie ogólne: [bieżący wariant]”. Nowa sesja dziedziczy ustawienie globalne, dopóki jej zdolności nie udostępnią tego pola i użytkownik nie zapisze własnego wyboru.
+- W tym samym oknie osobne pole **Po uruchomieniu materiału Enterem** decyduje o przejściu do odtwarzacza. W Podcastach Alt+Shift+Enter pozostaje opcjami **wybranego podcastu lub odcinka**. Nie przejmujemy tego skrótu dla ustawień całej sesji.
+- **Ustawienia programu → Ogólne → Tytuł odtwarzanego utworu w tytule okna** już pozwalają wybrać „Nie pokazuj w tytule okna”. To ustawienie jest globalne; wyłącza tytuł także dla metadanych Radia. Mowa automatyczna go nie przestawia. Odczyt na żądanie i błędy pozostają dostępne.
 
-## Uzasadnienie i decyzje
+## Mapa zdarzeń do odbioru
 
-Domyślną wartość dla istniejących profili i dokładny podział automatycznych komunikatów trzeba ustalić przy implementacji na podstawie testów sesji. Zachować obecne ustawienia użytkownika i nie wyłączyć globalnie ważnych powiadomień o nagrywaniu lub błędach.
+| Sesja | Samoczynna zmiana dziś | Wykonawca preferencji | Odbiór do wykonania |
+| --- | --- | --- | --- |
+| Radio | radio.nowPlaying, metadane strumienia | bramka przed wypowiedzią; pasek i tytuł okna nadal się aktualizują | zmiana metadanych przy oglądaniu Radia i innej sesji; NVDA+T i NVDA+End |
+| TIDAL natywny | kolejny utwór adaptera | bramka przed wypowiedzią tytułu | trzy tryby, widok listy/odtwarzacza, fokus poza TIDAL |
+| Spotify | naturalny następny utwór oznaczony w zamiarze AMC | wypowiedź tytułu po potwierdzonym starcie zależna od preferencji; ręczne potwierdzenie pozostaje | naturalny następny utwór i ręczny Enter, także poza sesją |
+| Pliki | queue.advanced i przejście po końcu źródła | stan kolejki zmienia się zawsze; tylko wypowiedź jest filtrowana | kolejka i źródło, pauza, stan bieżącego elementu |
+| Podcasty | przejście do następnego odcinka w źródle | wypowiedź jest filtrowana | odtwarzacz otwarty i w tle; ręczne uruchomienie |
+| Radio Archiwista | przejście do kolejnego nagrania | wypowiedź tytułu jest filtrowana | ciąg nagrań, odtwarzacz i lista |
+| Sonos, WiiM, HEOS, Frontier Smart | odczyt stanu urządzenia, bez potwierdzonej analogicznej wypowiedzi automatycznej | brak nowej kontrolki, dopóki nie ma wykonawcy | osobny odbiór statusu i tytułu okna; HEOS z fizycznym głośnikiem jutro |
+| Apple Music | odłożone na prośbę użytkownika 25.11.2026 | brak nowej kontrolki | po wznowieniu prac nad sesją |
 
-## Testy i wynik
+Zapowiedź nie może przenosić fokusu ani zaznaczenia do innej sesji. Komunikaty o błędach i nagrywaniu pozostają niezależne od tego wyboru. Ctrl+Alt+Enter jest już w menu, palecie i pomocy; opis polecenia uzupełniono o zapowiedzi.
 
-Wykonano odczyt źródeł: `gui.py` wysyła tytuł bezpośrednio przy `radio.nowPlaying`, a przy automatycznym starcie kolejnego utworu TIDAL również wywołuje mówienie tytułu. Nie wykonano testu NVDA ani zmian programu. Test wdrożenia: odtwarzać TIDAL, pracować w innej sesji, zmieniać utwory przy każdej wartości opcji, sprawdzić fokus, mówienie, pasek stanu, pomoc i ponowne uruchomienie.
+## Testy i ograniczenia
 
-## Materiał do dokumentacji użytkownika
+Celowany zestaw logiki ustawień, zapisu profilu, dialogu, Radia, TIDAL, Spotify, lokalnej kolejki, skrótów, menu i palety: **280 passed** w środowisku wxPython 4.3.1; dodatkowe dwa testy naturalnego przejścia Plików: **2 passed**. `py_compile` i `git diff --check` przeszły. Osobny szerszy zestaw wykazał dwa istniejące błędy testów startu hosta w test_session_options_effect.py oraz dwa istniejące braki w pełnym katalogu tłumaczeń; nie uznajemy tych testów za zaliczone. Nie wykonano jeszcze ręcznej nawigacji NVDA po nowym polu, odbioru wszystkich zdarzeń na żywo ani instalacji. Spotify wymaga potwierdzenia na rzeczywistym odtwarzaniu.
 
-Szkic przyszłej instrukcji: „W Ustawieniach programu, na karcie Dostępność, wybierz, czy AMC ma automatycznie mówić tytuł nowego utworu, gdy pracujesz w innej sesji. Informację o bieżącym odtwarzaniu nadal możesz wywołać ręcznie”. Ta opcja nie jest jeszcze dostępna.
+Przed wydaniem trzeba sprawdzić pierwszy wybór, wszystkie pozycje strzałkami, zapis, anulowanie, powrót fokusu i ponowne otwarcie w każdym z sześciu okien sesji; przy źródle zewnętrznym sprawdzić działanie bez przejmowania klawiatury. Tytuł okna ma dziś wybór globalny, nie osobny dla sesji. Przegląd strzałek, Ulubionych, playlist, kolejek oraz Ctrl+X jest odrębnym kontraktem dostępnego interfejsu i pozostaje otwarty.
 
-## Znane ograniczenia, wersja i commit
+## Szkic instrukcji użytkownika
 
-Brak implementacji i commitu funkcji. Zgłoszenie powstało po AMC Test alpha.528. Następny krok: tabela zdarzeń i istniejących komunikatów dla każdej sesji, potem jedna polityka preferencji i testy parytetu dostępności.
+„W Ustawieniach programu, na karcie Dostępność i komunikaty, wybierz domyślną zapowiedź nowych utworów. W konkretnej sesji naciśnij Ctrl+Alt+Enter, aby ją zmienić tylko dla tego źródła. Otwieranie odtwarzacza po Enter ustawiasz osobno w tym samym oknie. Jeśli chcesz ukryć utwór w tytule okna, wybierz odpowiednią pozycję na karcie Ogólne.” Szkic wymaga korekty użytkownika po odbiorze NVDA; nie publikować automatycznie.
+
+Commit źródeł i testów: `6e96acc258a8b189b9e62b07dd9e8d4fdcd51ce1`. Wersja wydania: nieprzypisana; ta zmiana czeka na wspólne następne wydanie Test.
