@@ -1,6 +1,6 @@
 # PRESET — TIDAL: skróty cyfr i natywne odtwarzanie
 
-Zgłoszenie: 25.11.2026. Priorytet: pilny. Status: błąd potwierdzony w kodzie, naprawa i odbiór otwarte. Bieżąca aplikacja to wxPython w `D:\Projekty Codex\AMC - integracja wxPython`; dawny WPF nie należy do zadania. Baza badania: `d8d561db`, czysta gałąź `codex/heos-next-test-20261123`.
+Zgłoszenie: 25.11.2026. Priorytet: pilny. Status: skróty cyfr poprawione w źródłach i testach; natywne uruchamianie presetów albumów i playlist oraz odbiór pozostają otwarte. Bieżąca aplikacja to wxPython w `D:\Projekty Codex\AMC - integracja wxPython`; dawny WPF nie należy do zadania. Baza badania: `d8d561db`, czysta gałąź `codex/heos-next-test-20261123`.
 
 ## Decyzja użytkownika zastępująca projekt z 22.11.2026
 
@@ -13,6 +13,14 @@ Zapisane presety albumów i playlist TIDAL nie mogą uruchamiać oryginalnej apl
 - `shortcuts.py`: `ASSIGN_PRESET_SHORTCUTS` mapuje `Ctrl+Alt+Shift+1…0` na akcje przypisania, a `LIST_VIEW` i `PLAYER_VIEW` zawierają tę mapę. `gui.py` kieruje te akcje przez `assign_preset_slot` do `_assign_preset(direct_slot)`.
 - `TIDAL_SUPPORTED_ACTIONS` w `shortcuts.py` zawiera `ASSIGN_PRESET` i akcje uruchamiania `PRESET_1…12`, ale **nie zawiera** `ASSIGN_PRESET_1…10`. Bramka w `gui.py` odrzuca te akcje przed wykonaniem i używa przestarzałego komunikatu o oryginalnym TIDAL. To bezpośrednia, źródłowo potwierdzona przyczyna braku działania skrótów cyfr w TIDAL. Dotychczasowe testy sprawdzały m.in. `resolve(...)`, lecz nie pełną bramkę wykonania TIDAL, więc jej nie wykryły.
 - `_activate_preset` w `gui.py` uruchamia zapisany utwór TIDAL przez `navigator.open_tidal_search_result`; album i playlistę przekazuje jako `PlayTidalContainer`. `_play_tidal_container` wywołuje `client.tidal_desktop_play_container`, czyli stary zewnętrzny tor. Wymaga zastąpienia natywnym pobraniem kolejki albumu/playlisty i uruchomieniem w AMC z właściwą pozycją, metadanymi oraz obsługą błędu; nie wystarczy zmienić etykiety.
+
+## Przyrost źródłowy 25.11.2026 po zgodzie na pracę przy 2% limitu
+
+Michał wyraźnie pozwolił kontynuować pracę mimo 2% pozostałego limitu. W `TIDAL_SUPPORTED_ACTIONS` dodano dziesięć akcji `ASSIGN_PRESET_1…10`. To uzupełnia jedną wspólną bramkę używaną przez wykonanie, menu, paletę i pomoc; mapy klawiszy i metoda zapisu istniały wcześniej. Inne sesje z presetami sprawdzono pod kątem tej samej luki: Spotify, Sonos, HEOS i Radio Archiwista mają akcję przypisania cyfry; WiiM korzysta z własnego modelu presetów urządzenia. Nowy test wykrywa brak tych akcji w bramce TIDAL, czego stare testy samego `resolve(...)` nie robiły.
+
+Wynik: `test_profile_presets.py` **28 zaliczonych**; `test_preset_gui_wiring.py` **4 zaliczone** po dołączeniu wxPython z runtime AMC. Pierwszy wspólny przebieg przerwał się na zbieraniu testów GUI, bo systemowy Python nie miał wxPython; nie przedstawia się go jako zaliczonego. Zmiana kodu i testu: commit `95c3bd8`. Nie zbudowano ani nie zainstalowano nowej paczki; ręczny odbiór NVDA pozostaje otwarty.
+
+Druga usterka nie jest jeszcze poprawiona. `gui.py::_play_tidal_container` nadal wywołuje zewnętrzny TIDAL. Istniejące `gui.py::_open_tidal_container` pobiera album/playlistę do listy AMC, a `_play_tidal_native_row` potrafi zbudować źródło odtwarzania z pobranych wierszy. Przed zastąpieniem starej trasy należy jednak rozstrzygnąć pełną kolejkę przy stronicowaniu, start pierwszego utworu, przejścia między utworami i powrót po błędzie. Nie kierować presetu albumu/playlisty tylko do pierwszego wiersza bez zachowania całego kontenera.
 
 ## Wymagany rezultat i weryfikacja
 
