@@ -37,6 +37,7 @@ from amc_wx_lite.session_options import (
     resolve_pause_on_player_exit,
     resolve_open_player_on_enter,
     resolve_open_player_on_preset,
+    resolve_automatic_track_mode,
     resolve_playback_rate,
     resolve_remember_position,
     scope_for_session,
@@ -95,6 +96,30 @@ def test_nie_ma_martwych_pol_wyszukiwania_ani_automatycznego_dodawania():
     overrides = SessionPlaybackOverrides()
     for dead in ("auto_add", "search_enter", "resume_mode", "output_device"):
         assert not hasattr(overrides, dead), f"pole bez wykonawcy: {dead}"
+
+
+def test_automatic_track_titles_inherit_global_or_use_session_choice():
+    options = Options(automatic_track_announcements="active")
+    assert resolve_automatic_track_mode(options, SessionPlaybackOverrides()) == "active"
+    own = SessionPlaybackOverrides(automatic_track_announcements="never")
+    assert resolve_automatic_track_mode(options, own) == "never"
+    assert own.restricted_to(capabilities_for(SessionId.TIDAL)).automatic_track_announcements == "never"
+    assert own.restricted_to(capabilities_for(SessionId.APPLE_MUSIC)).automatic_track_announcements is None
+    assert SessionPlaybackOverrides.from_payload({"automatic_track_announcements": "never"}) == own
+    assert SessionPlaybackOverrides.from_payload({"automatic_track_announcements": "technical.id"}).automatic_track_announcements is None
+
+
+def test_speech_only_session_setting_needs_no_audio_engine():
+    from amc_wx_lite.session_options import apply_session_options
+
+    state = LiteState(options=Options())
+    result = apply_session_options(
+        state, SessionId.FILES,
+        SessionPlaybackOverrides(automatic_track_announcements="active"),
+        client=None,
+    )
+    assert result.saved
+    assert state.session_overrides[SessionId.FILES.value].automatic_track_announcements == "active"
 
 
 def test_predkosc_sesji_i_wznowienie_nadpisuja_domyslne():

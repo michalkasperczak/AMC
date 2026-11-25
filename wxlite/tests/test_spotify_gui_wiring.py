@@ -1277,6 +1277,35 @@ def test_spotify_started_event_commits_the_pending_item() -> None:
     assert refreshed == [True]
 
 
+def test_spotify_natural_next_track_stays_silent_in_other_session() -> None:
+    spoken = []
+    intent = PlaySpotifyItem(
+        "next", "Następny utwór", "private", "track",
+        success_announcement="Następny utwór", automatic=True,
+    )
+    frame = SimpleNamespace(
+        _window_alive=lambda: True,
+        _pending_spotify_playback=intent,
+        _pending_playback_session=SessionId.SPOTIFY,
+        _playing_session=None,
+        _playing_sessions=set(),
+        options=SimpleNamespace(automatic_track_announcements="active"),
+        navigator=SimpleNamespace(
+            active=SessionId.FILES,
+            note_spotify_playback_started=lambda *_args: None,
+        ),
+        _refresh_status=lambda: None,
+        announcer=SimpleNamespace(say=spoken.append),
+    )
+
+    LiteFrame._handle_engine_event(frame, "playback.started", {
+        "engine": "spotify", "title": "Następny utwór",
+    })
+
+    assert frame._playing_session is SessionId.SPOTIFY
+    assert spoken == []
+
+
 def test_spotify_started_event_announces_default_output_fallback_once() -> None:
     messages = []
     refreshed = []

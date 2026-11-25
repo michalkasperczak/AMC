@@ -433,6 +433,7 @@ def test_spotify_preset_playback_keeps_visible_list_focus() -> None:
     )
 
     assert isinstance(intent, PlaySpotifyItem)
+    assert intent.automatic is False
     assert intent.preserve_navigation
     assert intent.success_announcement == "Album z presetu"
     assert nav.session.model.selected_row == albums[1]
@@ -591,3 +592,4 @@ def test_entire_spotify_album_advances_after_first_track() -> None:
     assert continuation is not None
     assert isinstance(continuation[0], PlaySpotifyItem)
     assert continuation[0].service_id == second.service_id
+    assert continuation[0].automatic is True

@@ -349,6 +349,9 @@ class Options:
     message_volume_messages: bool | None = None
     message_playback_messages: bool | None = None
     message_bookmark_navigation_messages: bool | None = None
+    #: Automatic track titles may speak everywhere, only in the session being
+    #: browsed, or never. Deliberate commands and errors are unaffected.
+    automatic_track_announcements: str = "always"
     #: Odczyt listy jest składany z danych wiersza, bez sieci przy strzałkach.
     list_updown_fields: list[str] = field(default_factory=lambda: ["kind", "artist", "duration", "other", "status"])
     list_left_fields: list[str] = field(default_factory=lambda: ["duration", "bitrate", "size", "format", "sampleRate", "artist", "country", "language", "cloud", "other"])
@@ -503,6 +506,10 @@ class Options:
             value = getattr(self, name)
             if value is not None and type(value) is not bool:
                 setattr(self, name, None)
+        from .automatic_track_announcements import normalize_mode
+        self.automatic_track_announcements = normalize_mode(
+            self.automatic_track_announcements
+        )
         from .list_reading import LEFT_FIELDS, UPDOWN_FIELDS, normalize_fields
         self.list_updown_fields = normalize_fields(self.list_updown_fields, UPDOWN_FIELDS)
         self.list_left_fields = normalize_fields(self.list_left_fields, LEFT_FIELDS)

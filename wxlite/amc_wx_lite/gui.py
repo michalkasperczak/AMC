@@ -52,6 +52,12 @@ from .application_update import (
     user_facing_update_error,
 )
 from .application_update_dialog import ApplicationUpdateDialog
+from .automatic_track_announcements import (
+    LABELS as AUTOMATIC_TRACK_LABELS,
+    MODES as AUTOMATIC_TRACK_MODES,
+    normalize_mode as normalize_automatic_track_mode,
+    should_announce as should_announce_automatic_track,
+)
 from .async_gate import BackgroundRunner, StaleResultGate
 from .audio_clip import (
     AudioEditSettingsReadError,
@@ -7523,6 +7529,9 @@ class SessionOptionsDialog(wx.Dialog):
         shell.Add(buttons, 0, wx.ALL | wx.ALIGN_RIGHT, 12)
         self.SetSizer(shell)
         self._build_fields()
+        i18n.localize_window_tree(self, translate_items=True)
+        if self._first is not None:
+            self._first.SetFocus()
 
     @property
     def session(self):
@@ -7550,6 +7559,7 @@ class SessionOptionsDialog(wx.Dialog):
         self.rate = None
         self.enter_behavior = None
         self.preset_behavior = None
+        self.automatic_track_announcements = None
 
         if self._caps.supports_player_entry_behavior:
             inherited_entry = (
@@ -7587,6 +7597,22 @@ class SessionOptionsDialog(wx.Dialog):
                     ("Pozostań na liście", False),
                 ),
                 overrides.open_player_on_preset,
+            )
+
+        if self._caps.supports_automatic_track_announcements:
+            global_mode = normalize_automatic_track_mode(
+                getattr(options, "automatic_track_announcements", "always")
+            )
+            inherited_label = (
+                "Jak ustawienie ogólne: "
+                + AUTOMATIC_TRACK_LABELS[AUTOMATIC_TRACK_MODES.index(global_mode)]
+            )
+            self.automatic_track_announcements = self._add_choice(
+                panel, grid,
+                "Automatyczne &zapowiedzi nowych utworów tej sesji:",
+                "Automatyczne zapowiedzi nowych utworów tej sesji",
+                ((inherited_label, None), *zip(AUTOMATIC_TRACK_LABELS, AUTOMATIC_TRACK_MODES)),
+                overrides.automatic_track_announcements,
             )
 
         if self._caps.supports_resume_position:
@@ -7767,6 +7793,9 @@ class SessionOptionsDialog(wx.Dialog):
             pause_on_player_exit=self._value(self.pause),
             open_player_on_enter=self._value(self.enter_behavior),
             open_player_on_preset=self._value(self.preset_behavior),
+            automatic_track_announcements=self._value(
+                self.automatic_track_announcements
+            ),
         )
 
     @property
@@ -10254,6 +10283,30 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             self.message_enabled, 0, wx.BOTTOM | wx.EXPAND, 10
         )
 
+        automatic_track_heading = wx.StaticText(
+            messages, label="Automatyczne &zapowiedzi nowych utworów:"
+        )
+        automatic_track_heading.SetName("Automatyczne zapowiedzi nowych utworów")
+        self.automatic_track_announcements = wx.Choice(
+            messages, choices=list(AUTOMATIC_TRACK_LABELS)
+        )
+        self.automatic_track_announcements.SetName(
+            "Automatyczne zapowiedzi nowych utworów"
+        )
+        self.automatic_track_announcements.SetHelpText(
+            "Dotyczy samoczynnej zmiany utworu i metadanych strumienia. "
+            "Odczyt na żądanie i komunikaty o błędach pozostają dostępne."
+        )
+        self.automatic_track_announcements.SetSelection(
+            AUTOMATIC_TRACK_MODES.index(normalize_automatic_track_mode(
+                options.automatic_track_announcements
+            ))
+        )
+        messages_layout.Add(automatic_track_heading, 0, wx.BOTTOM, 4)
+        messages_layout.Add(
+            self.automatic_track_announcements, 0, wx.BOTTOM | wx.EXPAND, 10
+        )
+
         self.message_seek_messages = wx.CheckBox(
             messages, label="Włącz automatyczne komunikaty &odtwarzacza"
         )
@@ -11053,6 +11106,9 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
             ),
             "detailed_hints": self.detailed_hints.GetValue(),
             "message_enabled": self.message_enabled.GetValue(),
+            "automatic_track_announcements": AUTOMATIC_TRACK_MODES[
+                max(0, self.automatic_track_announcements.GetSelection())
+            ],
             "message_seek_messages": self.message_seek_messages.GetValue(),
             "message_arrow_seek_messages": (
                 self.message_arrow_seek_messages.GetValue()
@@ -11175,6 +11231,17 @@ class GeneralPlaybackOptionsDialog(wx.Dialog):
                 else None
             ),
         }
+
+
+def _automatic_track_announcement_enabled(frame: object, source: SessionId) -> bool:
+    """Apply the source session's override without changing focus or transport."""
+    navigator = getattr(frame, "navigator", None)
+    active = getattr(navigator, "active", source)
+    mode = session_options.resolve_automatic_track_mode(
+        getattr(frame, "options", None),
+        session_options.effective_overrides(getattr(frame, "state", None), source),
+    )
+    return should_announce_automatic_track(mode, source, active)
 
 
 class LiteFrame(wx.Frame):
@@ -15749,7 +15816,13 @@ class LiteFrame(wx.Frame):
                 self._pending_spotify_playback = None
                 if self._pending_playback_session is SessionId.SPOTIFY:
                     self._pending_playback_session = None
-                if pending is not None and pending.success_announcement:
+                if (
+                    pending is not None
+                    and pending.success_announcement
+                    and (not pending.automatic or _automatic_track_announcement_enabled(
+                        self, SessionId.SPOTIFY
+                    ))
+                ):
                     self.announcer.say(pending.success_announcement)
                 fallback_device = str(
                     data.get("audioOutputFallbackDeviceName") or ""
@@ -15814,7 +15887,8 @@ class LiteFrame(wx.Frame):
                         play = next((intent for intent in continuation if isinstance(intent, PlayMedia)), None)
                         if play is not None:
                             self._play_media(play, session_id=SessionId.RADIOARCHIWISTA)
-                            self.announcer.say(play.title)
+                            if _automatic_track_announcement_enabled(self, SessionId.RADIOARCHIWISTA):
+                                self.announcer.say(play.title)
                         return
                 continue_source = getattr(
                     getattr(self, "navigator", None),
@@ -15829,6 +15903,11 @@ class LiteFrame(wx.Frame):
                 if continuation:
                     # Nie czyścimy stanu transportu pomiędzy dwoma elementami.
                     # Nowy start zostanie potwierdzony zwykłym playback.started.
+                    if not _automatic_track_announcement_enabled(self, ended_session):
+                        continuation = [
+                            intent for intent in continuation
+                            if not isinstance(intent, Announce)
+                        ]
                     self._run(continuation)
                     return
             if not data.get("queueContinues"):
@@ -15849,9 +15928,12 @@ class LiteFrame(wx.Frame):
         elif name == "queue.advanced":
             # NATURALNE przejscie policzone przez sesje Core po stronie hosta.
             # GUI tylko odwzorowuje to, co host NAPRAWDE zaczal grac.
-            self._run(self.navigator.note_queue_advanced(
+            intents = self.navigator.note_queue_advanced(
                 str(data.get("id") or ""), str(data.get("title") or "")
-            ))
+            )
+            if not _automatic_track_announcement_enabled(self, SessionId.FILES):
+                intents = [intent for intent in intents if not isinstance(intent, Announce)]
+            self._run(intents)
         elif name == "playback.failed":
             if self._youtube_active_item_id and data.get("engine") == "files":
                 return
@@ -15921,7 +16003,8 @@ class LiteFrame(wx.Frame):
             title = str(data.get("streamTitle") or "").strip()
             if title:
                 self.now_playing.SetLabel(title)
-                self.announcer.say(title)
+                if _automatic_track_announcement_enabled(self, SessionId.RADIO):
+                    self.announcer.say(title)
                 # Zdarzenie niesie tylko tytul. Pelny tekst paska (stacja,
                 # parametry audio, tytul) pobierze najblizszy status hosta.
                 self._refresh_status()
@@ -32879,7 +32962,7 @@ class LiteFrame(wx.Frame):
                             "wszystkich ustawień odtwarzania"
                         ),
                     )
-            if automatic:
+            if automatic and _automatic_track_announcement_enabled(self, SessionId.TIDAL):
                 self.announcer.say(self._tidal_native_pending_title)
             elif open_player:
                 self.announcer.say(

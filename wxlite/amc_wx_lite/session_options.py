@@ -59,6 +59,7 @@ import math
 from typing import TYPE_CHECKING
 
 from .navigation import SessionId
+from .automatic_track_announcements import normalize_mode
 from .transport_parity import PLAYBACK_RATES, clamp_playback_rate
 
 if TYPE_CHECKING:  # pragma: no cover - tylko dla kontroli typow
@@ -99,6 +100,7 @@ class SessionCapabilities:
     supports_player_exit_pause: bool
     supports_player_entry_behavior: bool = False
     supports_preset_entry_behavior: bool = False
+    supports_automatic_track_announcements: bool = False
 
     @property
     def has_options(self) -> bool:
@@ -110,6 +112,7 @@ class SessionCapabilities:
             self.supports_player_exit_pause,
             self.supports_player_entry_behavior,
             self.supports_preset_entry_behavior,
+            self.supports_automatic_track_announcements,
         ))
 
 
@@ -124,6 +127,7 @@ _CAPABILITIES: dict[SessionId, SessionCapabilities] = {
         supports_player_exit_pause=True,
         supports_player_entry_behavior=True,
         supports_preset_entry_behavior=True,
+        supports_automatic_track_announcements=True,
     ),
     SessionId.RADIO: SessionCapabilities(
         # RadioMediaOutput ma tylko ConfigureTempoAlgorithm -- brak wykonawcy.
@@ -134,6 +138,7 @@ _CAPABILITIES: dict[SessionId, SessionCapabilities] = {
         supports_player_exit_pause=True,
         supports_player_entry_behavior=True,
         supports_preset_entry_behavior=True,
+        supports_automatic_track_announcements=True,
     ),
     SessionId.PODCASTS: SessionCapabilities(
         # Przed ``media.play`` frontend ustawia bazę tej sesji, a host nakłada
@@ -143,12 +148,17 @@ _CAPABILITIES: dict[SessionId, SessionCapabilities] = {
         supports_resume_position=True,
         supports_player_exit_pause=True,
         supports_player_entry_behavior=True,
+        supports_automatic_track_announcements=True,
     ),
     # Web Playback SDK does not expose a durable speed command. Changing
     # an internal media element is transient and must not be advertised.
-    SessionId.TIDAL: SessionCapabilities(False, False, False, True),
+    SessionId.TIDAL: SessionCapabilities(
+        False, False, False, True,
+        supports_automatic_track_announcements=True,
+    ),
     SessionId.SPOTIFY: SessionCapabilities(
-        False, False, False, True, supports_player_entry_behavior=True
+        False, False, False, True, supports_player_entry_behavior=True,
+        supports_automatic_track_announcements=True,
     ),
     SessionId.SONOS: SessionCapabilities(
         False, False, False, True, supports_player_entry_behavior=True
@@ -163,6 +173,7 @@ _CAPABILITIES: dict[SessionId, SessionCapabilities] = {
         supports_player_exit_pause=True,
         supports_player_entry_behavior=True,
         supports_preset_entry_behavior=True,
+        supports_automatic_track_announcements=True,
     ),
     # WiiM odtwarza na urzadzeniu i historycznie nie mial pauzy po wyjsciu.
     SessionId.WIIM: SessionCapabilities(
@@ -219,6 +230,7 @@ class SessionPlaybackOverrides:
     pause_on_player_exit: bool | None = None
     open_player_on_enter: bool | None = None
     open_player_on_preset: bool | None = None
+    automatic_track_announcements: str | None = None
 
     @property
     def is_empty(self) -> bool:
@@ -268,6 +280,9 @@ class SessionPlaybackOverrides:
         # wiec wartosc spoza listy nie moze wejsc do stanu okna.
         if type(silence) is int and silence in INTER_TRACK_SILENCE_CHOICES:
             result.inter_track_silence_ms = silence
+        announcement_mode = raw.get("automatic_track_announcements")
+        if announcement_mode in ("always", "active", "never"):
+            result.automatic_track_announcements = announcement_mode
         return result
 
     def restricted_to(self, caps: SessionCapabilities) -> "SessionPlaybackOverrides":
@@ -300,6 +315,9 @@ class SessionPlaybackOverrides:
             open_player_on_preset=self.open_player_on_preset
             if caps.supports_preset_entry_behavior
             else None,
+            automatic_track_announcements=self.automatic_track_announcements
+            if caps.supports_automatic_track_announcements
+            else None,
         )
 
 
@@ -314,7 +332,16 @@ SESSION_OPTION_IDS: tuple[str, ...] = (
     "pause_on_player_exit",
     "open_player_on_enter",
     "open_player_on_preset",
+    "automatic_track_announcements",
 )
+
+
+def resolve_automatic_track_mode(options: "Options", overrides: SessionPlaybackOverrides) -> str:
+    """Session choice, then global default; malformed values preserve old speech."""
+    own = overrides.automatic_track_announcements
+    if own in ("always", "active", "never"):
+        return own
+    return normalize_mode(getattr(options, "automatic_track_announcements", "always"))
 
 
 def resolve_playback_rate(
@@ -558,8 +585,15 @@ def apply_session_options(
     )
     # Powrot do dziedziczenia TEZ jest zmiana dzwieku: silnik musi dostac
     # wartosci ogolne, inaczej dalej grałby poprzednim wyborem sesji.
-    previous = (state.session_overrides or {}).get(session.value)
-    if previous is not None and caps.supports_audio_processing:
+    previous = effective_overrides(state, session)
+    if caps.supports_audio_processing and any(
+        getattr(previous, field_name) is not None
+        for field_name in (
+            "loudness_normalization",
+            "smooth_track_transitions",
+            "inter_track_silence_ms",
+        )
+    ):
         needs_engine = True
 
     deferred_until_playback = session is SessionId.PODCASTS and needs_engine

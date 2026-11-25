@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+import pytest
 
 from amc_wx_lite import menu_model
 from amc_wx_lite.audio_output import effective_output_device_id
@@ -645,9 +646,22 @@ def test_native_start_stays_on_list_without_extra_manual_announcement() -> None:
     assert spoken == []
 
 
-def test_native_automatic_advance_says_only_next_title_on_list() -> None:
+@pytest.mark.parametrize(
+    ("active_session", "mode", "own_mode", "expected"),
+    [
+        (SessionId.TIDAL, "active", None, ["Drugi"]),
+        (SessionId.FILES, "active", None, []),
+        (SessionId.FILES, "always", None, ["Drugi"]),
+        (SessionId.TIDAL, "never", None, []),
+        (SessionId.FILES, "always", "never", []),
+    ],
+)
+def test_native_automatic_advance_says_only_next_title_on_list(
+    active_session: SessionId, mode: str, own_mode: str | None,
+    expected: list[str]
+) -> None:
     nav = Navigator()
-    nav.active = SessionId.TIDAL
+    nav.active = active_session
     state = nav.sessions[SessionId.TIDAL]
     first = Row("tidal:tracks:1", "Pierwszy", "track", service_id="tracks:1")
     second = Row("tidal:tracks:2", "Drugi", "track", service_id="tracks:2")
@@ -656,6 +670,10 @@ def test_native_automatic_advance_says_only_next_title_on_list() -> None:
     spoken = []
     frame = SimpleNamespace(
         navigator=nav,
+        options=SimpleNamespace(automatic_track_announcements=mode),
+        state=SimpleNamespace(session_overrides={
+            SessionId.TIDAL.value: {"automatic_track_announcements": own_mode}
+        } if own_mode is not None else {}),
         _tidal_native_pending_track_id="2",
         _tidal_native_pending_item_id=second.item_id,
         _tidal_native_pending_title=second.title,
@@ -675,7 +693,7 @@ def test_native_automatic_advance_says_only_next_title_on_list() -> None:
     LiteFrame._on_tidal_native_status(frame, "started", "2", "Odtwarzanie rozpoczęte")
     assert state.view is View.LIST
     assert state.model.selected_id == first.item_id
-    assert spoken == ["Drugi"]
+    assert spoken == expected
 
 
 def test_old_end_does_not_override_newer_manual_enter() -> None:

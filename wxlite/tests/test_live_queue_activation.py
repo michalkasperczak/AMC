@@ -426,6 +426,24 @@ def test_otwarta_zywa_lista_usuwa_zuzyte_wiersze_bez_ponownego_ctrl_q() -> None:
     assert state.view is View.LIST
 
 
+def test_automatic_queue_advance_keeps_current_item_without_interrupting_radio() -> None:
+    from types import SimpleNamespace
+    from amc_wx_lite.navigation import SessionId
+
+    frame, captured = _frame_for_queue_status({
+        "initialized": True, "currentId": "q2", "rows": [],
+    })
+    frame.options = SimpleNamespace(automatic_track_announcements="active")
+    frame.navigator.switch_session(SessionId.RADIO)
+    frame._window_alive = lambda: True
+    frame._sync_views = lambda: None
+
+    frame._handle_engine_event("queue.advanced", {"id": "q2", "title": "A"})
+
+    assert frame.navigator.sessions[SessionId.FILES].now_playing_id == "q2"
+    assert not any(isinstance(effect, Announce) for effect in captured)
+
+
 def test_koniec_utworu_oproznia_otwarta_zywa_liste() -> None:
     frame, _ = _frame_for_queue_status({
         "initialized": True, "currentId": "q3", "rows": [],

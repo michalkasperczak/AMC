@@ -751,6 +751,7 @@ class PlaySpotifyItem:
     artist: str = ""
     preserve_navigation: bool = False
     success_announcement: str = ""
+    automatic: bool = False
 
 
 @dataclass(slots=True)
@@ -1166,6 +1167,7 @@ class Navigator:
             intent.previous_title = previous_title
             intent.preserve_navigation = True
             intent.success_announcement = target.title
+            intent.automatic = True
             state.pending_material_id = target.item_id
             return [intent]
         if session_id is SessionId.PODCASTS:

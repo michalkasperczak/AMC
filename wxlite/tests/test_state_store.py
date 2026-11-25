@@ -239,6 +239,13 @@ def test_message_overrides_round_trip_and_keep_user_facing_mode() -> None:
     assert loaded.message_percent_announcement == "PercentAndTime"
 
 
+def test_automatic_track_announcement_preference_round_trips() -> None:
+    store, _ = temp_store()
+    store.save(LiteState(options=Options(automatic_track_announcements="active")))
+    assert store.load().options.automatic_track_announcements == "active"
+    assert Options(automatic_track_announcements="internal.enum").clamp().automatic_track_announcements == "always"
+
+
 def test_invalid_message_overrides_return_to_inherited_values() -> None:
     options = Options(
         message_enabled="tak",  # type: ignore[arg-type]

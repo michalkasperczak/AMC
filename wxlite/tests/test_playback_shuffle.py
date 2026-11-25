@@ -8,6 +8,7 @@ from amc_wx_lite.command_palette import entries_for_session
 from amc_wx_lite.list_model import Row
 from amc_wx_lite.navigation import (
     Navigator,
+    Announce,
     PlayMedia,
     PlaySpotifyItem,
     PlayTrack,
@@ -169,6 +170,7 @@ def test_engine_end_dispatches_next_local_track_without_end_announcement() -> No
         _playing_sessions={SessionId.FILES},
         _playing_session=SessionId.FILES,
         _window_alive=lambda: True,
+        _youtube_active_item_id=None,
         _run=lambda intents: dispatched.extend(intents),
         announcer=SimpleNamespace(say=spoken.append),
     )
@@ -180,6 +182,32 @@ def test_engine_end_dispatches_next_local_track_without_end_announcement() -> No
     assert isinstance(dispatched[0], PlayTrack)
     assert dispatched[0].item_id == "b"
     assert spoken == []
+
+
+def test_next_local_track_starts_without_speech_while_browsing_radio() -> None:
+    nav = Navigator()
+    nav.apply_folder(r"C:\Muzyka", [_track("a"), _track("b")])
+    nav.activate_selected()
+    nav.switch_session(SessionId.RADIO)
+    dispatched: list[object] = []
+    frame = SimpleNamespace(
+        navigator=nav,
+        options=SimpleNamespace(automatic_track_announcements="active"),
+        _playing_sessions={SessionId.FILES},
+        _playing_session=SessionId.FILES,
+        _youtube_active_item_id=None,
+        _window_alive=lambda: True,
+        _run=lambda intents: dispatched.extend(intents),
+        announcer=SimpleNamespace(say=lambda _text: None),
+    )
+
+    LiteFrame._handle_engine_event(frame, "playback.ended", {
+        "engine": "files", "sessionId": "files", "id": "a",
+        "queueContinues": False,
+    })
+
+    assert any(isinstance(intent, PlayTrack) and intent.item_id == "b" for intent in dispatched)
+    assert not any(isinstance(intent, Announce) for intent in dispatched)
 
 
 def test_shuffle_does_not_reorder_explicit_queue() -> None:

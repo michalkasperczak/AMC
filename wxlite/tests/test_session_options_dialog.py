@@ -234,6 +234,7 @@ def _controls(dialog) -> dict:
         "pause": dialog.pause,
         "enter": dialog.enter_behavior,
         "preset": dialog.preset_behavior,
+        "automatic_tracks": dialog.automatic_track_announcements,
     }
 
 
@@ -248,6 +249,7 @@ def test_pliki_lokalne_dostaja_wszystkie_wykonalne_kontrolki():
     for name in (
         "resume", "rate", "loudness", "transitions", "silence", "pause",
         "enter", "preset",
+        "automatic_tracks",
     ):
         assert controls[name] is not None, f"Pliki lokalne wykonuja {name}"
 
@@ -270,6 +272,7 @@ def test_radio_nie_dostaje_kontrolek_ktorych_nie_wykona():
     assert controls["pause"] is not None, "wyjscie z odtwarzacza dotyczy obu sesji"
     assert controls["enter"] is not None, "Radio może pozostać na liście"
     assert controls["preset"] is not None, "Presety Radia wykonują ten wybór"
+    assert controls["automatic_tracks"] is not None
 
 
 def test_podcasty_dostaja_kontrolki_dsp_ktore_maja_wykonawce():
@@ -282,6 +285,7 @@ def test_podcasty_dostaja_kontrolki_dsp_ktore_maja_wykonawce():
     ):
         assert controls[name] is not None, f"Podcasty wykonuja {name}"
     assert controls["preset"] is None, "Presety podcastów nie wykonują tej opcji"
+    assert controls["automatic_tracks"] is not None
 
 
 def test_liczba_kontrolek_zgadza_sie_ze_zdolnosciami():
@@ -297,7 +301,7 @@ def test_liczba_kontrolek_zgadza_sie_ze_zdolnosciami():
             1 if caps.supports_playback_rate else 0
         ) + (1 if caps.supports_player_entry_behavior else 0) + (
             1 if caps.supports_preset_entry_behavior else 0
-        )
+        ) + (1 if caps.supports_automatic_track_announcements else 0)
         assert created == expected, f"{session.value}: {created} != {expected}"
 
 
@@ -468,6 +472,25 @@ def test_fokus_startuje_na_pierwszej_kontrolce():
     focused = [c for c in _controls(dialog).values() if c is not None and c.focused]
     assert len(focused) == 1, "dokladnie jedna kontrolka dostaje fokus na start"
     assert focused[0] is dialog.enter_behavior
+
+
+def test_automatic_track_choice_reads_global_inheritance_and_separate_modes():
+    dialog = _build(
+        SessionId.TIDAL,
+        Options(automatic_track_announcements="active"),
+        session_options.SessionPlaybackOverrides(),
+    )
+    control = dialog.automatic_track_announcements
+    assert control is not None
+    assert control.name == "Automatyczne zapowiedzi nowych utworów tej sesji"
+    assert control.choices == [
+        "Jak ustawienie ogólne: Oznajmiaj tylko w bieżącej sesji",
+        "Zawsze oznajmiaj nowy utwór",
+        "Oznajmiaj tylko w bieżącej sesji",
+        "Nie oznajmiaj automatycznie",
+    ]
+    assert control._amc_values == [None, "always", "active", "never"]
+    assert dialog.overrides.automatic_track_announcements is None
 
 
 def test_zachowanie_entera_ma_jawne_etykiety_i_odseparowany_model():

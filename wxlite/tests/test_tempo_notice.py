@@ -102,3 +102,21 @@ def test_radio_title_uses_the_host_event_field():
     assert labels == ["Wykonawca — Utwór"]
     assert messages == labels
     assert refreshes == [True], "pełny pasek NVDA+End ma zostać odświeżony"
+
+
+def test_radio_title_updates_status_without_speech_in_other_session():
+    messages, labels, refreshes = [], [], []
+    frame = cast(LiteFrame, SimpleNamespace(
+        _window_alive=lambda: True,
+        options=SimpleNamespace(automatic_track_announcements="active"),
+        navigator=SimpleNamespace(active=SessionId.FILES),
+        announcer=SimpleNamespace(say=messages.append),
+        now_playing=SimpleNamespace(SetLabel=labels.append),
+        _refresh_status=lambda: refreshes.append(True),
+    ))
+    LiteFrame._handle_engine_event(frame, "radio.nowPlaying", {
+        "streamTitle": "Wykonawca — Utwór"
+    })
+    assert labels == ["Wykonawca — Utwór"]
+    assert refreshes == [True]
+    assert messages == []
