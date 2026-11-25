@@ -21,3 +21,13 @@ Celowane testy harmonogramów, dostępnego regionu, ustawień, aktualizatora i t
 ## Wersja i etapy
 
 Poprawkę zawiera źródłowy commit `853504bcdcbbbbc9c31b1d93879900235f6f0263` w AMC Test `0.1.0-alpha.527`. Kompilacja GitHub, instalator, wydanie i lokalna aktualizacja zostały potwierdzone osobno w [zapisie wydania alpha.527](RELEASE-ALPHA527-20261125.md). Alpha.526 była opublikowana na GitHub, lecz nie została lokalnie zainstalowana i nie zawiera tej poprawki.
+
+## Kontrola uzupełniająca, 25.11.2026
+
+Po wydaniu alpha.527 użytkownik poprosił o sprawdzenie innych komunikatów, które może zagłuszać powrót fokusu lub odczyt tytułu okna. W bezpośredniej drodze `Shift+R` (nowy plan dla wskazanej stacji) wynik zapisu, również odmowny, był wypowiadany przed powrotem fokusu do głównego okna. Ta droga nie korzystała z naprawionej wcześniej metody `RadioSchedulesDialog._commit`. Zmieniono ją: wynik czeka na przywrócenie fokusu w kolejce zdarzeń wx, a potem na osobne zdarzenie wypowiedzi. Teksty komunikatów i działanie zapisu pozostały takie same. Test drogi bezpośredniej sprawdza teraz kolejność fokus → wypowiedź dla sukcesu i odmowy; wszystkie 18 testów w `test_radio_gui_wiring.py` przeszło. Zmiana źródłowa ma commit `b69f1d802b9d17a1aa4210c41fd587dd613e0f8a` **po alpha.527**; nie ma jej jeszcze w opublikowanym instalatorze. Rzeczywistej kolejności mowy NVDA na Windows nie sprawdzono.
+
+Przegląd statyczny pokazał też inne możliwe kolizje wypowiedzi z natychmiastowym powrotem fokusu, m.in. potwierdzenia eksportu stacji WiiM i Sonos, zapis wyboru kanałów YouTube na żywo oraz zapis opcji odtwarzania podcastów w `gui.py`. Są to kandydaci do osobnej weryfikacji NVDA; sam porządek wywołań nie dowodzi, że każda z tych wypowiedzi jest przerywana. Nie zmieniono ich w tej poprawce.
+
+Potwierdzono w modelu poleceń i menu: `Ctrl+Shift+I` otwiera transmisje wybranych kanałów YouTube, a `Shift+F6` otwiera listę aktywnego odtwarzania. Skróty nie kolidują. F6 w odtwarzaczu pozostaje przejściem zgodnym z jego dotychczasowym kontekstem.
+
+Testy parytetu polecenia `Shift+F6`: 23 zaliczone. Pełny test okna aktywnego odtwarzania w tym środowisku nie jest rozstrzygający, ponieważ Python użyty do testów nie ma zainstalowanego prawdziwego `wx`; osobne uruchomienie 6 testów GUI zakończyło się błędem importu `wx`, a 1 test pominięto. Nie jest to wynik testu NVDA ani regresja potwierdzona w instalatorze.
