@@ -73,13 +73,13 @@ głośników jako domyślnego wyjścia Windows.
 ## Szkic instrukcji i listy zmian
 
 Tekst dla użytkownika do korekty: „Podczas nagrywania naciśnij Alt+R i Enter,
-aby usłyszeć bieżący moment nagrania na lokalnym wyjściu audio. Możesz
+aby słuchać od momentu wybranego w Ustawieniach → Radio. Ctrl+Enter uruchamia tryb przeciwny. Możesz
 cofnąć odsłuch suwakiem lub strzałkami. End wraca na żywo, Escape zamyka
 odsłuch bez zatrzymywania nagrania, a Ctrl+R zatrzymuje wskazane nagranie.”
 
-Lista zmian: odsłuch nagrania otwiera się na żywo, ma zwykłą oś czasu,
+Lista zmian: odsłuch ma wybór początku, Enter/Ctrl+Enter i zwykłą oś czasu,
 klawisze transportu, głośności, tempa i informacji o buforze. Ctrl+R
 zatrzymuje tylko odsłuchiwane nagranie. Nie publikować szkicu instrukcji
 automatycznie bez odbioru użytkownika.
 
-Wersja i commit: do uzupełnienia po commicie i ewentualnym wydaniu.
+Wersja: `0.1.0-alpha.531`, commit `bc49032eb5ddf792403a0ca31cba4a9cdb176363`. Test i Public opublikowane 25.11.2026; szczegóły w `RELEASE-ALPHA531-20261125-Test-Public.md`. Instalacja i odbiór NVDA otwarte.

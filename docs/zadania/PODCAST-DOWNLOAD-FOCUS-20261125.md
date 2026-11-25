@@ -10,6 +10,8 @@ pobierania. Skupione testy Pythona: 62/62. Ręczny odbiór NVDA na
 zainstalowanej aplikacji nadal oczekuje. Ta aktualizacja zastępuje poniższy
 stan „tylko diagnoza”; starszy tekst pozostaje jako historia zgłoszenia.
 
+**Wydanie 25.11.2026:** poprawka należy do opublikowanych Test i Public alpha.531, commit `bc49032e`; 295 testów Pythona w łącznym zestawie przeszło. Odbiór kursora z NVDA w zainstalowanej aplikacji pozostaje otwarty. [Pełny rekord wydania](RELEASE-ALPHA531-20261125-Test-Public.md).
+
 ## Zgłoszenie i zachowanie użytkowe
 
 W sesji Podcasty i YouTube użytkownik naciska `Ctrl+D` na odcinku, a podczas pobierania idzie dalej po liście. Gdy pobieranie się kończy, kursor wraca na odcinek, na którym rozpoczęto pobieranie. To przerywa czytanie i nawigację.
