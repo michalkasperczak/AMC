@@ -38,3 +38,7 @@ W Podcastach naciśnij `Ctrl+Shift+L`, aby dodać lub usunąć podcast z Bibliot
 Źródła: commit `4ba3ea7dbcfcb359415b4384411d4ce61a263c78` na gałęzi `codex/heos-next-test-20261123`. GitHub Actions run `45522175254` zakończył się powodzeniem. Wydanie testowe `test-2026.11.25.0200` zawiera instalator `AMC-Test-2026-11-25-0200.exe`, 214638869 bajtów, SHA-256 `7cf5652e2da765ac713a336e98c11e978995fb845e5715a672e2720097c6bc9b`; plik integralności i manifest aktualizacji są opublikowane. Lokalny manifest instalacji wskazuje tę wersję i commit; użytkownik potwierdził uruchomienie po aktualizacji.
 
 Następny krok: wykonać odbiór `Ctrl+Shift+L`, `Delete` oraz fokusu NVDA na rzeczywistym widoku Podcastów.
+
+## Korekta 28.11.2026 — wybór po Ctrl+Shift+L
+
+Późniejsze zgłoszenie użytkownika zastępuje założenie, że wcześniejsza poprawka z alpha.528 definitywnie rozwiązała skok kursora. Odpowiedź zmiany Biblioteki jest asynchroniczna: użytkownik może w tym czasie wskazać inny podcast. Po zakończeniu operacji w otwartej Bibliotece AMC zachowuje aktualnie wybrany, nadal istniejący wiersz. Jeśli usunięto właśnie wybrany wiersz, wybiera widocznego sąsiada; przy dodaniu nie przenosi kursora automatycznie do nowego źródła. Test opóźnionej odpowiedzi i dwa powiązane moduły: 19 zaliczonych. Ręczny odbiór fokusu NVDA w zainstalowanym programie nadal jest potrzebny.

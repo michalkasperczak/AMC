@@ -126,6 +126,44 @@ def test_ctrl_shift_l_removing_library_source_keeps_next_visible_source_selected
     assert not frame._podcast_library_pending
 
 
+def test_ctrl_shift_l_late_success_keeps_newer_library_selection() -> None:
+    queued = []
+
+    class DeferredRunner:
+        @staticmethod
+        def submit(_name, work, done, failed):
+            queued.append((work, done, failed))
+
+    removed = Row("podcast-1", "Usuwany kanał", "podcast")
+    later = Row("podcast-2", "Czytany kanał", "podcast")
+    navigator = gui.Navigator()
+    navigator.active = SessionId.PODCASTS
+    navigator.apply_podcast_library([removed, later])
+    navigator.session.model.select_id(removed.item_id)
+    opened = []
+    frame = SimpleNamespace(
+        navigator=navigator,
+        client=SimpleNamespace(toggle_podcast_library=lambda _ids: {
+            "added": False, "changed": 1,
+        }),
+        runner=DeferredRunner(),
+        announcer=SimpleNamespace(say=lambda _message: None),
+        _podcast_library_pending=False,
+        _selected_action_rows=lambda: [removed],
+        _open_podcast_library=lambda **kwargs: opened.append(kwargs),
+    )
+
+    gui.LiteFrame._toggle_podcast_library(frame)
+    navigator.session.model.select_id(later.item_id)
+    work, done, _failed = queued.pop()
+    done(work())
+
+    assert opened == [{
+        "preferred_id": later.item_id,
+        "completion_message": "Usunięto z Biblioteki: Usuwany kanał",
+    }]
+
+
 def test_ctrl_shift_l_late_success_after_session_change_does_not_restore_podcast_list() -> None:
     """A completed background write must not reclaim focus from another session."""
 

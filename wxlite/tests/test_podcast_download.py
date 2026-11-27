@@ -241,3 +241,57 @@ def test_ctrl_d_keeps_cursor_moved_during_download() -> None:
 
     assert frame.reloaded == [("private-episode-2", "Pobrano: 2")]
     assert not frame._podcast_download_pending
+
+
+def test_ctrl_d_second_async_refresh_keeps_latest_selection() -> None:
+    rows = [
+        Row("episode-a", "Pierwszy odcinek", "episode"),
+        Row("episode-b", "Drugi odcinek", "episode"),
+    ]
+    navigator = gui.Navigator()
+    navigator.active = SessionId.PODCASTS
+    navigator.apply_podcast_aggregate(
+        LibraryView.PODCAST_FAVORITES, "Ulubione", rows,
+    )
+    navigator.session.model.select_id("episode-a")
+    jobs = []
+    spoken = []
+    frame = SimpleNamespace(
+        navigator=navigator,
+        client=SimpleNamespace(download_podcast_episodes=lambda _ids, **_kwargs: {
+            "requested": 1, "downloaded": 1,
+        }),
+        runner=SimpleNamespace(submit=lambda name, work, done, failed: jobs.append(
+            (name, work, done, failed)
+        )),
+        announcer=SimpleNamespace(say=spoken.append),
+        status_field=SimpleNamespace(SetLabel=lambda _text: None),
+        status_bar=SimpleNamespace(show=lambda _text: None),
+        _podcast_download_pending=False,
+        _podcast_loaded_counts={},
+        _selected_action_rows=lambda: [rows[0]],
+        _sync_views=lambda: None,
+        state=SimpleNamespace(podcast_inbox_sort_mode="newest"),
+        podcasts=SimpleNamespace(is_available=True, favorites=lambda **_kwargs: SimpleNamespace(
+            rows=rows, loaded_count=2, sort_mode="newest", order_matches_amc=True,
+        )),
+    )
+    frame._reload_podcast_list_after_download = lambda preferred, message: (
+        gui.LiteFrame._reload_podcast_list_after_download(frame, preferred, message)
+    )
+    frame._open_podcast_aggregate = lambda intent, **kwargs: (
+        gui.LiteFrame._open_podcast_aggregate(frame, intent, **kwargs)
+    )
+
+    gui.LiteFrame._download_podcast_episodes(frame)
+    assert jobs[0][0] == "podcast-download"
+    navigator.session.model.select_id("episode-b")
+    _name, work, done, _failed = jobs.pop(0)
+    done(work())
+    assert jobs[0][0] == "podcast-view"
+    navigator.session.model.select_id("episode-a")
+    _name, work, done, _failed = jobs.pop(0)
+    done(work())
+
+    assert navigator.session.model.selected_id == "episode-a"
+    assert spoken == ["Pobieranie odcinka", "Pobrano odcinek: Pierwszy odcinek"]

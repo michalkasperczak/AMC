@@ -30695,10 +30695,25 @@ class LiteFrame(wx.Frame):
                 )
                 return
             if state.library_view is LibraryView.PODCAST_LIBRARY:
+                # The user may have moved while the service mutation ran.
+                # Keep that newer selection when it survives the change;
+                # otherwise pick the visible neighbour of the removed row.
+                current_id = state.model.selected_id
+                if current_id and (added or current_id not in subscription_ids):
+                    preferred_id = current_id
+                elif added:
+                    preferred_id = removal_preferred_id or subscription_ids[0]
+                else:
+                    preferred_id = LiteFrame._preferred_item_after_removal(
+                        list_filter.filter_rows(
+                            list(state.model.rows),
+                            self.filter_box.GetValue()
+                            if getattr(self, "filter_box", None) is not None else "",
+                        ),
+                        set(subscription_ids),
+                    )
                 self._open_podcast_library(
-                    preferred_id=(
-                        subscription_ids[0] if added else removal_preferred_id
-                    ),
+                    preferred_id=preferred_id,
                     completion_message=message,
                 )
                 return

@@ -43,3 +43,7 @@ Do szkicu po wykonaniu poprawki: „Po uruchomieniu pobierania odcinka przez `Ct
 Zgłoszenie zapisano w commicie dokumentacji `d08b5ed813e703d94072f168aa4876e7a85797b0`, po opublikowaniu AMC Test alpha.528 (`test-2026.11.25.0200`). Użytkownik później zainstalował tę wersję; lokalny manifest wskazuje commit `4ba3ea7d`. Poprawka nie należy do alpha.528.
 
 Następny krok: poprawić wybór po asynchronicznym zakończeniu `Ctrl+D`, dodać test odroczonego zakończenia i wykonać odbiór NVDA.
+
+## Ponowny przegląd 28.11.2026
+
+Użytkownik nadal podejrzewa cofanie kursora po Ctrl+D. Kod przechwytuje wybór w chwili zakończenia pobierania oraz ponownie w chwili ukończenia drugiego, asynchronicznego odświeżenia listy. Dodano test przejścia A→B podczas pobierania i B→A podczas odświeżania; w obu fazach pozostaje najnowszy wybór. Moduły testów pobierania i Biblioteki: 20 zaliczonych. Nie stwierdzono nowej przyczyny źródłowej, więc rzeczywisty fokus kontrolki i NVDA trzeba sprawdzić po instalacji; sam test modelu nie jest dowodem odbioru.
