@@ -30,3 +30,36 @@ AMC Test `0.1.0-alpha.533`. Zmiana nie migruje istniejących kolejek; zachowuje 
 ## Szkic instrukcji
 
 Zaznacz plik, odcinek Podcastów albo nagranie Radio Archiwisty i naciśnij `Shift+Enter`. Materiał zagra po obecnym i po materiałach wcześniej dodanych tym skrótem. Bieżący będzie grał dalej. Ponowne naciśnięcie nie usunie pozycji. Aby przełączyć dodanie lub usunięcie, użyj `Ctrl+Shift+Enter`. Szkic wymaga korekty i zatwierdzenia przez użytkownika przed publikacją jako instrukcja.
+
+## Audyt 28.11.2026 — mieszane zaznaczenie Podcastów
+
+Korekta użytkownika z 28.11 dotyczy podejrzenia przypadkowego dodawania do
+kolejki. W rzeczywistym hoście potwierdzono niespójność: dla grupy odcinków
+Podcastów Ctrl+Shift+Q lub Ctrl+Shift+Enter wybierało dodawanie, gdy
+chociaż jeden zaznaczony odcinek nie miał danej flagi. W Plikach ta sama
+operacja grupowa usuwa flagę wszystkim, gdy chociaż jedna pozycja ją ma.
+Zmiana z commitu e0e75f7bba1a4c63369bcc536f4b5b144651c898 ujednolica
+Podcasty z Plikami. Przy mieszanej grupie zwykły przełącznik usuwa
+członkostwo, więc nie dopisuje nieoznaczonych odcinków przypadkowo.
+Shift+Enter nadal tylko dodaje brakujące odcinki i pozostaje idempotentny.
+
+GUI Podcastów wcześniej cicho odrzucał zaznaczony kanał lub podcast, po
+czym zmieniał kolejkę pozostałych odcinków. Teraz odmawia całej operacji
+komunikatem „Do kolejki podcastów wybierz wyłącznie odcinki”.
+Jeśli z wielu zaznaczonych pozycji zmieni się tylko jedna, NVDA dostaje
+liczbę zmienionych pozycji, a nie tytuł pierwszej, która mogła pozostać
+bez zmiany. Inne sesje nie zostały zmienione.
+
+Weryfikacja: izolowany LiteHost zbudował się w Release bez ostrzeżeń i
+błędów; test rzeczywistego hosta z SQLite sprawdził mieszane zaznaczenie,
+oba przełączniki i ponowny jednorazowy wybór. Łącznie 42 testy kolejki,
+Shift+Enter i Radio Archiwisty oraz 45 testów skrótów i menu przeszło.
+Git diff --check bez błędów. Nie wykonano instalacji, publikacji ani
+ręcznego odbioru NVDA. Wydanie alpha.533 opisane wyżej nie zawiera
+tej korekty; potrzebna jest następna paczka Test/Public.
+
+„Wspólna kolejka” jest kontraktem poleceń dla wspieranych sesji, nie
+jednym magazynem wszystkich źródeł: Pliki używają kolejki silnika,
+Podcasty trwałej kolejki profilu, Radio Archiwista własnej kolejki.
+Powinno się sprawdzić na żywo, czy kursor i wypowiedź po Ctrl+Shift+Q
+oraz Shift+Enter odpowiadają oczekiwaniom użytkownika.
