@@ -210,6 +210,43 @@ def test_repeated_question_is_answered_again_in_speech() -> None:
     assert bar.writes == [], "zapowiedz nie jest stanem odtwarzania"
 
 
+def test_tidal_space_reports_only_transport_and_preserves_audio_status() -> None:
+    """Space is an event; NVDA+End remains the on-demand audio description."""
+    from types import SimpleNamespace
+
+    bar = FakeNativeBar()
+    native = gui.NativeStatusBar(bar)
+    audio = (
+        "źródło AAC, jakość stratna, 321 kb/s, "
+        "PCM w silniku 44,1 kHz, Thick as a Brick"
+    )
+    native.show(audio)
+    spoken: list[str] = []
+    paused = iter((True, False))
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(active=gui.SessionId.TIDAL),
+        client=SimpleNamespace(
+            pause_resume=lambda _session: {
+                "paused": next(paused), "currentPlaybackText": audio,
+            }
+        ),
+        runner=SimpleNamespace(
+            submit=lambda _name, work, done, _failed: done(work())
+        ),
+        announcer=SimpleNamespace(say=spoken.append),
+        status_bar=native,
+        _tidal_native_has_playback=True,
+        _youtube_playback_active=lambda: False,
+    )
+
+    gui.LiteFrame._play_pause(frame)
+    gui.LiteFrame._play_pause(frame)
+
+    assert spoken == ["TIDAL w AMC: pauza", "TIDAL w AMC: wznowiono"]
+    assert bar.GetStatusText(0) == audio
+    assert bar.writes == [(audio, 0)]
+
+
 def test_empty_message_changes_nothing() -> None:
     announcer, field, bar, events = make_announcer()
     announcer.say("   ")
@@ -326,6 +363,7 @@ def test_spotify_poll_rejects_a_mislabeled_podcast_snapshot() -> None:
         _transport_status_by_session={},
         _last_status={},
         _playing_sessions=set(),
+        _youtube_playback_active=lambda: False,
         _refresh_radio_transport_status=lambda: None,
     )
     gui.LiteFrame._refresh_status(frame)

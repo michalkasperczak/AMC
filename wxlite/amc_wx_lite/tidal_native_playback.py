@@ -142,6 +142,11 @@ class TidalNativePlaybackAdapter:
         self._pending = False
         self._pending_track_id: str | None = None
         self._generation = 0
+        # The proxy can measure bitrate while nativePlay is still opening
+        # the audio stream. Keep that one-shot measurement until the host
+        # confirms it owns this exact track.
+        self._play_accepted_generation: int | None = None
+        self._pending_bitrate: tuple[int, str, int] | None = None
         self._cancel = threading.Event()
         self._proxy: object | None = None
         self._track_id: str | None = None
@@ -194,14 +199,14 @@ class TidalNativePlaybackAdapter:
         with self._lock:
             return not self._closed and generation == self._generation and not self._cancel.is_set()
 
-    def _report_bitrate(self, generation: int, track_id: str, kbps: int) -> None:
-        """Update the host after the normal BTS request reveals total bytes."""
-        if not self._current(generation):
-            return
-
+    def _submit_bitrate(self, generation: int, track_id: str, kbps: int) -> None:
         def update() -> None:
             if not self._current(generation):
                 return
+            with self._lock:
+                if (self._track_id != track_id
+                        or self._play_accepted_generation != generation):
+                    return
             try:
                 self._host.call(
                     "tidal.nativeBitrate", {"id": track_id, "bitrateKbps": kbps},
@@ -212,6 +217,20 @@ class TidalNativePlaybackAdapter:
                 pass
 
         threading.Thread(target=update, name="AMC TIDAL bitrate", daemon=True).start()
+
+    def _report_bitrate(self, generation: int, track_id: str, kbps: int) -> None:
+        """Keep the one-shot proxy measurement until nativePlay is accepted."""
+        if type(kbps) is not int or not 16 <= kbps <= 30_000:
+            return
+        with self._lock:
+            if (self._closed or generation != self._generation
+                    or self._cancel.is_set()
+                    or track_id != self._track_id):
+                return
+            self._pending_bitrate = (generation, track_id, kbps)
+            accepted = self._play_accepted_generation == generation
+        if accepted:
+            self._submit_bitrate(generation, track_id, kbps)
 
     def play(
         self, track_id: str, title: str = "", *, duration_seconds: float | None = None,
@@ -229,6 +248,8 @@ class TidalNativePlaybackAdapter:
             self._cancel = threading.Event()
             self._pending = True
             self._pending_track_id = track_id
+            self._play_accepted_generation = None
+            self._pending_bitrate = None
         threading.Thread(
             target=self._prepare, args=(generation, track_id, title,
                                         _duration(duration_seconds)),
@@ -407,11 +428,21 @@ class TidalNativePlaybackAdapter:
             if not isinstance(accepted, dict) or accepted.get("ok") is not True \
                     or accepted.get("id") != "tidal:" + track_id:
                 raise RuntimeError("host_rejected")
+            with self._lock:
+                if generation != self._generation or self._closed:
+                    return
+                self._play_accepted_generation = generation
+                measured = self._pending_bitrate
+            if measured is not None and measured[:2] == (generation, track_id):
+                self._submit_bitrate(*measured)
             proxy = None  # Active owner releases it on stop/end/failure.
         except Exception:
             # Exceptions from the library, host or proxy may contain signed URLs.
             failed = self._current(generation)
             with self._lock:
+                if generation == self._generation:
+                    self._play_accepted_generation = None
+                    self._pending_bitrate = None
                 if self._proxy is proxy and self._track_id == track_id:
                     self._proxy = previous_proxy
                     self._track_id = previous_track if previous_proxy is not None else None
@@ -495,6 +526,8 @@ class TidalNativePlaybackAdapter:
         with self._lock:
             self._generation += 1
             self._cancel.set()
+            self._play_accepted_generation = None
+            self._pending_bitrate = None
             track_id = self._track_id
             pending_track_id = self._pending_track_id
             self._pending = False

@@ -201,6 +201,7 @@ class AdapterTests(unittest.TestCase):
         adapter = self.adapter(saved_store())
         self.assertTrue(adapter.play("123"))
         self.assertTrue(self.host.called.wait(3))
+        self.wait_for(lambda: not adapter._pending)
         proxy = FakeProxy.instances[0]
         self.assertIsNotNone(proxy.bitrate_callback)
         proxy.bitrate_callback(928)
@@ -209,6 +210,81 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(self.host.calls[1][1], {"id": "123", "bitrateKbps": 928})
         self.assertFalse(proxy.closed.is_set())
         adapter.stop()
+        adapter.close()
+
+    def test_bitrate_measured_during_host_start_waits_until_track_is_registered(self):
+        entered = threading.Event()
+        release = threading.Event()
+
+        class BlockingHost(FakeHost):
+            def call(self, op, args, *, timeout):
+                if op == "tidal.nativePlay":
+                    entered.set()
+                    if not release.wait(3):
+                        raise TimeoutError("test host did not resume")
+                return super().call(op, args, timeout=timeout)
+
+        self.host = BlockingHost()
+        adapter = self.adapter(saved_store())
+        try:
+            self.assertTrue(adapter.play("123"))
+            self.assertTrue(entered.wait(3))
+            proxy = FakeProxy.instances[0]
+            proxy.bitrate_callback(321)
+            self.assertEqual(self.host.calls, [], "the host has not accepted nativePlay")
+            release.set()
+            self.wait_for(lambda: len(self.host.calls) == 2)
+            self.assertEqual([op for op, *_ in self.host.calls],
+                             ["tidal.nativePlay", "tidal.nativeBitrate"])
+            self.assertEqual(self.host.calls[1][1],
+                             {"id": "123", "bitrateKbps": 321})
+        finally:
+            release.set()
+            adapter.close()
+
+    def test_bitrate_during_rejected_start_is_not_sent_to_another_track(self):
+        entered = threading.Event()
+        release = threading.Event()
+
+        class RejectingHost(FakeHost):
+            def call(self, op, args, *, timeout):
+                if op == "tidal.nativePlay":
+                    entered.set()
+                    if not release.wait(3):
+                        raise TimeoutError("test host did not resume")
+                    self.accept = False
+                return super().call(op, args, timeout=timeout)
+
+        self.host = RejectingHost()
+        adapter = self.adapter(saved_store())
+        try:
+            self.assertTrue(adapter.play("123"))
+            self.assertTrue(entered.wait(3))
+            FakeProxy.instances[0].bitrate_callback(321)
+            release.set()
+            self.wait_for(lambda: any(kind == "failed" for kind, _, _ in self.statuses))
+            self.assertEqual([op for op, *_ in self.host.calls], ["tidal.nativePlay"])
+        finally:
+            release.set()
+            adapter.close()
+
+    def test_late_bitrate_from_stopped_track_cannot_modify_next_track(self):
+        adapter = self.adapter(saved_store())
+        self.assertTrue(adapter.play("123"))
+        self.wait_for(lambda: not adapter._pending)
+        previous_callback = FakeProxy.instances[0].bitrate_callback
+        adapter.stop()
+        self.wait_for(lambda: not adapter.is_active)
+        self.assertTrue(adapter.play("456"))
+        self.wait_for(lambda: not adapter._pending)
+        previous_callback(321)
+        FakeProxy.instances[1].bitrate_callback(256)
+        self.wait_for(lambda: len(self.host.calls) == 3)
+        self.assertEqual([op for op, *_ in self.host.calls],
+                         ["tidal.nativePlay", "tidal.nativePlay",
+                          "tidal.nativeBitrate"])
+        self.assertEqual(self.host.calls[2][1],
+                         {"id": "456", "bitrateKbps": 256})
         adapter.close()
 
     def test_catalog_metadata_plays_when_older_track_lookup_cannot_find_id(self):
