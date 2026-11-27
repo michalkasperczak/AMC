@@ -535,7 +535,8 @@ def test_gui_toggle_uses_station_label_and_profile_preferences() -> None:
     assert client.payload["stationName"] == "Radio Test"
     assert client.payload["bitrateKbps"] == 160
     # Odpowiedz hosta nie jest jeszcze potwierdzeniem istnienia pliku.
-    assert messages == ["Sprawdzam połączenie dla nagrania w tle: Radio Test"]
+    # Jedyny komunikat startu wypowiada recordingStarted po otwarciu pliku.
+    assert messages == []
 
 
 def test_gui_toggle_announces_stopping_without_technical_values() -> None:

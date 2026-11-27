@@ -41306,11 +41306,7 @@ class LiteFrame(wx.Frame):
             # Odpowiedz hosta potwierdza tylko zlecenie. Faktyczny start
             # potwierdzi osobne recordingStarted po otwarciu pliku.
             action = str((result or {}).get("action") or "")
-            if action == "starting":
-                self.announcer.say(
-                    f"Sprawdzam połączenie dla nagrania w tle: {station.name}"
-                )
-            elif action == "stopping":
+            if action == "stopping":
                 if (result or {}).get("alreadyStopping"):
                     self.announcer.say(
                         f"Nagranie stacji {station.name} jest już zatrzymywane. "
