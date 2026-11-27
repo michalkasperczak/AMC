@@ -1,13 +1,6 @@
 name: AMC Test i Public alpha.532 — build GitHub
 
 on:
-  push:
-    branches:
-      - codex/heos-next-test-20261123
-    paths:
-      - Directory.Build.props
-      - .github/workflows/amc-test-public-alpha532-build.yml
-      - wxlite/amc_wx_lite/shortcuts.py
   workflow_dispatch:
 
 permissions:

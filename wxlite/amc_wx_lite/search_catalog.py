@@ -35,6 +35,7 @@ class SearchResultAction(Enum):
     TOGGLE_PLAYBACK = "togglePlayback"
     QUEUE = "queue"
     PLAY_NEXT = "playNext"
+    PLAY_NEXT_TOGGLE = "playNextToggle"
     FAVORITE = "favorite"
     LIBRARY = "library"
     PLAYLIST = "playlist"

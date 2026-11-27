@@ -1,30 +1,32 @@
-# „Odtwarzaj jako następne” pod Shift+Enter
+# QUEUE-004 — Shift+Enter: Odtwarzaj jako następne
 
-Stan: wymaganie zapisane 25.11.2026; bez implementacji nowego skrótu, testu, kompilacji i wydania.
+Stan 27.11.2026: kod i testy celowane wykonane w bieżącym AMC wxPython. Wydanie Test alpha.533 w przygotowaniu. Żywy odbiór NVDA i fizyczny HEOS pozostają otwarte.
 
-## Zgłoszenie i obecny stan
+## Decyzja i zachowanie
 
-Użytkownik chce przywrócić `Shift+Enter` dla „Odtwarzaj jako następne”. Wybrany utwór lub odcinek ma wejść po aktualnie grającym materiale, przed dawną następną pozycją kolejki. Obecny model ma `Ctrl+Shift+Enter` jako przełącznik bloku „Odtwarzaj jako następne”; w `shortcuts.py` `Shift+Enter` jest celowo pozostawiony wolny. Nie wolno zatem dodawać skrótu tylko do jednej listy bez uzgodnienia jego znaczenia we wszystkich kwalifikujących się sesjach.
+Korekta z 27.11.2026 zastępuje wariant przełączający Shift+Enter opisany w wydaniu alpha.530 oraz wcześniejszy zapis w tym pliku, że klawisz jest wolny. `Shift+Enter` jednorazowo dodaje zaznaczone pliki, odcinki Podcastów albo nagrania Radio Archiwisty do bloku „Odtwarzaj jako następne”. Nie usuwa ich przy ponownym wskazaniu. `Ctrl+Shift+Enter` jest osobnym przełącznikiem dodaj/usuń. `Ctrl+Shift+Q` nadal przełącza zwykłą kolejkę.
 
-## Projekt zachowania
+Kolejne wywołania zachowują porządek: bieżący materiał → pierwszy dodany → drugi dodany → dawna następna pozycja. Wielokrotny wybór zachowuje kolejność widoczną na liście. Pozycja już czekająca jako następna jest bez zmian; bieżący materiał nie trafia ponownie do kolejki. Dodanie nie wywołuje pauzy ani zmiany odtwarzania. W oknie wyszukiwania lista i fokus pozostają w oknie. Główna lista zachowuje zaznaczenie.
 
-- `Shift+Enter` na odtwarzalnym wierszu ma dopisać go za bieżącą pozycją bez przerywania bieżącego utworu. Później ma wrócić wcześniejsza następna pozycja, o ile nadal istnieje.
-- Dla kilku kolejnych dodań proponowany jest porządek wykonywania gestów: bieżący → pierwszy dodany → drugi dodany → dawna następna pozycja. Wielokrotny wybór zachowuje kolejność widoczną na liście. Decyzję o ponownym wskazaniu pozycji już oczekującej trzeba zapisać przed kodowaniem, aby gest nie usunął jej przypadkiem.
-- Jawnie rozdzielić jednorazowe „dodaj jako następne” od obecnego przełącznika `Ctrl+Shift+Enter`, który może usuwać członkostwo. Zmianę wykonać w jednym modelu komend z menu, `Ctrl+F1`, pełną pomocą, paletą i skrótami.
-- W zwykłym Radiu na żywo funkcja pozostaje niedostępna. Kolejki TIDAL, Spotify, HEOS i urządzeń mają własnych właścicieli; pokazać skrót tylko tam, gdzie adapter potrafi przewidywalnie wstawić materiał.
+Polecenie dotyczy zapisanych pozycji w Plikach, Podcastach i Radiu Archiwiście. Zwykłe Radio nie ma kolejki. Zdalne wyniki katalogu, TIDAL, Spotify, WiiM, Sonos, HEOS i Apple Music nie otrzymują tego skrótu: ich adaptery nie zapewniają tu zweryfikowanego, przewidywalnego wstawienia. HEOS czeka na test fizycznego głośnika; Apple Music pozostaje odłożone zgodnie z decyzją użytkownika. Nie uruchamiać ich w tej wersji pod Shift+Enter.
 
-## Zależność od wspólnej kolejki
+## Miejsca wykonania i komunikaty
 
-To polecenie może działać z obecnymi kolejkami sesji przed wprowadzeniem opcjonalnej wspólnej kolejki `QUEUE-003`. Po jej wdrożeniu musi wybierać właściwy kontener według jawnego trybu, bez dublowania wpisów i bez mieszania kolejki urządzenia z lokalną.
+- `wxlite/amc_wx_lite/shortcuts.py`: jeden model poleceń z nazwą, opisem i gestem; `menu_model.py`, `command_palette.py` i pomoc pobierają tę prezentację. Menu Biblioteka i kontekstowe pokazują polecenie w dostępnych sesjach. `Ctrl+F1` i pełna pomoc podają aktualny gest.
+- `wxlite/amc_wx_lite/gui.py`: wykonanie z listy/odtwarzacza i zapisanych wyników wyszukiwania. Przy sukcesie komunikat „Odtwarzaj jako następne: {tytuł}” albo liczba elementów. Przy powtórzeniu: „Zaznaczona pozycja już czeka jako następna” lub „Wybrane pozycje już czekają jako następne”. Wyszukiwarka odmawia mieszanego wyboru sesji i pozostaje otwarta.
+- `host_client.py`, `LiteEngineHandlers.cs`, `LiteQueueCoordinator.cs`: operacja `queue.addPlayNext` dla Plików. `LiteProfileMutationStore.cs`: trwały blok następnych odcinków Podcastów z opcją jednorazowego dodania. `radioarchiwista_source.py`: trwała, atomowa zmiana dla wielu nagrań.
+- Model kolejki i identyfikatory pozostają wewnętrzne; nazwy odczytywane przez NVDA są etykietami użytkowymi.
 
-## Testy i wynik
+## Weryfikacja
 
-Odczyt `shortcuts.py` potwierdza `Ctrl+Shift+Enter` i wolny `Shift+Enter`; nie wykonano zmian ani prób na odtwarzaczu. Przyszłe testy: wstawienie X po grającym B w kolejce A–B–C, potem Y; weryfikacja B–X–Y–C, koniec kolejki, filtr, kilka zaznaczonych elementów, duplikat, źródło nieobsługiwane, brak przeskoku fokusu oraz parytet menu/pomocy/palety.
+27.11.2026: testy Python dla skrótów, menu, palety, pomocy, wyszukiwarki, Plików, Podcastów, Radio Archiwisty i braku gestu w HEOS: 202 zaliczonych testów (w tym parytet palety, menu, pomocy i szablonu lokalizacji). Test `QueueCoordinatorTests` przeszedł: B → X → Y → dawna następna, duplikat i bieżący materiał bez zmiany odtwarzania. `dotnet build` hosta przeszedł, 0 ostrzeżeń i 0 błędów. Wybrany test logiki GUI kolejki przeszedł (1 zaliczony). Pełny `test_gui_logic.py` zgłasza niezwiązane błędy atrapy GUI, a `test_podcast_source.py` zawiesza się przed wynikiem; nie traktować ich jako zaliczonych. Pełny `test_i18n.py` ma istniejący brak pokrycia wielu starszych tekstów w angielskim inwentarzu. Docelowy test szablonu językowego przeszedł.
 
-## Materiał do dokumentacji użytkownika
+Nie przeprowadzono żywego testu NVDA: na głównym komputerze działa obecnie AMC Test z Radiem oraz NVDA. Przełączenie tej sesji zakłóciłoby odtwarzanie użytkownika. Potrzebny odbiór klawiaturą i NVDA: początkowe zaznaczenie, rozwinięte menu, strzałki, powrót fokusu, ponowne otwarcie, kilka pozycji i komunikaty. HEOS wymaga osobnego testu na głośniku. Te ograniczenia nie są potwierdzeniem instalacji ani wydania.
 
-Szkic przyszłej instrukcji: „Zaznacz utwór lub odcinek i naciśnij `Shift+Enter`, aby zagrał po obecnym materiale. Bieżący utwór będzie grał dalej”. Skrót nie jest jeszcze dostępny w tej wersji.
+## Wersja, migracja i wydanie
 
-## Znane ograniczenia, wersja i commit
+Kandydat: AMC Test `0.1.0-alpha.533`. Zmiana nie migruje istniejących kolejek; zachowuje ich wpisy i dopisuje nowe w bloku priorytetowym. Commit, run GitHub Actions, instalator, suma SHA-256 i wydanie: do uzupełnienia po weryfikacji. Kod źródłowy, przejście testów, udany build hosta, instalator, instalacja i publikacja są odrębnymi stanami.
 
-Brak implementacji i commitu funkcji. Zgłoszenie powstało po AMC Test alpha.528. Następny krok: określić semantykę duplikatu i adaptery sesji, a następnie dodać komendę i testy wykonania.
+## Szkic instrukcji
+
+Zaznacz plik, odcinek Podcastów albo nagranie Radio Archiwisty i naciśnij `Shift+Enter`. Materiał zagra po obecnym i po materiałach wcześniej dodanych tym skrótem. Bieżący będzie grał dalej. Ponowne naciśnięcie nie usunie pozycji. Aby przełączyć dodanie lub usunięcie, użyj `Ctrl+Shift+Enter`. Szkic wymaga korekty i zatwierdzenia przez użytkownika przed publikacją jako instrukcja.

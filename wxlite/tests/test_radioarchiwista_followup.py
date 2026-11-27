@@ -60,7 +60,8 @@ def test_archive_shortcuts_route_in_list_and_player() -> None:
         "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
         "Ctrl+L": Action.VIEW_LIBRARY,
         "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
-        "Shift+Return": Action.TOGGLE_PLAY_NEXT,
+        "Shift+Return": Action.PLAY_NEXT_ONCE,
+        "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
         "Space": Action.PLAY_PAUSE,
     }
     for player in (False, True):
@@ -109,7 +110,8 @@ def test_archive_queue_menu_and_copy_label() -> None:
     assert entries[Action.VIEW_SAVED_QUEUE].shortcut == "Ctrl+Q"
     assert entries[Action.VIEW_LIBRARY].shortcut == "Ctrl+L"
     assert entries[Action.ADD_TO_QUEUE].shortcut == "Ctrl+Shift+Q"
-    assert entries[Action.TOGGLE_PLAY_NEXT].shortcut == "Shift+Return"
+    assert entries[Action.PLAY_NEXT_ONCE].shortcut == "Shift+Return"
+    assert entries[Action.TOGGLE_PLAY_NEXT].shortcut == "Ctrl+Shift+Return"
     assert entries[Action.COPY_ADDRESS].shortcut == "Ctrl+Shift+C"
     assert "link do nagrania" in entries[Action.COPY_ADDRESS].label
     assert "link do nagrania" in describe_action(
@@ -120,9 +122,10 @@ def test_archive_queue_menu_and_copy_label() -> None:
     )
     palette = {item.action: item for item in entries_for_session(SessionId.RADIOARCHIWISTA)}
     for action in (Action.VIEW_LIBRARY, Action.VIEW_SAVED_QUEUE,
-                   Action.ADD_TO_QUEUE, Action.TOGGLE_PLAY_NEXT, Action.COPY_ADDRESS):
+                   Action.ADD_TO_QUEUE, Action.PLAY_NEXT_ONCE,
+                   Action.TOGGLE_PLAY_NEXT, Action.COPY_ADDRESS):
         assert palette[action].shortcut == readable_shortcut(entries[action].shortcut)
-        assert palette[action].name == entries[action].label.replace("&", "")
+        assert palette[action].name == entries[action].label.replace("&", "").split(" (", 1)[0]
     row = Row("rarch:rec:a", "08:00", "recording", url="https://archive.org/a.mp3")
     assert row.address == "https://archive.org/a.mp3"
     assert copied_address_message(row) == "Skopiowano link do nagrania"
@@ -327,6 +330,40 @@ def test_archive_queue_persists_and_reorders(tmp_path: Path) -> None:
     assert reopened.recording_by_id(third.item_id) is not None
     assert not reopened.toggle_queue(third)
     assert [row.item_id for row in reopened.queue_rows()] == [first.item_id, second.item_id]
+
+
+def test_archive_play_next_appends_and_never_removes_duplicate(tmp_path: Path) -> None:
+    source = RadioarchiwistaSource(tmp_path)
+    current, old_next, first, second = (recording(f"rarch:rec:{number}") for number in range(4))
+    assert source.toggle_queue(current)
+    assert source.toggle_queue(old_next)
+    assert source.add_play_next(first, current_id=current.item_id)
+    assert source.add_play_next(second, current_id=current.item_id)
+    assert not source.add_play_next(first, current_id=current.item_id)
+    assert not source.add_play_next(current, current_id=current.item_id)
+    reopened = RadioarchiwistaSource(tmp_path)
+    assert [row.item_id for row in reopened.queue_rows()] == [
+        current.item_id, first.item_id, second.item_id, old_next.item_id,
+    ]
+
+
+def test_archive_play_next_many_keeps_selection_order_and_single_save(tmp_path: Path) -> None:
+    source = RadioarchiwistaSource(tmp_path)
+    current, old_next, first, second = (
+        recording(f"rarch:rec:{number}") for number in range(4)
+    )
+    assert source.toggle_queue(current)
+    assert source.toggle_queue(old_next)
+    assert source.add_play_next_many(
+        [first, second, first, current], current_id=current.item_id,
+    ) == 2
+    assert source.add_play_next_many(
+        [second, first], current_id=current.item_id,
+    ) == 0
+    reopened = RadioarchiwistaSource(tmp_path)
+    assert [row.item_id for row in reopened.queue_rows()] == [
+        current.item_id, first.item_id, second.item_id, old_next.item_id,
+    ]
 
 
 def test_archive_queue_continues_with_remote_url() -> None:

@@ -877,6 +877,7 @@ internal sealed class LiteEngineHandlers : IDisposable
             ["queue.removeMembership"] = (request, _) => QueueRemoveMembership(request.Args),
             ["queue.move"] = (request, _) => QueueMove(request.Args),
             ["queue.togglePlayNext"] = (request, _) => QueueToggleMembership(request.Args, playNext: true),
+            ["queue.addPlayNext"] = (request, _) => QueueAddPlayNext(request.Args),
             ["queue.status"] = (_, _) => QueueStatusPayload(),
             ["queue.playAt"] = (request, events) =>
                 RunLocalPlaybackStart(() => QueuePlayAt(request.Args, events)),
@@ -1137,7 +1138,8 @@ internal sealed class LiteEngineHandlers : IDisposable
             throw new LiteRequestException("Wybierz odcinek podcastu.");
         return RequireProfileMutations().TogglePodcastQueue(
             episodes,
-            LiteArgs.ReadBool(args, "playNext", false));
+            LiteArgs.ReadBool(args, "playNext", false),
+            LiteArgs.ReadBool(args, "addOnly", false));
     }
 
     private object GetPodcastPlaybackOptions(JsonElement args)
@@ -2090,6 +2092,12 @@ internal sealed class LiteEngineHandlers : IDisposable
     private object QueueAddMembership(JsonElement args)
     {
         var result = _queue.AddMembership(args);
+        return QueuePayload(result.Status, added: result.Added, changed: result.Changed);
+    }
+
+    private object QueueAddPlayNext(JsonElement args)
+    {
+        var result = _queue.AddPlayNext(args);
         return QueuePayload(result.Status, added: result.Added, changed: result.Changed);
     }
 

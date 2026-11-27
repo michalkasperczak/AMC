@@ -106,7 +106,7 @@ internal static class QueueCoordinatorTests
         Directory.CreateDirectory(_folder);
         try
         {
-            foreach (var name in new[] { "A.wav", "B.wav", "C.wav" })
+            foreach (var name in new[] { "A.wav", "B.wav", "C.wav", "X.wav", "Y.wav" })
             {
                 File.WriteAllBytes(PathOf(name), []);
             }
@@ -125,6 +125,7 @@ internal static class QueueCoordinatorTests
         EnterOdWybranegoWiersza();
         NaturalnyKoniecIdzieKolejnosciaKolejkiNieAlfabetem();
         BlokOdtworzNastepneWyprzedzaZwykla();
+        JednorazoweNastepneZachowujeKolejnoscIDzwiek();
         WidokPokazujeRzeczywisteNastepstwo();
         GrupowaZmianaNiePrzerywaAktywnejKolejki();
         DodanieZPowlokiJestIdempotentne();
@@ -136,6 +137,35 @@ internal static class QueueCoordinatorTests
         PrzestawienieKolejkiZachowujeDzwiekIZmieniaNastepny();
         DeleteUsuwaTylkoWybranyWpisKolejki();
         Console.WriteLine("QueueCoordinatorTests: OK");
+    }
+
+    private static void JednorazoweNastepneZachowujeKolejnoscIDzwiek()
+    {
+        var output = new RecordingOutput();
+        var queue = new LiteQueueCoordinator(output);
+        queue.Set(Args(ThreeRows));
+        queue.PlayAt(Args("""{"itemId":"file:B.wav"}"""));
+        var x = "{\"sessionId\":\"local\",\"items\":[{\"id\":\"file:X.wav\",\"title\":\"X\",\"path\":"
+            + Json(PathOf("X.wav")) + "}]}";
+        var y = "{\"sessionId\":\"local\",\"items\":[{\"id\":\"file:Y.wav\",\"title\":\"Y\",\"path\":"
+            + Json(PathOf("Y.wav")) + "}]}";
+        Assert.True(queue.AddPlayNext(Args(x)).Changed == 1, "X zostaje dodany");
+        Assert.True(queue.AddPlayNext(Args(y)).Changed == 1, "Y zostaje dodany po X");
+        var expected = new[] { "file:B.wav", "file:X.wav", "file:Y.wav", "file:A.wav", "file:C.wav" };
+        Assert.True(queue.Status().Rows.Select(row => row.Id).SequenceEqual(expected),
+            "B, X, Y, dawna nastepna A, C");
+        Assert.True(queue.AddPlayNext(Args(x)).Changed == 0,
+            "ponowny wybor X nie usuwa ani nie duplikuje");
+        Assert.True(queue.AddPlayNext(Args("""{"sessionId":"local","items":[{"id":"file:B.wav"}]}""")).Changed == 0,
+            "grajacego B nie ustawiamy ponownie");
+        Assert.True(output.Plays.Count == 1 && output.Stops == 0,
+            "dodania nie przerywaja B");
+        queue.HandlePlaybackEnded("file:B.wav");
+        Assert.True(output.Plays.Last().Id == "file:X.wav", "po B gra X");
+        queue.HandlePlaybackEnded("file:X.wav");
+        Assert.True(output.Plays.Last().Id == "file:Y.wav", "po X gra Y");
+        queue.HandlePlaybackEnded("file:Y.wav");
+        Assert.True(output.Plays.Last().Id == "file:A.wav", "dawna nastepna A wraca");
     }
 
     private static void PrzestawienieKolejkiZachowujeDzwiekIZmieniaNastepny()

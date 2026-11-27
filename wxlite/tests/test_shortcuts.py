@@ -647,7 +647,7 @@ def test_f2_and_delete_match_contextual_library_editing() -> None:
     assert resolve(Chord("F2"), player_view=False, radio_session=True) is Action.STATION_EDIT
 
 
-def test_queue_shortcuts_are_distinct_and_ctrl_shift_enter_stays_free() -> None:
+def test_queue_shortcuts_keep_one_shot_and_toggle_distinct() -> None:
     """Zwykla kolejka i play-next nie moga byc dwiema nazwami tej samej akcji."""
     for player in (False, True):
         assert resolve(
@@ -659,12 +659,12 @@ def test_queue_shortcuts_are_distinct_and_ctrl_shift_enter_stays_free() -> None:
             Chord("Return", shift=True),
             player_view=player,
             radio_session=False,
-        ) is Action.TOGGLE_PLAY_NEXT
+        ) is Action.PLAY_NEXT_ONCE
         assert resolve(
             Chord("Return", ctrl=True, shift=True),
             player_view=player,
             radio_session=False,
-        ) is None
+        ) is Action.TOGGLE_PLAY_NEXT
 
 
 def test_podcast_library_and_queue_shortcuts_keep_their_full_amc_meaning() -> None:

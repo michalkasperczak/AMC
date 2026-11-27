@@ -1224,6 +1224,42 @@ class RadioarchiwistaSource:
                 recording, play_next=play_next, current_id=current_id,
             )
 
+    def add_play_next(
+        self, recording: ArchiveRecording, *, current_id: str | None = None,
+    ) -> bool:
+        """Append after earlier requests for this playing item without duplicates."""
+        return bool(self.add_play_next_many([recording], current_id=current_id))
+
+    def add_play_next_many(
+        self, recordings: list[ArchiveRecording], *, current_id: str | None = None,
+    ) -> int:
+        """Save the visible selection as one ordered, atomic queue change."""
+        with self._queue_lock:
+            queue = self.load_queue()
+            changed = 0
+            anchor = current_id or ""
+            for recording in recordings:
+                if recording.item_id == current_id:
+                    continue
+                index = next((i for i, item in enumerate(queue)
+                              if _clean_text(item.get("item_id")) == recording.item_id), -1)
+                if index >= 0 and "_play_next_anchor" in queue[index]:
+                    continue
+                entry = queue.pop(index) if index >= 0 else favorite_record(recording, self._clock())
+                position = next((i + 1 for i, item in enumerate(queue)
+                                 if _clean_text(item.get("item_id")) == current_id), 0)
+                while position < len(queue) and queue[position].get("_play_next_anchor") == anchor:
+                    position += 1
+                entry["_play_next_anchor"] = anchor
+                queue.insert(position, entry)
+                changed += 1
+            if changed:
+                self._dir.mkdir(parents=True, exist_ok=True)
+                temporary = self._queue_path.with_suffix(".json.tmp")
+                temporary.write_text(json.dumps(queue, ensure_ascii=False, indent=2), encoding="utf-8")
+                temporary.replace(self._queue_path)
+            return changed
+
     def move_queue(self, item_id: str, direction: int) -> str:
         """Move one saved recording; a missing or edge entry is unchanged."""
         with self._queue_lock:

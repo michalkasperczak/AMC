@@ -340,7 +340,7 @@ internal sealed class LiteProfileMutationStore
     /// dołączonym magazynem. Dzięki temu Ctrl+Shift+Q i Ctrl+Shift+Enter nie
     /// tworzą stanu, którego pełne AMC nie potrafiłoby potem odtworzyć.
     /// </summary>
-    public object TogglePodcastQueue(IReadOnlyList<string> episodeIds, bool playNext)
+    public object TogglePodcastQueue(IReadOnlyList<string> episodeIds, bool playNext, bool addOnly = false)
     {
         var ids = CleanDistinctIds(episodeIds, "Wybierz odcinek podcastu.");
         EnsureMayWrite();
@@ -368,9 +368,13 @@ internal sealed class LiteProfileMutationStore
                     ParseObject(reader.GetString(2), "Dane odcinka są uszkodzone.")));
             }
 
-            var added = playNext
+            var added = addOnly || (playNext
                 ? rows.Any(row => !row.PlayNext)
-                : rows.Any(row => !row.InQueue && !row.PlayNext);
+                : rows.Any(row => !row.InQueue && !row.PlayNext));
+            var promoted = addOnly && playNext
+                ? rows.Where(row => !row.PlayNext).Select(row => row.Id)
+                    .ToHashSet(StringComparer.Ordinal)
+                : new HashSet<string>(StringComparer.Ordinal);
             var final = new Dictionary<string, (bool InQueue, bool PlayNext)>(StringComparer.Ordinal);
             var changed = 0;
             foreach (var row in rows)
@@ -388,6 +392,9 @@ internal sealed class LiteProfileMutationStore
                 changed++;
             }
 
+            if (addOnly && changed == 0)
+                return new { added, requested = rows.Count, changed, playNext };
+
             var order = ReadAttachedOrder(connection, transaction, "queue_order");
             var regular = ReadAttachedOrder(connection, transaction, "queue_regular_order");
             var next = ReadAttachedOrder(connection, transaction, "queue_play_next_order");
@@ -397,6 +404,11 @@ internal sealed class LiteProfileMutationStore
                 SetOrderedMembership(order, id, state.InQueue || state.PlayNext);
                 SetOrderedMembership(regular, id, state.InQueue);
                 SetOrderedMembership(next, id, state.PlayNext);
+            }
+            if (promoted.Count > 0)
+            {
+                order.RemoveAll(promoted.Contains);
+                order.AddRange(ids.Where(promoted.Contains));
             }
             RewriteAttachedOrder(connection, transaction, "queue_order", order);
             RewriteAttachedOrder(connection, transaction, "queue_regular_order", regular);

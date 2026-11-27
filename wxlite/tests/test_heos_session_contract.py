@@ -39,7 +39,6 @@ def test_heos_shortcuts_match_visible_menu_palette_help_and_dispatch():
         "Ctrl+P": Action.VIEW_PLAYLISTS,
         "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
         "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
-        "Shift+Return": Action.TOGGLE_PLAY_NEXT,
         "Return": Action.ACTIVATE,
         "Back": Action.PARENT_FOLDER,
         "Escape": Action.CLOSE_LIST_PREVIEW,
@@ -73,7 +72,6 @@ def test_heos_shortcuts_match_visible_menu_palette_help_and_dispatch():
         assert {
             "Return": "Enter", "Back": "Backspace",
             "Left": "Strzałka w lewo (HEOS)",
-            "Shift+Return": "Shift+Enter",
         }.get(chord, chord) in help_labels
         if action is not Action.SESSION_CONFIGURE_CURRENT:
             LiteFrame._dispatch(frame, action)

@@ -959,6 +959,15 @@ internal sealed class LiteQueueCoordinator
         return ChangeMembership(args, playNext: false, requestedAdd: true);
     }
 
+    /// <summary>
+    /// One-way Play Next. Repeated selection never removes an entry. Newly
+    /// promoted entries follow earlier Play Next requests in selection order.
+    /// </summary>
+    public QueueMutationResult AddPlayNext(JsonElement args)
+    {
+        return ChangeMembership(args, playNext: true, requestedAdd: true, appendPlayNext: true);
+    }
+
     /// <summary>Delete removes exactly the selected queue entries.</summary>
     public QueueMutationResult RemoveMembership(JsonElement args)
     {
@@ -968,7 +977,8 @@ internal sealed class LiteQueueCoordinator
     private QueueMutationResult ChangeMembership(
         JsonElement args,
         bool playNext,
-        bool? requestedAdd)
+        bool? requestedAdd,
+        bool appendPlayNext = false)
     {
         if (args.ValueKind != JsonValueKind.Object
             || !args.TryGetProperty("items", out var items)
@@ -1035,6 +1045,14 @@ internal sealed class LiteQueueCoordinator
                 : !selectedExisting.Any(item => item.IsInQueue || item.IsPlayNext));
 
             var previousOrder = session.QueueItemIds.ToArray();
+            var currentId = _leading && session.HasCurrentItem
+                ? session.CurrentItem.Id : null;
+            var appendedIds = appendPlayNext
+                ? candidates.Where(candidate =>
+                    !string.Equals(candidate.Id, currentId, StringComparison.Ordinal)
+                    && Find(session, candidate.Id)?.IsPlayNext != true)
+                    .Select(candidate => candidate.Id).ToArray()
+                : [];
             if (add)
             {
                 var newItems = candidates
@@ -1058,6 +1076,8 @@ internal sealed class LiteQueueCoordinator
             {
                 var item = Find(session, candidate.Id);
                 if (item is null) continue;
+                if (appendPlayNext && string.Equals(item.Id, currentId, StringComparison.Ordinal))
+                    continue;
                 if (playNext)
                 {
                     if (item.IsPlayNext == add) continue;
@@ -1076,9 +1096,12 @@ internal sealed class LiteQueueCoordinator
             // SetQueueOrder wywoluje wspolna normalizacje Core. Nowe pozycje
             // trafiaja na koniec zapisanego porzadku, ale play-next jest
             // priorytetyzowany dopiero przez silnik odtwarzania.
-            session.SetQueueOrder(previousOrder.Concat(add
-                ? candidates.Select(candidate => candidate.Id)
-                : []));
+            session.SetQueueOrder(appendPlayNext
+                ? previousOrder.Where(id => !appendedIds.Contains(id, StringComparer.Ordinal))
+                    .Concat(appendedIds)
+                : previousOrder.Concat(add
+                    ? candidates.Select(candidate => candidate.Id)
+                    : []));
             if (created || (changed > 0 && _leading))
             {
                 // Zmiana czlonkostwa musi dotrzec do silnika. Gdy Delete

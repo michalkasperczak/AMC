@@ -594,14 +594,17 @@ def test_queue_membership_menu_matches_supported_sessions() -> None:
         menu_model.SessionId.RADIOARCHIWISTA,
         menu_model.SessionId.HEOS,
     }
-    assert play_next.shortcut == "Shift+Return"
+    assert play_next.shortcut == "Ctrl+Shift+Return"
+    one_shot = next(entry for entry in all_items()
+                    if entry.action is Action.PLAY_NEXT_ONCE)
+    assert one_shot.shortcut == "Shift+Return"
     assert play_next.needs_selection and play_next.needs_play_next_item
     assert set(play_next.visible_sessions) == {
         menu_model.SessionId.FILES,
         menu_model.SessionId.PODCASTS,
         menu_model.SessionId.RADIOARCHIWISTA,
-        menu_model.SessionId.HEOS,
     }
+    assert one_shot.visible_sessions == play_next.visible_sessions
     assert not queue.accelerator and not play_next.accelerator
 
     actions_by_session = {

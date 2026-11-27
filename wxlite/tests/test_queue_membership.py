@@ -39,11 +39,13 @@ def test_client_uses_two_explicit_incremental_operations() -> None:
 
     client.queue_toggle_membership(items)
     client.queue_toggle_play_next(items)
+    client.queue_add_play_next(items)
     client.queue_add_membership(items)
 
     assert [call[0] for call in client.calls] == [
         "queue.toggleMembership",
         "queue.togglePlayNext",
+        "queue.addPlayNext",
         "queue.addMembership",
     ]
     assert all(call[1]["items"] == items for call in client.calls)
@@ -102,6 +104,23 @@ def test_gui_play_next_uses_the_separate_operation() -> None:
 
     assert calls and calls[0][0]["id"] == "a"
     assert said == ["Odtwarzaj jako następne: Pierwszy"]
+
+
+def test_gui_one_shot_play_next_uses_add_only_and_preserves_selection() -> None:
+    calls = []
+    rows = [
+        Row("x", "X", "track", path=r"C:\muzyka\X.mp3"),
+        Row("y", "Y", "track", path=r"C:\muzyka\Y.mp3"),
+    ]
+    client = SimpleNamespace(queue_add_play_next=lambda items: (
+        calls.append([item["id"] for item in items]) or {"added": True, "changed": 2}
+    ))
+    frame, said = _frame(rows, client)
+    original_selection = frame.navigator.session.model.selected_id
+    gui.LiteFrame._toggle_queue_membership(frame, True, add_only=True)
+    assert calls == [["x", "y"]]
+    assert frame.navigator.session.model.selected_id == original_selection
+    assert any("2 elementy" in message for message in said)
 
 
 def test_queue_uses_private_template_and_empty_template_really_silences_it() -> None:

@@ -2100,6 +2100,7 @@ class LiteHostClient:
         episode_ids: list[str],
         *,
         play_next: bool = False,
+        add_only: bool = False,
     ) -> Any:
         """Zmień trwałą kolejkę odcinków bez mieszania jej z kolejką plików."""
         return self.call(
@@ -2107,6 +2108,7 @@ class LiteHostClient:
             {
                 "episodeIds": list(dict.fromkeys(episode_ids)),
                 "playNext": bool(play_next),
+                "addOnly": bool(add_only),
             },
             timeout=30.0,
         )
@@ -2660,6 +2662,15 @@ class LiteHostClient:
             "queue.removeMembership",
             {"sessionId": "local", "items": [{"id": item_id} for item_id in item_ids]},
             timeout=60.0,
+        )
+
+    def queue_add_play_next(
+        self, items: list[dict[str, Any]], *, session_id: str = "local",
+    ) -> Any:
+        """Dopisz jako następne bez usuwania już oczekującej pozycji."""
+        return self.call(
+            "queue.addPlayNext",
+            {"sessionId": session_id, "items": items}, timeout=60.0,
         )
 
     def queue_toggle_play_next(

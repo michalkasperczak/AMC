@@ -267,7 +267,7 @@ QUEUE_SESSIONS = (
     SessionId.FILES, SessionId.PODCASTS, SessionId.TIDAL,
     SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA, SessionId.HEOS,
 )
-PLAY_NEXT_SESSIONS = (SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA, SessionId.HEOS)
+PLAY_NEXT_SESSIONS = (SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA)
 LOCAL_AUDIO = (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
 NETWORK_AUDIO_SOURCES = (*LOCAL_AUDIO, SessionId.RADIOARCHIWISTA, SessionId.TIDAL)
 LOCAL_PLAYLISTS = (SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS)
@@ -418,7 +418,6 @@ def menus_for_session(
                     Action.VIEW_LIBRARY: "Wszystkie st&acje Radio Archiwisty",
                     Action.VIEW_SAVED_QUEUE: "&Kolejka nagrań Radio Archiwisty",
                     Action.ADD_TO_QUEUE: "&Dodaj nagranie do kolejki lub usuń",
-                    Action.TOGGLE_PLAY_NEXT: "Odtwórz nagranie jako &następne",
                     Action.COPY_ADDRESS: "Skopiuj &link do nagrania",
                     Action.FOCUS_FILTER: "Filtru&j listę",
                 }
@@ -432,12 +431,11 @@ def menus_for_session(
                     Action.ADD_TO_QUEUE: "Dodaj lub usuń z kolejki S&potify",
                 }[entry.action])
             if session_id is SessionId.HEOS and entry.action in {
-                Action.ADD_TO_QUEUE, Action.TOGGLE_PLAY_NEXT,
+                Action.ADD_TO_QUEUE,
                 Action.PARENT_FOLDER,
             }:
                 entry = replace(entry, label={
                     Action.ADD_TO_QUEUE: "&Dodaj na koniec kolejki HEOS",
-                    Action.TOGGLE_PLAY_NEXT: "Odtwarzaj jako &następne w HEOS",
                     Action.PARENT_FOLDER: "&Poziom wyżej w katalogu HEOS",
                 }[entry.action])
             if session_id is SessionId.SPOTIFY and entry.action in {
@@ -1105,9 +1103,18 @@ def build_menus(
                 visible_sessions=QUEUE_SESSIONS,
             ),
             MenuItem(
-                "Odtwarzaj jako następne (&X)",
-                Action.TOGGLE_PLAY_NEXT,
+                command_presentation(Action.PLAY_NEXT_ONCE).menu_label,
+                Action.PLAY_NEXT_ONCE,
                 shortcut="Shift+Return",
+                accelerator=False,
+                needs_selection=True,
+                needs_play_next_item=True,
+                visible_sessions=PLAY_NEXT_SESSIONS,
+            ),
+            MenuItem(
+                command_presentation(Action.TOGGLE_PLAY_NEXT).menu_label,
+                Action.TOGGLE_PLAY_NEXT,
+                shortcut="Ctrl+Shift+Return",
                 accelerator=False,
                 needs_selection=True,
                 needs_play_next_item=True,

@@ -1,5 +1,7 @@
 # AMC alpha.530 — szkic instrukcji i listy zmian
 
+Korekta 27.11.2026: poniższy opis przełączającego `Shift+Enter` jest historyczny. Zastępuje go [QUEUE-004](QUEUE-004-20261125-shift-enter-nastepne.md): jednorazowe dodanie pod `Shift+Enter`, przełącznik pod `Ctrl+Shift+Enter`.
+
 Szkic do korekty i zatwierdzenia przez Michała; nie jest automatycznie publikowany jako instrukcja użytkownika.
 
 ## Instrukcja

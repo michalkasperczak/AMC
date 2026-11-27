@@ -142,6 +142,7 @@ class Action(Enum):
     QUEUE_PREVIOUS = "queue.previous"
     ADD_TO_QUEUE = "action.queue.add"
     TOGGLE_PLAY_NEXT = "action.queue.playNextToggle"
+    PLAY_NEXT_ONCE = "action.queue.playNextOnce"
     TOGGLE_FAVORITE = "action.favorite.toggle"
     TOGGLE_RADIO_LIBRARY = "radio.library.toggle"
     MANAGE_PLAYLIST_MEMBERSHIP = "action.playlists.membership"
@@ -487,6 +488,20 @@ class CommandPresentation:
 
 
 _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
+    Action.PLAY_NEXT_ONCE: CommandPresentation(
+        Action.PLAY_NEXT_ONCE,
+        "Odtwarzaj jako następne",
+        "Dodaj zaznaczenie po bieżącym materiale, po wcześniejszych dodaniach jako następne; ponowny wybór nie usuwa pozycji",
+        "Shift+Return",
+        "Odtwarzaj jako następne (&X)",
+    ),
+    Action.TOGGLE_PLAY_NEXT: CommandPresentation(
+        Action.TOGGLE_PLAY_NEXT,
+        "Dodaj lub usuń z następnych",
+        "Przełącz przynależność zaznaczenia do bloku Odtwarzaj jako następne",
+        "Ctrl+Shift+Return",
+        "Dodaj lub usuń z następnych (&5)",
+    ),
     Action.SHOW_ACTIVE_PLAYBACK: CommandPresentation(
         Action.SHOW_ACTIVE_PLAYBACK,
         "Aktywne odtwarzanie…",
@@ -1391,7 +1406,7 @@ HEOS_SUPPORTED_ACTIONS = frozenset({
     Action.VOLUME_UP_5, Action.VOLUME_DOWN_5, Action.VOLUME_UP_1,
     Action.VOLUME_DOWN_1, Action.VIEW_LIBRARY, Action.VIEW_FAVORITES,
     Action.VIEW_PLAYLISTS, Action.VIEW_SAVED_QUEUE, Action.ADD_TO_QUEUE,
-    Action.TOGGLE_PLAY_NEXT, Action.FOCUS_FILTER,
+    Action.FOCUS_FILTER,
     Action.VIEW_PRESETS, Action.ASSIGN_PRESET,
     *(Action[f"PRESET_{slot}"] for slot in range(1, 13)),
     Action.COPY_NAME, Action.HELP,
@@ -1491,6 +1506,7 @@ RADIOARCHIWISTA_SUPPORTED_ACTIONS = frozenset(
         Action.VIEW_SAVED_QUEUE,
         Action.ADD_TO_QUEUE,
         Action.TOGGLE_PLAY_NEXT,
+        Action.PLAY_NEXT_ONCE,
         Action.COPY_ADDRESS,
         Action.TOGGLE_RADIOARCHIWISTA_FAVORITE,
         Action.RENAME_RADIOARCHIWISTA_ITEM,
@@ -1661,11 +1677,11 @@ LIST_VIEW: dict[str, Action] = {
     # MainWindow.xaml:427-428 i MainWindow.xaml.cs:22173 -- powrot do
     # Biblioteki z KAZDEGO nazwanego widoku (Ulubione, Historia, ...).
     "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
-    # Jednoznaczny zestaw bez dawnego duplikatu Shift+Enter:
-    # Ctrl+Shift+Q zmienia zwykla kolejke, Shift+Enter ustawia blok
-    # „odtworz nastepne”. Ctrl+Shift+Enter pozostaje wolny.
+    # Shift+Enter dopisuje bez usuwania; Ctrl+Shift+Enter przełącza
+    # członkostwo bloku priorytetowego. Ctrl+Shift+Q zmienia zwykłą kolejkę.
     "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
-    "Shift+Return": Action.TOGGLE_PLAY_NEXT,
+    "Shift+Return": Action.PLAY_NEXT_ONCE,
+    "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
     "Ctrl+Shift+U": Action.TOGGLE_FAVORITE,
     "Ctrl+Shift+P": Action.MANAGE_PLAYLIST_MEMBERSHIP,
     # Ctrl+B to ViewBookmarks oryginalu (MainWindow.xaml:489): WSZYSTKIE
@@ -1882,7 +1898,8 @@ PLAYER_VIEW: dict[str, Action] = {
     "Prior": Action.QUEUE_PREVIOUS,
     "Next": Action.QUEUE_NEXT,
     "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
-    "Shift+Return": Action.TOGGLE_PLAY_NEXT,
+    "Shift+Return": Action.PLAY_NEXT_ONCE,
+    "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
     "Ctrl+Shift+U": Action.TOGGLE_FAVORITE,
     "Ctrl+Shift+P": Action.MANAGE_PLAYLIST_MEMBERSHIP,
     "Alt+T": Action.QUICK_INFORMATION,
@@ -2186,7 +2203,8 @@ RADIOARCHIWISTA_SESSION_VIEW: dict[str, Action] = {
     "Ctrl+Shift+C": Action.COPY_ADDRESS,
     "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
     "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
-    "Shift+Return": Action.TOGGLE_PLAY_NEXT,
+    "Shift+Return": Action.PLAY_NEXT_ONCE,
+    "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
     "Ctrl+D": Action.RADIOARCHIWISTA_DOWNLOAD,
     "Ctrl+Shift+D": Action.RADIOARCHIWISTA_DOWNLOAD_FRAGMENT,
 }
@@ -2225,7 +2243,6 @@ HEOS_SESSION_VIEW: dict[str, Action] = {
     "Ctrl+P": Action.VIEW_PLAYLISTS,
     "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
     "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
-    "Shift+Return": Action.TOGGLE_PLAY_NEXT,
 }
 
 SONOS_OWN_STREAMS_VIEW: dict[str, Action] = {
@@ -2831,7 +2848,8 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         Action.QUEUE_NEXT: "Nastepny utwor kolejki",
         Action.QUEUE_PREVIOUS: "Poprzedni utwor kolejki",
         Action.ADD_TO_QUEUE: "Dodaj zaznaczenie do kolejki albo je usun",
-        Action.TOGGLE_PLAY_NEXT: "Odtwarzaj jako następne",
+        Action.TOGGLE_PLAY_NEXT: "Dodaj lub usuń z odtwarzanych jako następne",
+        Action.PLAY_NEXT_ONCE: "Odtwarzaj jako następne",
         Action.TOGGLE_FAVORITE: "Dodaj lub usuń z Ulubionych",
         Action.TOGGLE_RADIO_LIBRARY: "Dodaj lub usuń stację z Biblioteki Radia",
         Action.MANAGE_PLAYLIST_MEMBERSHIP: "Zmień przynależność do playlist",
@@ -3411,7 +3429,6 @@ def describe_action(
             Action.VIEW_PLAYLISTS: "Otwórz Playlisty udostępnione przez HEOS",
             Action.VIEW_SAVED_QUEUE: "Pokaż kolejkę wybranego głośnika HEOS",
             Action.ADD_TO_QUEUE: "Dodaj odtwarzalną pozycję na koniec kolejki HEOS",
-            Action.TOGGLE_PLAY_NEXT: "Dodaj odtwarzalną pozycję jako następną w kolejce HEOS",
             Action.ACTIVATE: "Wybierz głośnik, otwórz katalog albo uruchom pozycję HEOS",
             Action.PARENT_FOLDER: "Wróć o poziom wyżej w katalogu HEOS",
             Action.CLOSE_LIST_PREVIEW: "Wróć o poziom wyżej w katalogu HEOS",
@@ -3461,6 +3478,7 @@ def describe_action(
             Action.VIEW_SAVED_QUEUE: "Pokaż lokalną kolejkę nagrań Radio Archiwisty",
             Action.ADD_TO_QUEUE: "Dodaj nagranie do lokalnej kolejki albo je usuń",
             Action.TOGGLE_PLAY_NEXT: "Dodaj nagranie za bieżącym w lokalnej kolejce albo je usuń",
+            Action.PLAY_NEXT_ONCE: "Dodaj nagranie za bieżącym bez przerywania odtwarzania i bez usuwania przy ponownym wyborze",
             Action.COPY_ADDRESS: "Skopiuj bezpośredni link do nagrania",
         }
         if action in archive_labels:

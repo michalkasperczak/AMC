@@ -711,6 +711,7 @@ _LIST_CONTEXT_ACTION_GROUPS: tuple[tuple[Action, ...], ...] = (
     ),
     (
         Action.TOGGLE_PLAY_NEXT,
+        Action.PLAY_NEXT_ONCE,
         Action.ADD_TO_QUEUE,
         Action.TOGGLE_FAVORITE,
         Action.TOGGLE_PODCAST_LIBRARY,
@@ -2919,6 +2920,7 @@ class SearchDialog(wx.Dialog):
         if action in (
             SearchResultAction.QUEUE,
             SearchResultAction.PLAY_NEXT,
+            SearchResultAction.PLAY_NEXT_TOGGLE,
             SearchResultAction.FAVORITE,
             SearchResultAction.LIBRARY,
             SearchResultAction.PLAYLIST,
@@ -2941,7 +2943,8 @@ class SearchDialog(wx.Dialog):
         self.selected_result = entry
         self.selected_results = selected or [entry]
         self.selected_action = action
-        if action in (SearchResultAction.LIBRARY, SearchResultAction.FAVORITE):
+        if action in (SearchResultAction.LIBRARY, SearchResultAction.FAVORITE,
+                      SearchResultAction.PLAY_NEXT):
             # Zmiana kolekcji ma zostać wykonana w samym oknie wyszukiwania
             # dla każdego źródła. Także brak obsługi ma zostać ogłoszony tutaj,
             # zamiast zamknąć modal i zgubić fokus. Dawna droga zapisanego
@@ -3105,6 +3108,9 @@ class SearchDialog(wx.Dialog):
             return
         if code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and shift and not (ctrl or alt):
             self._complete_selected(SearchResultAction.PLAY_NEXT)
+            return
+        if code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and ctrl and shift and not alt:
+            self._complete_selected(SearchResultAction.PLAY_NEXT_TOGGLE)
             return
         if ctrl and shift and not alt and code in (ord("Q"), ord("q")):
             self._complete_selected(SearchResultAction.QUEUE)
@@ -13548,6 +13554,9 @@ class LiteFrame(wx.Frame):
                 "Dla jednego działania wybierz wyniki zapisane albo wyniki katalogu"
             )
             return
+        if action is SearchResultAction.PLAY_NEXT:
+            self._add_search_results_play_next(entries, announce=announce)
+            return
         if remote:
             self._complete_remote_search_result_action(
                 remote,
@@ -13595,6 +13604,75 @@ class LiteFrame(wx.Frame):
             )
         else:
             announce("Ta operacja nie jest dostępna dla wybranych wyników")
+
+    def _add_search_results_play_next(
+        self, entries: list[SearchEntry], *, announce: Callable[[str], None],
+    ) -> None:
+        """Append selected saved results while the search list retains focus."""
+        if not entries or any(entry.remote_kind for entry in entries):
+            announce("Odtwarzaj jako następne jest dostępne dla zapisanych materiałów")
+            return
+        session_id = entries[0].session_id
+        if any(entry.session_id is not session_id for entry in entries):
+            announce("Wybierz wyniki z jednej sesji")
+            return
+        rows = [entry.row for entry in entries]
+        if session_id is SessionId.FILES:
+            if any(row.kind != "track" or not row.path for row in rows):
+                announce("Wybierz pliki do odtwarzania jako następne")
+                return
+            client = self.client
+            if client is None:
+                announce("Silnik nie działa, nie mogę zmienić kolejki")
+                return
+            items = [{"id": row.item_id, "title": row.title, "path": row.path}
+                     for row in rows]
+            work = lambda: client.queue_add_play_next(items)
+        elif session_id is SessionId.PODCASTS:
+            if any(row.kind != "episode" or not row.item_id for row in rows):
+                announce("Wybierz odcinki do odtwarzania jako następne")
+                return
+            client = self.client
+            if client is None:
+                announce("Silnik nie działa, nie mogę zmienić kolejki")
+                return
+            current_id = getattr(
+                self.navigator.sessions[SessionId.PODCASTS], "now_playing_id", None
+            )
+            rows = [row for row in rows if row.item_id != current_id]
+            if not rows:
+                announce("Wybrany odcinek już jest odtwarzany")
+                return
+            ids = list(dict.fromkeys(row.item_id for row in rows))
+            work = lambda: client.toggle_podcast_queue(
+                ids, play_next=True, add_only=True)
+        elif session_id is SessionId.RADIOARCHIWISTA:
+            if any(row.kind != "recording" or not row.url for row in rows):
+                announce("Wybierz nagrania do odtwarzania jako następne")
+                return
+            source = self._radioarchiwista_source()
+            if source is None:
+                announce("Radio Archiwista jest niedostępne")
+                return
+            current_id = self.navigator.sessions[SessionId.RADIOARCHIWISTA].now_playing_id
+            def work():
+                recordings = [source.recording_by_id(row.item_id) for row in rows]
+                if any(recording is None for recording in recordings):
+                    raise ValueError("Nie znam tego nagrania")
+                return {"changed": source.add_play_next_many(
+                    recordings, current_id=current_id)}
+        else:
+            announce("Ta sesja nie udostępnia odtwarzania jako następne")
+            return
+        def done(payload):
+            count = int((payload or {}).get("changed") or 0)
+            announce("Odtwarzaj jako następne: " + (
+                rows[0].title if count == 1 else format_item_count(count))
+                if count else "Wybrane pozycje już czekają jako następne")
+        self.runner.submit(
+            "search-play-next", work, done,
+            lambda error: announce(f"Nie można zmienić kolejki: {error}"),
+        )
 
     def _change_saved_search_result_favorites(
         self,
@@ -14241,6 +14319,7 @@ class LiteFrame(wx.Frame):
                 if action in (
                     SearchResultAction.QUEUE,
                     SearchResultAction.PLAY_NEXT,
+                    SearchResultAction.PLAY_NEXT_TOGGLE,
                     SearchResultAction.FAVORITE,
                     SearchResultAction.LIBRARY,
                     SearchResultAction.PLAYLIST,
@@ -14329,6 +14408,8 @@ class LiteFrame(wx.Frame):
         elif action is SearchResultAction.QUEUE:
             self._dispatch(Action.ADD_TO_QUEUE)
         elif action is SearchResultAction.PLAY_NEXT:
+            self._dispatch(Action.PLAY_NEXT_ONCE)
+        elif action is SearchResultAction.PLAY_NEXT_TOGGLE:
             self._dispatch(Action.TOGGLE_PLAY_NEXT)
         elif action is SearchResultAction.FAVORITE:
             self._dispatch(Action.TOGGLE_FAVORITE)
@@ -14419,6 +14500,7 @@ class LiteFrame(wx.Frame):
             SearchResultAction.TOGGLE_PLAYBACK,
             SearchResultAction.QUEUE,
             SearchResultAction.PLAY_NEXT,
+            SearchResultAction.PLAY_NEXT_TOGGLE,
             SearchResultAction.PLAYLIST,
             SearchResultAction.PRESET,
             SearchResultAction.DOWNLOAD,
@@ -14933,7 +15015,8 @@ class LiteFrame(wx.Frame):
         if action is SearchResultAction.INFORMATION:
             say(lead.accessible_label)
             return
-        if action in (SearchResultAction.QUEUE, SearchResultAction.PLAY_NEXT):
+        if action in (SearchResultAction.QUEUE, SearchResultAction.PLAY_NEXT,
+                      SearchResultAction.PLAY_NEXT_TOGGLE):
             say("Ta funkcja nie jest dostępna w Radiu")
             return
         if action in (SearchResultAction.DOWNLOAD, SearchResultAction.SAVE_AS):
@@ -18917,7 +19000,7 @@ class LiteFrame(wx.Frame):
                 Action.VIEW_PLAYLISTS, Action.VIEW_SAVED_QUEUE,
                 Action.PLAY_PAUSE, Action.TOGGLE_MUTE,
                 Action.QUEUE_NEXT, Action.QUEUE_PREVIOUS,
-                Action.ADD_TO_QUEUE, Action.TOGGLE_PLAY_NEXT,
+                Action.ADD_TO_QUEUE,
                 Action.VOLUME_UP_5, Action.VOLUME_DOWN_5,
                 Action.VOLUME_UP_1, Action.VOLUME_DOWN_1,
             }:
@@ -19212,6 +19295,8 @@ class LiteFrame(wx.Frame):
                 self.announcer.say("Wybierz utwór Apple Music")
         elif action is Action.TIDAL_STOP_NATIVE:
             self._stop_tidal_native()
+        elif action is Action.PLAY_NEXT_ONCE:
+            self._toggle_queue_membership(play_next=True, add_only=True)
         elif action in (Action.ADD_TO_QUEUE, Action.TOGGLE_PLAY_NEXT):
             self._toggle_queue_membership(action is Action.TOGGLE_PLAY_NEXT)
         elif action is Action.TOGGLE_FAVORITE:
@@ -23573,7 +23658,50 @@ class LiteFrame(wx.Frame):
             lambda error: self.announcer.say(f"Nie można odczytać kolejki: {error}"),
         )
 
-    def _toggle_radioarchiwista_queue(self, play_next: bool) -> None:
+    def _add_radioarchiwista_play_next(self) -> None:
+        state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
+        rows = self._selected_action_rows()
+        if not rows or any(row.kind != "recording" or not row.url for row in rows):
+            self.announcer.say("Wybierz nagrania do odtwarzania jako następne")
+            return
+        source = self._radioarchiwista_source()
+        if source is None:
+            self.announcer.say(i18n.tr("rarch.session.unavailable"))
+            return
+        current_id = state.now_playing_id
+        selected_id = state.model.selected_id
+        def work():
+            recordings = [source.recording_by_id(row.item_id) for row in rows]
+            if any(recording is None for recording in recordings):
+                raise _radioarchiwista_module.RadioarchiwistaError("Nie znam tego nagrania")
+            changed = source.add_play_next_many(recordings, current_id=current_id)
+            return changed, source.queue_rows()
+        def done(result):
+            changed, queue_rows = result
+            if state.radioarchiwista_queue_active:
+                state.playback_source_rows = tuple(queue_rows)
+            if (self.navigator.active is SessionId.RADIOARCHIWISTA
+                    and state.view is View.LIST
+                    and state.library_view is LibraryView.RADIOARCHIWISTA_QUEUE):
+                preferred = state.model.selected_id or selected_id
+                self._run(self.navigator.apply_radioarchiwista_rows(
+                    LibraryView.RADIOARCHIWISTA_QUEUE, queue_rows,
+                    preferred_id=preferred,
+                ))
+            self.announcer.say(
+                "Odtwarzaj jako następne: " + (
+                    rows[0].title if changed == 1 else format_item_count(changed))
+                if changed else "Wybrane pozycje już czekają jako następne"
+            )
+        self.runner.submit(
+            "radioarchiwista.queue.add-next", work, done,
+            lambda error: self.announcer.say(f"Nie można zmienić kolejki: {error}"),
+        )
+
+    def _toggle_radioarchiwista_queue(self, play_next: bool, *, add_only: bool = False) -> None:
+        if add_only:
+            self._add_radioarchiwista_play_next()
+            return
         state = self.navigator.sessions[SessionId.RADIOARCHIWISTA]
         row = LiteFrame._description_target_row(self, SessionId.RADIOARCHIWISTA)
         if row is None or row.kind != "recording" or not row.url:
@@ -30591,7 +30719,7 @@ class LiteFrame(wx.Frame):
             failed,
         )
 
-    def _toggle_podcast_queue(self, play_next: bool) -> None:
+    def _toggle_podcast_queue(self, play_next: bool, *, add_only: bool = False) -> None:
         """Zmień trwałą kolejkę wybranych odcinków podcastów."""
         if getattr(self, "_podcast_queue_pending", False):
             self.announcer.say("Zmiana kolejki podcastów już trwa")
@@ -30607,6 +30735,14 @@ class LiteFrame(wx.Frame):
         if not rows:
             self.announcer.say("Do kolejki podcastów wybierz odcinek")
             return
+        if add_only:
+            current_id = getattr(
+                self.navigator.sessions[SessionId.PODCASTS], "now_playing_id", None
+            )
+            rows = [row for row in rows if row.item_id != current_id]
+            if not rows:
+                self.announcer.say("Wybrany odcinek już jest odtwarzany")
+                return
         episode_ids = list(dict.fromkeys(row.item_id for row in rows))
         self._podcast_queue_pending = True
 
@@ -30658,6 +30794,7 @@ class LiteFrame(wx.Frame):
             lambda: client.toggle_podcast_queue(
                 episode_ids,
                 play_next=play_next,
+                **({"add_only": True} if add_only else {}),
             ),
             done,
             failed,
@@ -35352,7 +35489,7 @@ class LiteFrame(wx.Frame):
 
         self.runner.submit("folder", work, done, failed)
 
-    def _toggle_queue_membership(self, play_next: bool) -> None:
+    def _toggle_queue_membership(self, play_next: bool, *, add_only: bool = False) -> None:
         """Zmień kolejkę dla natywnego wielokrotnego zaznaczenia.
 
         Pliki i podcasty mają zwykłą kolejkę oraz „odtwórz jako następne”.
@@ -35362,10 +35499,16 @@ class LiteFrame(wx.Frame):
         nietknięte.
         """
         if self.navigator.active is SessionId.RADIOARCHIWISTA:
-            self._toggle_radioarchiwista_queue(play_next)
+            if add_only:
+                self._toggle_radioarchiwista_queue(play_next, add_only=True)
+            else:
+                self._toggle_radioarchiwista_queue(play_next)
             return
         if self.navigator.active is SessionId.PODCASTS:
-            self._toggle_podcast_queue(play_next)
+            if add_only:
+                self._toggle_podcast_queue(play_next, add_only=True)
+            else:
+                self._toggle_podcast_queue(play_next)
             return
         if self.navigator.active is SessionId.TIDAL and not play_next:
             self._toggle_tidal_queue()
@@ -35394,8 +35537,8 @@ class LiteFrame(wx.Frame):
             for row in rows
         ]
         call = (
-            client.queue_toggle_play_next
-            if play_next
+            client.queue_add_play_next if add_only
+            else client.queue_toggle_play_next if play_next
             else client.queue_toggle_membership
         )
 
@@ -35404,7 +35547,10 @@ class LiteFrame(wx.Frame):
             self._note_queue_persistence(payload)
             changed = int(payload.get("changed") or 0)
             if changed <= 0:
-                self.announcer.say("Kolejka bez zmian")
+                self.announcer.say(
+                    "Zaznaczona pozycja już czeka jako następna"
+                    if add_only else "Kolejka bez zmian"
+                )
                 return
             label = rows[0].title if changed == 1 else format_item_count(changed)
             added = bool(payload.get("added"))

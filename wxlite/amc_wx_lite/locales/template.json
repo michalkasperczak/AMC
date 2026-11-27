@@ -84,6 +84,7 @@
     "playlists.add.hint": "",
     "playlists.add.list": "",
     "playlists.add.navigation": "",
+    "presets.activate.tidalEmpty": "",
     "presets.activate.tidalMissing": "",
     "presets.assign.directOccupied": "",
     "presets.assign.missing": "",
@@ -1515,6 +1516,10 @@
       "description": ""
     },
     "action.queue.add": {
+      "name": "",
+      "description": ""
+    },
+    "action.queue.playNextOnce": {
       "name": "",
       "description": ""
     },
