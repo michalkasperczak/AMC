@@ -123,6 +123,64 @@ def test_gui_one_shot_play_next_uses_add_only_and_preserves_selection() -> None:
     assert any("2 elementy" in message for message in said)
 
 
+def test_podcast_queue_rejects_mixed_selection_instead_of_adding_subset() -> None:
+    episode = Row("episode-1", "Odcinek", "episode")
+    channel = Row("channel-1", "Kanał", "podcast")
+    calls: list[object] = []
+    spoken: list[str] = []
+    frame = SimpleNamespace(
+        _podcast_queue_pending=False,
+        _selected_action_rows=lambda: [episode, channel],
+        client=SimpleNamespace(toggle_podcast_queue=lambda *args, **kwargs:
+                               calls.append((args, kwargs))),
+        announcer=SimpleNamespace(say=spoken.append),
+    )
+
+    for play_next, add_only in ((False, False), (True, False), (True, True)):
+        gui.LiteFrame._toggle_podcast_queue(
+            frame, play_next, add_only=add_only
+        )
+
+    assert calls == []
+    assert spoken == [
+        "Do kolejki podcastów wybierz wyłącznie odcinki"
+    ] * 3
+
+
+def test_podcast_partial_one_shot_speaks_count_not_unchanged_first_title() -> None:
+    rows = [
+        Row("episode-1", "Już czeka", "episode"),
+        Row("episode-2", "Nowy odcinek", "episode"),
+    ]
+    spoken: list[str] = []
+    calls: list[tuple[list[str], bool, bool]] = []
+    frame = SimpleNamespace(
+        navigator=SimpleNamespace(
+            active=SessionId.PODCASTS,
+            sessions={SessionId.PODCASTS: SimpleNamespace(
+                view=View.LIST,
+                library_view=LibraryView.PODCAST_EPISODES,
+                now_playing_id=None,
+            )},
+        ),
+        _podcast_queue_pending=False,
+        _selected_action_rows=lambda: rows,
+        client=SimpleNamespace(toggle_podcast_queue=lambda ids, *,
+                               play_next=False, add_only=False: (
+            calls.append((ids, play_next, add_only))
+            or {"added": True, "changed": 1}
+        )),
+        runner=SimpleNamespace(submit=lambda _slot, work, done, _failed:
+                               done(work())),
+        announcer=SimpleNamespace(say=spoken.append),
+    )
+
+    gui.LiteFrame._toggle_podcast_queue(frame, True, add_only=True)
+
+    assert calls == [(["episode-1", "episode-2"], True, True)]
+    assert spoken == ["Odtwarzaj jako następne: 1 element"]
+
+
 def test_queue_uses_private_template_and_empty_template_really_silences_it() -> None:
     row = Row("a", "Pierwszy", "track", path=r"C:\muzyka\A.mp3")
     client = SimpleNamespace(

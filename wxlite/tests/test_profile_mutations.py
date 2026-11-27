@@ -437,6 +437,37 @@ def test_profile_edits_go_through_the_real_host() -> None:
             )
             assert made_next["added"] is True
             assert made_next["changed"] == 1
+            mixed_regular = client.toggle_podcast_queue(
+                ["episode-queue", "episode-remove"]
+            )
+            assert mixed_regular["added"] is False
+            assert mixed_regular["changed"] == 1
+            assert client.toggle_podcast_queue(["episode-queue"])["added"] is True
+            assert client.toggle_podcast_queue(
+                ["episode-queue"], play_next=True
+            )["added"] is True
+            mixed_next = client.toggle_podcast_queue(
+                ["episode-queue", "episode-remove"], play_next=True
+            )
+            assert mixed_next["added"] is False
+            assert mixed_next["changed"] == 1
+            assert client.toggle_podcast_queue(
+                ["episode-queue"], play_next=True
+            )["added"] is True
+            one_shot = client.toggle_podcast_queue(
+                ["episode-queue", "episode-remove"],
+                play_next=True, add_only=True,
+            )
+            assert one_shot["added"] is True
+            assert one_shot["changed"] == 1
+            repeated = client.toggle_podcast_queue(
+                ["episode-queue", "episode-remove"],
+                play_next=True, add_only=True,
+            )
+            assert repeated["changed"] == 0
+            assert client.toggle_podcast_queue(
+                ["episode-remove"], play_next=True
+            )["added"] is False
             radio_edit = client.edit_radio_station(
                 "radio-1", "Nowe radio", "https://example.invalid/new"
             )

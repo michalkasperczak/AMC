@@ -30743,12 +30743,12 @@ class LiteFrame(wx.Frame):
         if client is None:
             self.announcer.say("Silnik nie działa, nie mogę zmienić kolejki")
             return
-        rows = [
-            row for row in self._selected_action_rows()
-            if row.kind == "episode" and row.item_id
-        ]
+        rows = self._selected_action_rows()
         if not rows:
             self.announcer.say("Do kolejki podcastów wybierz odcinek")
+            return
+        if any(row.kind != "episode" or not row.item_id for row in rows):
+            self.announcer.say("Do kolejki podcastów wybierz wyłącznie odcinki")
             return
         if add_only:
             current_id = getattr(
@@ -30769,7 +30769,12 @@ class LiteFrame(wx.Frame):
                 self.announcer.say("Kolejka podcastów bez zmian")
                 return
             added = bool(payload.get("added"))
-            label = rows[0].title if changed == 1 else format_item_count(changed)
+            # A mixed selection can change only one later row. Do not speak
+            # the first row's title unless that was the sole selected row.
+            label = (
+                rows[0].title if changed == 1 and len(rows) == 1
+                else format_item_count(changed)
+            )
             if play_next:
                 message = LiteFrame._routine_template_text(
                     self,

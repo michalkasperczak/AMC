@@ -368,9 +368,12 @@ internal sealed class LiteProfileMutationStore
                     ParseObject(reader.GetString(2), "Dane odcinka są uszkodzone.")));
             }
 
+            // The whole selection is one toggle, as in the local file queue:
+            // if any item already belongs to the target queue, remove the
+            // membership from all selected items instead of adding others.
             var added = addOnly || (playNext
-                ? rows.Any(row => !row.PlayNext)
-                : rows.Any(row => !row.InQueue && !row.PlayNext));
+                ? !rows.Any(row => row.PlayNext)
+                : !rows.Any(row => row.InQueue || row.PlayNext));
             var promoted = addOnly && playNext
                 ? rows.Where(row => !row.PlayNext).Select(row => row.Id)
                     .ToHashSet(StringComparer.Ordinal)
