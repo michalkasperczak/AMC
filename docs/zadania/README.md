@@ -1,6 +1,8 @@
 # Rejestr zadań AMC
 
-**Korekta 27.11.2026:** najnowszy kontrakt Shift+Enter opisuje [QUEUE-004](QUEUE-004-20261125-shift-enter-nastepne.md). Poniższy opis alpha.530 jest zapisem historycznego wydania, zastąpionym w przygotowywanym Test alpha.533.
+**AMC Test alpha.533 / 27.11.2026:** [Wydanie i dowody](RELEASE-ALPHA533-20261127-Test.md). `Shift+Enter` jednorazowo dodaje jako następne w Plikach, Podcastach i Radiu Archiwiście. Żywy odbiór NVDA i HEOS pozostają otwarte.
+
+**Korekta 27.11.2026:** najnowszy kontrakt Shift+Enter opisuje [QUEUE-004](QUEUE-004-20261125-shift-enter-nastepne.md). Poniższy opis alpha.530 jest zapisem historycznego wydania, zastąpionym w wydanym Test alpha.533.
 
 **AMC Test i Public alpha.531 / 25.11.2026: oba wydania opublikowane i zdalnie zweryfikowane na GitHubie.** Odsłuch nagrania ma ustawienie początku, Enter/Ctrl+Enter, oś czasu i zwykłe skróty; Ctrl+D w Podcastach zachowuje kursor. [Stan i testy](RELEASE-ALPHA531-20261125-Test-Public.md); [szkic instrukcji](ALPHA531-instrukcja-i-lista-zmian-szkic.md).
 
@@ -9,7 +11,7 @@
 
 **AMC Test alpha.529 / 25.11.2026: poprawka samoczynnego startu wstrzymanej stacji wydana na GitHubie.** Zainstalowana alpha.528 pomijała stan pauzy przy wznowieniu po aktualizacji. Commit `06a3f3c9` przeszedł 133 testy celowane; GitHub Actions zbudował instalator, który opublikowano w `test-2026.11.25.0226`. Instalacja i próba rzeczywistej pauzy pozostają otwarte. [Przyczyna i dowody](PLAYBACK-STARTUP-20261125-pauza-po-aktualizacji.md).
 
-**Dostępność i kolejka / 27.11.2026:** [Zapowiedzi nowych utworów](ACCESS-ANNOUNCE-20261125-inne-sesje.md) mają kod i testy celowane, z domyślnym wyborem globalnym oraz wyborem osobno w sesji; bez wydania i odbioru NVDA. [Jednorazowe `Shift+Enter` dla „Odtwarzaj jako następne”](QUEUE-004-20261125-shift-enter-nastepne.md) ma kod i testy celowane z 27.11; odbiór NVDA i wydanie Test pozostają otwarte. [Szkic instrukcji alpha.533](ALPHA533-Test-instrukcja-i-lista-zmian-szkic.md). [Pełny przegląd menu kontekstowego i cyfr słyszanych przez NVDA](MENU-001-menu-kontekstowe-i-skroty.md) pozostają otwarte. Decyzja użytkownika z 25.11: Apple Music chwilowo odłożone, HEOS do sprawdzenia jutro na głośniku; pozostałe poprawki kontynuować.
+**Dostępność i kolejka / 27.11.2026:** [Zapowiedzi nowych utworów](ACCESS-ANNOUNCE-20261125-inne-sesje.md) mają kod i testy celowane, z domyślnym wyborem globalnym oraz wyborem osobno w sesji; bez wydania i odbioru NVDA. [Jednorazowe `Shift+Enter` dla „Odtwarzaj jako następne”](QUEUE-004-20261125-shift-enter-nastepne.md) ma kod i testy celowane z 27.11; odbiór NVDA pozostaje otwarty. [Szkic instrukcji alpha.533](ALPHA533-Test-instrukcja-i-lista-zmian-szkic.md). [Pełny przegląd menu kontekstowego i cyfr słyszanych przez NVDA](MENU-001-menu-kontekstowe-i-skroty.md) pozostają otwarte. Decyzja użytkownika z 25.11: Apple Music chwilowo odłożone, HEOS do sprawdzenia jutro na głośniku; pozostałe poprawki kontynuować.
 
 **Kontrakt nowej sesji:** [ACCESS-SESSION — audyt każdej sesji, dziedziczenie ustawień, listy i NVDA](ACCESS-SESSION-20261125-parytet-sesji.md). Zachowanie klawiatury list jest osobnym torem od zapowiedzi utworów.
 

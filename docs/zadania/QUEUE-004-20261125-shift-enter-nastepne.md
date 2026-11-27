@@ -1,6 +1,6 @@
 # QUEUE-004 — Shift+Enter: Odtwarzaj jako następne
 
-Stan 27.11.2026: kod i testy celowane wykonane w bieżącym AMC wxPython. Wydanie Test alpha.533 w przygotowaniu. Żywy odbiór NVDA i fizyczny HEOS pozostają otwarte.
+Stan 27.11.2026: kod i testy celowane wykonane w bieżącym AMC wxPython. Test alpha.533 zbudowany w GitHub Actions i opublikowany jako prerelease. Żywy odbiór NVDA i fizyczny HEOS pozostają otwarte.
 
 ## Decyzja i zachowanie
 
@@ -25,7 +25,7 @@ Nie przeprowadzono żywego testu NVDA: na głównym komputerze działa obecnie A
 
 ## Wersja, migracja i wydanie
 
-Kandydat: AMC Test `0.1.0-alpha.533`. Zmiana nie migruje istniejących kolejek; zachowuje ich wpisy i dopisuje nowe w bloku priorytetowym. Commit, run GitHub Actions, instalator, suma SHA-256 i wydanie: do uzupełnienia po weryfikacji. Kod źródłowy, przejście testów, udany build hosta, instalator, instalacja i publikacja są odrębnymi stanami.
+AMC Test `0.1.0-alpha.533`. Zmiana nie migruje istniejących kolejek; zachowuje ich wpisy i dopisuje nowe w bloku priorytetowym. Commit źródeł i tagu: `7e8afda585a2b9dbf4a8050a59e80640bab49638`. GitHub Actions run `46078107196`: wszystkie etapy zakończone sukcesem, w tym kontrola rewizji/profilu/wersji, budowa paczki i instalatora, `secretScan=passed` oraz upload artifact `15235003886`. Instalator `AMC-Test-2026-11-27-2342.exe`: 214670480 B, SHA-256 `f41cd873e167d79cb9de2107e427fa656c0009b2e938f922e0efa20fb9c79147`. Plik jest w `D:\Projekty Codex\AMC - integracja wxPython\wydania\AMC-Test-alpha533-20261127`. GitHub prerelease `test-2026.11.27.2342`: tag wskazuje dokładnie commit źródeł, profil `test`, `draft=false`, `prerelease=true`, cztery załączniki. Zdalny digest/rozmiar EXE zgadzają się z lokalnym plikiem; trzy małe JSON-y pobrano z wydania i porównano bajt po bajcie. Manifest zaakceptował rzeczywisty walidator aktualizatora AMC. Instalator nie był uruchamiany ani instalowany. Kod źródłowy, testy, build hosta, build instalatora, publikacja i żywy odbiór pozostają odrębnymi stanami.
 
 ## Szkic instrukcji
 
