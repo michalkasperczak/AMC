@@ -69,7 +69,7 @@ def test_palette_can_follow_current_view_availability() -> None:
 def test_opcje_sesji_maja_jeden_kontrakt_menu_pomocy_i_palety() -> None:
     expected = (
         "Ustawienia sesji: uruchamianie materiału, pozycja, domyślna prędkość, "
-        "dźwięk, zapowiedzi nowych utworów, zachowanie po wyjściu i odczyt listy; "
+        "dźwięk, zapowiedzi nowych utworów, komunikaty odtwarzacza, zachowanie po wyjściu i odczyt listy; "
         "kolejność czytanych pól zmienisz Alt+strzałka w górę lub w dół, "
         "zależnie od możliwości sesji"
     )

@@ -48,6 +48,9 @@ fokusu w otwartym wxWidgets. Wymaga próby na zainstalowanym AMC.
 Commit kodu: `2742e0fe2872601a528c29960200889767118d08`.
 Wersja wydania: nie nadano w tym worktree.
 
+## Korekta integracyjna 28.11.2026
+
+Po scaleniu wykryto, że Apple Music i HEOS mają nowe działające opcje, ale wspólna lista obsługiwanych poleceń nie przepuszczała Ustawień sesji do menu i palety. Dodano to samo polecenie do obu sesji oraz uaktualniono oczekiwany opis pomocy Ctrl+Alt+Enter. Test profili, skrótów, menu, pomocy i palety: 77 zaliczonych. W scalonej gałęzi osobno przeszły: 44 testy modelu ustawień, Ctrl+Z i presetów; 54 testy kolejek, presetów i pobierania; 27 testów dialogu sesji; 90 testów Radia, TIDAL i statusu NVDA. Dialog na atrapach trwał 154 sekundy wskutek wielokrotnego ładowania modułu GUI. Te wyniki nie zastępują ręcznego odbioru NVDA.
 ## English guide and changelog draft
 
 Use **Ctrl+Alt+Enter** to open settings for the current session. Playback
