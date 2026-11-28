@@ -1,5 +1,6 @@
 # Rejestr zadań AMC
 
+**Kandydat AMC Test i Public alpha.534 / 28.11.2026:** poprawki presetów Podcastów i YouTube, Ctrl+Z dla Ulubionych, zachowania kolejki przy mieszanym wyborze, fokusa po Ctrl+Shift+L i Ctrl+D, komunikatu startu nagrania, bitrate TIDAL w NVDA+End oraz dziedziczenia komunikatów odtwarzania przez Ctrl+Alt+Enter są zapisane w źródłach i testowane. Odsłuch NVDA na żywo, kompilacja GitHub, publikacja oraz instalacja są osobnymi, jeszcze otwartymi etapami. [Presety](PRESET-20261128-podcasty-youtube.md), [cofanie](UNDO-001-przywracanie-pozycji-kolekcji.md), [komunikaty sesji](ACCESS-MESSAGES-20261128-dziedziczenie-sesji.md), [status TIDAL](A11Y-20261128-TIDAL-bitrate-i-Spacja.md).
 **AMC Test alpha.533 / 27.11.2026:** [Wydanie i dowody](RELEASE-ALPHA533-20261127-Test.md). `Shift+Enter` jednorazowo dodaje jako następne w Plikach, Podcastach i Radiu Archiwiście. Żywy odbiór NVDA i HEOS pozostają otwarte.
 
 **Korekta 27.11.2026:** najnowszy kontrakt Shift+Enter opisuje [QUEUE-004](QUEUE-004-20261125-shift-enter-nastepne.md). Poniższy opis alpha.530 jest zapisem historycznego wydania, zastąpionym w wydanym Test alpha.533.
@@ -15,7 +16,7 @@
 
 **Kontrakt nowej sesji:** [ACCESS-SESSION — audyt każdej sesji, dziedziczenie ustawień, listy i NVDA](ACCESS-SESSION-20261125-parytet-sesji.md). Zachowanie klawiatury list jest osobnym torem od zapowiedzi utworów.
 
-**Podcasty / 25.11.2026: nowe zgłoszenie po `Ctrl+D`.** Gdy użytkownik idzie dalej po liście w czasie pobierania odcinka, ukończenie pobierania cofa kursor na pierwotny odcinek. Przyczyna jest wskazana w kodzie; poprawka i testy pozostają do wykonania. [Opis i kryteria](PODCAST-DOWNLOAD-FOCUS-20261125.md).
+**Podcasty / korekta 28.11.2026:** wcześniejsze zgłoszenie o cofającym się kursorze po Ctrl+D zostało naprawione w kodzie i sprawdzone testem dwóch kolejnych odpowiedzi asynchronicznych. Instalacja i odbiór NVDA pozostają otwarte. [Opis i kryteria](PODCAST-DOWNLOAD-FOCUS-20261125.md).
 
 **AMC Test alpha.528 / 25.11.2026: wydanie GitHub opublikowane i zainstalowane przez użytkownika.** GitHub Actions zbudował instalator ze źródeł `4ba3ea7d`; wydanie `test-2026.11.25.0200` ma zweryfikowany instalator, plik integralności i manifest aktualizacji. Odczyt lokalnego `bundle-manifest.json` potwierdził etykietę `25.11.2026, 02:00` i ten sam commit. Nie wykonano niezależnej kontroli żywego procesu ani odbioru NVDA. [Poprawki Podcastów](PODCAST-LIBRARY-FOCUS-20261125.md).
 
