@@ -1,0 +1,70 @@
+name: AMC alpha.535 — publish verified artifacts
+
+on:
+  push:
+    branches:
+      - codex/heos-next-test-20261123
+    paths:
+      - .github/workflows/amc-alpha535-finish-release.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: test
+            tag: test-2026.11.28.0208
+            artifact: amc-test-alpha535-b1eb0799f838e7cce38cb7bdfca73f4f58186ca5
+            installer: AMC-Test-2026-11-28-0208.exe
+            bytes: 214635685
+            sha256: 5a638818d2ab56ea303972093f83bf7789e6db2acff43107fae18b54c11f2f92
+          - profile: public
+            tag: public-2026.11.28.0208
+            artifact: amc-public-alpha535-b1eb0799f838e7cce38cb7bdfca73f4f58186ca5
+            installer: AMC-Public-2026-11-28-0208.exe
+            bytes: 134094832
+            sha256: c92113118b1d8b29f7a366efea2ae109e4b62f61c6d1d6d48b64f1520d640e95
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download and publish exact validated installer
+        shell: bash
+        env:
+          AMC_PROFILE: ${{ matrix.profile }}
+          AMC_TAG: ${{ matrix.tag }}
+          AMC_ARTIFACT: ${{ matrix.artifact }}
+          AMC_INSTALLER: ${{ matrix.installer }}
+          AMC_BYTES: ${{ matrix.bytes }}
+          AMC_SHA256: ${{ matrix.sha256 }}
+        run: |
+          set -euo pipefail
+          repo='michalkasperczak/AMC'
+          source_sha='b1eb0799f838e7cce38cb7bdfca73f4f58186ca5'
+          target=$(gh release view "$AMC_TAG" --repo "$repo" --json targetCommitish --jq .targetCommitish)
+          test "$target" = "$source_sha"
+          directory="$RUNNER_TEMP/amc-alpha535-$AMC_PROFILE"
+          mkdir -p "$directory"
+          gh run download 46091401482 --repo "$repo" --name "$AMC_ARTIFACT" --dir "$directory"
+          installer="$directory/$AMC_INSTALLER"
+          test -f "$installer"
+          test "$(stat -c '%s' "$installer")" = "$AMC_BYTES"
+          test "$(sha256sum "$installer" | cut -d ' ' -f 1)" = "$AMC_SHA256"
+          gh release upload "$AMC_TAG" "$installer" --repo "$repo" --clobber
+          gh release view "$AMC_TAG" --repo "$repo" --json assets |
+            jq -e --arg name "$AMC_INSTALLER" --arg digest "sha256:$AMC_SHA256" --argjson bytes "$AMC_BYTES" '
+              [.assets[] | select(.name == $name and .digest == $digest and .size == $bytes and .state == "uploaded")] | length == 1
+            '
+          if [ "$AMC_PROFILE" = public ]; then
+            gh release edit "$AMC_TAG" --repo "$repo" --draft=false --latest
+          else
+            gh release edit "$AMC_TAG" --repo "$repo" --draft=false --prerelease --latest=false
+          fi
+          gh release view "$AMC_TAG" --repo "$repo" --json isDraft,assets |
+            jq -e '.isDraft == false and (.assets | length) == 4'
