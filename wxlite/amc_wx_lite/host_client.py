@@ -2087,6 +2087,14 @@ class LiteHostClient:
             timeout=30.0,
         )
 
+    def undo_podcast_favorite(self, undo_token: str) -> Any:
+        """Restore the last favorite change if host state is still current."""
+        return self.call(
+            "podcast.undoFavorite",
+            {"undoToken": undo_token},
+            timeout=30.0,
+        )
+
     def toggle_podcast_library(self, subscription_ids: list[str]) -> Any:
         """Zmień Bibliotekę dla podcastów wskazanych wprost albo przez odcinki."""
         return self.call(

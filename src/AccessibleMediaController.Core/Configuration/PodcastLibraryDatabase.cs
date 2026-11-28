@@ -20,6 +20,13 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
     private readonly object _gate = new();
     private static readonly JsonSerializerOptions PayloadJsonOptions = new();
     private DateTime _lastIntegrityCheckUtc;
+    private FavoriteUndo? _favoriteUndo;
+
+    private sealed record FavoriteUndo(
+        string Token,
+        IReadOnlyList<FavoriteUndoItem> Subscriptions,
+        IReadOnlyList<FavoriteUndoItem> Episodes);
+    private sealed record FavoriteUndoItem(string Id, bool PreviousFavorite, string ExpectedHash);
 
     public string Path { get; } = databasePath;
 
@@ -875,6 +882,10 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
 
             var favorite = !subscriptions.All(item => item.IsFavorite)
                 || !episodes.All(item => item.IsFavorite);
+            var beforeSubscriptions = subscriptions.ToDictionary(
+                item => item.Id, item => item.IsFavorite, StringComparer.Ordinal);
+            var beforeEpisodes = episodes.ToDictionary(
+                item => item.Id, item => item.IsFavorite, StringComparer.Ordinal);
             var changed = 0;
             foreach (var item in subscriptions)
             {
@@ -925,10 +936,97 @@ internal sealed class PodcastLibraryDatabase(string databasePath)
                     ("$value", DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)));
             }
             transaction.Commit();
+            var token = changed > 0 ? Guid.NewGuid().ToString("N") : null;
+            _favoriteUndo = token is null ? null : new FavoriteUndo(
+                token,
+                subscriptions.Select(item => new FavoriteUndoItem(
+                    item.Id, beforeSubscriptions[item.Id], Fingerprint(item))).ToArray(),
+                episodes.Select(item => new FavoriteUndoItem(
+                    item.Id, beforeEpisodes[item.Id], Fingerprint(item))).ToArray());
             return new PodcastFavoriteToggleResult(
                 favorite,
                 subscriptions.Count + episodes.Count,
-                changed);
+                changed,
+                token);
+        }
+    }
+
+    public int UndoFavoriteToggle(string token)
+    {
+        lock (_gate)
+        {
+            var snapshot = _favoriteUndo;
+            if (snapshot is null || !string.Equals(snapshot.Token, token, StringComparison.Ordinal))
+                throw new InvalidOperationException("Nie ma zmiany Ulubionych do cofnięcia.");
+            // One attempt only. An external edit to any selected row prevents a stale restore.
+            _favoriteUndo = null;
+            using var connection = OpenConnection();
+            EnsureSchema(connection);
+            using var transaction = connection.BeginTransaction();
+            var subscriptions = new List<(PodcastSubscriptionSettings Item, bool Previous)>();
+            foreach (var entry in snapshot.Subscriptions)
+            {
+                using var read = connection.CreateCommand();
+                read.Transaction = transaction;
+                read.CommandText = "SELECT payload_json FROM podcast_subscriptions WHERE id = $id;";
+                read.Parameters.AddWithValue("$id", entry.Id);
+                var payload = read.ExecuteScalar() as string;
+                var item = string.IsNullOrWhiteSpace(payload)
+                    ? null : JsonSerializer.Deserialize<PodcastSubscriptionSettings>(
+                        payload, PayloadJsonOptions);
+                if (item is null || Fingerprint(item) != entry.ExpectedHash)
+                    throw new InvalidOperationException(
+                        "Ulubione zmieniły się później. Nie można bezpiecznie cofnąć.");
+                subscriptions.Add((item, entry.PreviousFavorite));
+            }
+            var episodes = new List<(PodcastEpisodeSettings Item, bool Previous)>();
+            foreach (var entry in snapshot.Episodes)
+            {
+                using var read = connection.CreateCommand();
+                read.Transaction = transaction;
+                read.CommandText = "SELECT payload_json FROM podcast_episodes WHERE id = $id;";
+                read.Parameters.AddWithValue("$id", entry.Id);
+                var payload = read.ExecuteScalar() as string;
+                var item = string.IsNullOrWhiteSpace(payload)
+                    ? null : JsonSerializer.Deserialize<PodcastEpisodeSettings>(
+                        payload, PayloadJsonOptions);
+                if (item is null || Fingerprint(item) != entry.ExpectedHash)
+                    throw new InvalidOperationException(
+                        "Ulubione zmieniły się później. Nie można bezpiecznie cofnąć.");
+                episodes.Add((item, entry.PreviousFavorite));
+            }
+            var changed = 0;
+            foreach (var (item, previous) in subscriptions)
+            {
+                if (item.IsFavorite == previous) continue;
+                item.IsFavorite = previous;
+                Execute(connection, transaction,
+                    "UPDATE podcast_subscriptions SET content_hash = $hash, payload_json = $payload WHERE id = $id;",
+                    ("$hash", Fingerprint(item)),
+                    ("$payload", JsonSerializer.Serialize(item, PayloadJsonOptions)),
+                    ("$id", item.Id));
+                changed++;
+            }
+            foreach (var (item, previous) in episodes)
+            {
+                if (item.IsFavorite == previous) continue;
+                item.IsFavorite = previous;
+                Execute(connection, transaction,
+                    "UPDATE podcast_episodes SET is_favorite = $favorite, content_hash = $hash, payload_json = $payload WHERE id = $id;",
+                    ("$favorite", previous),
+                    ("$hash", Fingerprint(item)),
+                    ("$payload", JsonSerializer.Serialize(item, PayloadJsonOptions)),
+                    ("$id", item.Id));
+                changed++;
+            }
+            if (changed > 0)
+                Execute(connection, transaction,
+                    "INSERT INTO metadata(key, value) VALUES('last_saved_utc', $value) ON CONFLICT(key) DO UPDATE SET value = excluded.value;",
+                    ("$value", DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)));
+            transaction.Commit();
+            // The order tables live in library.db and were not modified by either
+            // favorite toggle. Restoring membership reuses the original order rows.
+            return changed;
         }
     }
 

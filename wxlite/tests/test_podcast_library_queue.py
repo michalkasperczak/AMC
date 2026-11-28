@@ -311,7 +311,7 @@ def test_podcast_profile_refresh_delivers_confirmation_after_list_update(view) -
     )}]
 
 
-def test_podcast_queue_sends_only_episode_ids_and_keeps_local_queue_separate() -> None:
+def test_podcast_queue_rejects_mixed_selection_without_side_effects() -> None:
     rows = [
         Row("episode-1", "Pierwszy", "episode", parent_id="podcast-1"),
         Row("podcast-1", "Podcast", "podcast"),
@@ -342,8 +342,8 @@ def test_podcast_queue_sends_only_episode_ids_and_keeps_local_queue_separate() -
 
     gui.LiteFrame._toggle_podcast_queue(frame, False)
 
-    assert calls == [(["episode-1"], False)]
-    assert spoken == ["Dodano do kolejki: Pierwszy"]
+    assert calls == []
+    assert spoken == ["Do kolejki podcastów wybierz wyłącznie odcinki"]
 
 
 def test_generic_queue_dispatches_podcasts_before_local_files() -> None:

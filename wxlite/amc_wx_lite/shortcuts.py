@@ -402,6 +402,7 @@ class Action(Enum):
     VIEW_RADIO_RECOGNITION_HISTORY = "radio.recognition.history"
     GO_TO_RELATED_PODCAST = "podcasts.goToRelated"
     TOGGLE_PODCAST_FAVORITE = "podcasts.favorite.toggle"
+    UNDO_PODCAST_FAVORITE = "podcasts.favorite.undo"
     TOGGLE_RADIOARCHIWISTA_FAVORITE = "radioarchiwista.favorite.toggle"
     RENAME_RADIOARCHIWISTA_ITEM = "radioarchiwista.alias.rename"
     TOGGLE_PODCAST_LIBRARY = "podcasts.library.toggle"
@@ -548,6 +549,13 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
         "Powiązania Apple Music",
         "Pokaż albumy, utwory i playlisty wykonawcy albo album i wykonawcę utworu Apple Music",
         "Right",
+    ),
+    Action.UNDO_PODCAST_FAVORITE: CommandPresentation(
+        Action.UNDO_PODCAST_FAVORITE,
+        "Cofnij zmianę Ulubionych podcastów",
+        "Przywróć ostatnio zmienione podcasty lub odcinki na poprzednie miejsca w Ulubionych",
+        "Ctrl+Z",
+        "&Cofnij zmianę Ulubionych podcastów",
     ),
     Action.REMOVE_SELECTED: CommandPresentation(
         Action.REMOVE_SELECTED,
@@ -2072,6 +2080,7 @@ PODCAST_SESSION_VIEW: dict[str, Action] = {
     # Pelny AMC zmienia wspolnie cale zaznaczenie: gdy wszystkie elementy sa
     # ulubione, usuwa stan; w przeciwnym razie dodaje go wszystkim.
     "Ctrl+Shift+U": Action.TOGGLE_PODCAST_FAVORITE,
+    "Ctrl+Z": Action.UNDO_PODCAST_FAVORITE,
     # Odcinek nie ma osobnego członkostwa w Bibliotece: skrót zmienia jego
     # podcast nadrzędny, zgodnie z pełnym AMC.
     "Ctrl+Shift+L": Action.TOGGLE_PODCAST_LIBRARY,
@@ -2984,6 +2993,9 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         ),
         Action.TOGGLE_PODCAST_FAVORITE: (
             "Dodaj zaznaczone podcasty lub odcinki do ulubionych albo je usuń"
+        ),
+        Action.UNDO_PODCAST_FAVORITE: (
+            "Cofnij ostatnią zmianę Ulubionych podcastów lub odcinków"
         ),
         Action.TOGGLE_PODCAST_LIBRARY: (
             "Dodaj lub usuń podcast nadrzędny z Biblioteki"

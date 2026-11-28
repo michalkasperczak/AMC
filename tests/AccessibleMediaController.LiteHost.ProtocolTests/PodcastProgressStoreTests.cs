@@ -88,6 +88,31 @@ internal static class PodcastProgressStoreTests
                     && !ReadEpisodeFavoriteColumn(database, "ep-1"),
                     "czyszczenie pozostawia oba reprezentowane stany spojne");
 
+                Assert.True(!string.IsNullOrWhiteSpace(clearedAll.UndoToken),
+                    "zmiana ulubionych zwraca jednorazowy token cofania");
+                var wrongTokenDenied = false;
+                try { store.UndoFavoriteToggle("nieaktualny"); }
+                catch (LiteRequestException) { wrongTokenDenied = true; }
+                Assert.True(wrongTokenDenied && !ReadEpisode(database).IsFavorite,
+                    "obcy token nie zmienia ulubionych");
+                Assert.True(store.UndoFavoriteToggle(clearedAll.UndoToken!) == 2
+                    && ReadSubscription(database, "sub-1").IsFavorite
+                    && ReadEpisode(database).IsFavorite
+                    && ReadEpisodeFavoriteColumn(database, "ep-1"),
+                    "Ctrl+Z przywraca mieszany wybór w jednej transakcji");
+                var repeatedUndoDenied = false;
+                try { store.UndoFavoriteToggle(clearedAll.UndoToken!); }
+                catch (LiteRequestException) { repeatedUndoDenied = true; }
+                Assert.True(repeatedUndoDenied, "cofanie jest jednorazowe");
+                var externalChange = store.ToggleFavorites(["sub-1"], ["ep-1"]);
+                store.Save("ep-1", TimeSpan.FromSeconds(31), TimeSpan.FromMinutes(10), false);
+                var staleDenied = false;
+                try { store.UndoFavoriteToggle(externalChange.UndoToken!); }
+                catch (LiteRequestException) { staleDenied = true; }
+                Assert.True(staleDenied && !ReadEpisode(database).IsFavorite
+                    && !ReadSubscription(database, "sub-1").IsFavorite,
+                    "późniejsza zmiana odcinka blokuje całe cofnięcie bez częściowego zapisu");
+
                 var initialPodcastOptions = store.GetPlaybackOptions(
                     PodcastPlaybackOptionsTarget.Podcast, "sub-1");
                 Assert.Equal("Podcast", initialPodcastOptions.Title,

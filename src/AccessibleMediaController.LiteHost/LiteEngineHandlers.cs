@@ -784,6 +784,8 @@ internal sealed class LiteEngineHandlers : IDisposable
                 ExportSonosOwnStreams(request.Args),
             ["podcast.toggleFavorite"] = (request, _) =>
                 TogglePodcastFavorites(request.Args),
+            ["podcast.undoFavorite"] = (request, _) =>
+                UndoPodcastFavorite(request.Args),
             ["podcast.toggleLibrary"] = (request, _) =>
                 TogglePodcastLibrary(request.Args),
             ["podcast.toggleQueue"] = (request, _) =>
@@ -1119,8 +1121,18 @@ internal sealed class LiteEngineHandlers : IDisposable
         {
             favorite = result.Favorite,
             requested = result.RequestedCount,
-            changed = result.ChangedCount
+            changed = result.ChangedCount,
+            undoToken = result.UndoToken
         };
+    }
+
+    private object UndoPodcastFavorite(JsonElement args)
+    {
+        var token = LiteArgs.RequireText(args, "undoToken");
+        var store = _podcastProgressStore
+            ?? throw new LiteRequestException(
+                "Host nie dostał bazy Podcastów i YouTube. Cofnięcie jest niedostępne.");
+        return new { changed = store.UndoFavoriteToggle(token) };
     }
 
     private object TogglePodcastLibrary(JsonElement args)

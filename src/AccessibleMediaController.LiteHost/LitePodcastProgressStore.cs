@@ -313,6 +313,25 @@ internal sealed class LitePodcastProgressStore : IDisposable
         }
     }
 
+    public int UndoFavoriteToggle(string token)
+    {
+        EnsureFullAmcIsClosed(
+            "Zamknij najpierw główne AMC. Równoczesna zmiana ulubionych z dwóch wersji mogłaby utracić dane.");
+        try
+        {
+            return _store.UndoFavoriteToggle(token);
+        }
+        catch (InvalidOperationException exception)
+        {
+            throw new LiteRequestException(exception.Message);
+        }
+        catch (Exception exception) when (IsDatabaseFailure(exception))
+        {
+            Console.Error.WriteLine("[lite-host] cofanie ulubionych podcastów: " + exception);
+            throw new LiteRequestException("Baza Podcastów jest chwilowo niedostępna.");
+        }
+    }
+
     public PodcastPlaybackOptionsSnapshot GetPlaybackOptions(
         PodcastPlaybackOptionsTarget target,
         string itemId)

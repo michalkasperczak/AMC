@@ -811,6 +811,7 @@ _ACTION_NAME_OVERRIDES: dict[str, str] = {
     "files.playAudioOnly": "Play audio only",
     "podcasts.video.openBrowser": "Open in browser",
     "action.favorite.toggle": "Add to or remove from favorites",
+    "podcasts.favorite.undo": "Undo podcast favorites change",
     "action.queue.add": "Add to or remove from queue",
     "action.queue.playNextToggle": "Add or remove from Play Next",
     "action.queue.playNextOnce": "Play next",

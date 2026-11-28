@@ -67,6 +67,9 @@ public sealed class PodcastLibraryMutationStore(string databasePath)
         IReadOnlyCollection<string> episodeIds) =>
         _database.ToggleFavorites(subscriptionIds, episodeIds);
 
+    public int UndoFavoriteToggle(string token) =>
+        _database.UndoFavoriteToggle(token);
+
     public PodcastPlaybackOptionsSnapshot GetPlaybackOptions(
         PodcastPlaybackOptionsTarget target,
         string itemId) =>
@@ -239,7 +242,8 @@ public sealed record PodcastDownloadPathResult(
 public sealed record PodcastFavoriteToggleResult(
     bool Favorite,
     int RequestedCount,
-    int ChangedCount);
+    int ChangedCount,
+    string? UndoToken = null);
 
 public enum PodcastPlaybackOptionsTarget
 {

@@ -11658,6 +11658,8 @@ class LiteFrame(wx.Frame):
         self._last_radio_recognition_error: str | None = None
         self._podcast_download_pending = False
         self._podcast_favorite_pending = False
+        self._podcast_favorite_undo_token: str | None = None
+        self._podcast_favorite_undo_id: str = ""
         self._spotify_membership_pending = False
         self._tidal_membership_pending = False
         self._podcast_add_pending = False
@@ -12528,6 +12530,8 @@ class LiteFrame(wx.Frame):
                 and selected_kind == "track"
                 and native_track_id(selected_row.service_id) is not None
             ):
+                enabled = False
+            if entry.action is Action.UNDO_PODCAST_FAVORITE and not self._action_available_in_active_session(entry.action):
                 enabled = False
             if entry.action is Action.TIDAL_OPEN_ORIGINAL and not (
                 self.navigator.active is SessionId.TIDAL
@@ -18595,6 +18599,7 @@ class LiteFrame(wx.Frame):
                 # dotrą do EVT_KEY_DOWN kontrolki. Przechwytujemy wyłącznie
                 # gesty z modyfikatorami; gołe litery nadal należą do listy.
                 "Ctrl+Shift+U",
+                "Ctrl+Z",
                 "Ctrl+U",
                 "Ctrl+Shift+P",
                 "Ctrl+Shift+L",
@@ -19603,6 +19608,8 @@ class LiteFrame(wx.Frame):
             self._go_to_related_podcast()
         elif action is Action.TOGGLE_PODCAST_FAVORITE:
             self._toggle_podcast_favorite()
+        elif action is Action.UNDO_PODCAST_FAVORITE:
+            self._undo_podcast_favorite()
         elif action is Action.TOGGLE_PODCAST_LIBRARY:
             self._toggle_podcast_library()
         elif action is Action.PODCAST_PLAYBACK_OPTIONS:
@@ -30614,6 +30621,7 @@ class LiteFrame(wx.Frame):
         episode_ids = [row.item_id for row in rows if row.kind == "episode"]
         preferred_id = rows[0].item_id
         self._podcast_favorite_pending = True
+        self._podcast_favorite_undo_token = None
 
         def work() -> dict:
             result = client.toggle_podcast_favorites(
@@ -30625,6 +30633,8 @@ class LiteFrame(wx.Frame):
         def done(payload: dict) -> None:
             self._podcast_favorite_pending = False
             favorite = bool(payload.get("favorite"))
+            self._podcast_favorite_undo_token = payload.get("undoToken") or None
+            self._podcast_favorite_undo_id = preferred_id
             label = rows[0].title if len(rows) == 1 else format_item_count(len(rows))
             message = LiteFrame._routine_template_text(
                 self,
@@ -30663,6 +30673,56 @@ class LiteFrame(wx.Frame):
             self.announcer.say(message)
 
         self.runner.submit("podcast-favorite", work, done, failed)
+
+    def _undo_podcast_favorite(self) -> None:
+        """Ctrl+Z restores one favorite mutation only while its token is valid."""
+        token = getattr(self, "_podcast_favorite_undo_token", None)
+        if (self.navigator.active is not SessionId.PODCASTS or not token
+                or getattr(self, "_podcast_favorite_pending", False)):
+            self.announcer.say("Nie ma zmiany Ulubionych do cofnięcia")
+            return
+        client = self.client
+        if client is None:
+            self.announcer.say("Silnik nie działa, nie mogę cofnąć zmiany Ulubionych")
+            return
+        preferred_id = getattr(self, "_podcast_favorite_undo_id", "")
+        self._podcast_favorite_pending = True
+        self._podcast_favorite_undo_token = None
+
+        def work() -> dict:
+            result = client.undo_podcast_favorite(token)
+            return result if isinstance(result, dict) else {}
+
+        def done(_payload: dict) -> None:
+            self._podcast_favorite_pending = False
+            message = "Przywrócono poprzedni stan Ulubionych"
+            if self.navigator.active is not SessionId.PODCASTS:
+                self.announcer.say(message)
+                return
+            state = self.navigator.sessions[SessionId.PODCASTS]
+            if state.view is not View.LIST:
+                self.announcer.say(message)
+                return
+            if state.library_view is LibraryView.PODCAST_LIBRARY:
+                self._open_podcast_library(
+                    preferred_id=preferred_id, completion_message=message
+                )
+            elif not self._reload_podcast_list_after_download(
+                preferred_id, message
+            ):
+                self.announcer.say(message)
+
+        def failed(error: Exception) -> None:
+            self._podcast_favorite_pending = False
+            message = (
+                str(error) if isinstance(error, (HostError, HostUnavailable))
+                else "Nie udało się cofnąć zmiany Ulubionych"
+            )
+            self.status_field.SetLabel(message)
+            self.status_bar.show(message)
+            self.announcer.say(message)
+
+        self.runner.submit("podcast-favorite-undo", work, done, failed)
 
     def _toggle_podcast_library(self) -> None:
         """Ctrl+Shift+L: podcast albo źródło nadrzędne wybranego odcinka."""
@@ -42654,6 +42714,12 @@ class LiteFrame(wx.Frame):
     def _action_available_in_active_session(self, action: Action) -> bool:
         if self.navigator.active is SessionId.RADIO and action is Action.VIEW_SAVED_QUEUE:
             return False
+        if action is Action.UNDO_PODCAST_FAVORITE:
+            return bool(
+                self.navigator.active is SessionId.PODCASTS
+                and getattr(self, "_podcast_favorite_undo_token", None)
+                and not getattr(self, "_podcast_favorite_pending", False)
+            )
         if action in (
             Action.OPEN_RECORDING_MONITOR,
             Action.OPEN_RECORDING_MONITOR_ALTERNATE,

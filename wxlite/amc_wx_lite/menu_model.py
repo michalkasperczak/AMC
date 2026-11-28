@@ -1062,6 +1062,13 @@ def build_menus(
                 needs_favorite_item=True,
             ),
             MenuItem(
+                "Cofnij zmianę Ulubionych podcastów (&4)",
+                Action.UNDO_PODCAST_FAVORITE,
+                shortcut="Ctrl+Z",
+                accelerator=False,
+                visible_sessions=PODCASTS_ONLY,
+            ),
+            MenuItem(
                 "Dodaj lub usuń z Ulubionych Spotify (&2)",
                 Action.SPOTIFY_TOGGLE_FAVORITE,
                 shortcut="Ctrl+Shift+U",
