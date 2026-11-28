@@ -500,7 +500,7 @@ _STATIC_COMMAND_PRESENTATIONS: dict[Action, CommandPresentation] = {
         Action.TOGGLE_PLAY_NEXT,
         "Dodaj lub usuń z następnych",
         "Przełącz przynależność zaznaczenia do bloku Odtwarzaj jako następne",
-        "Ctrl+Shift+Return",
+        "",
         "Dodaj lub usuń z następnych (&5)",
     ),
     Action.SHOW_ACTIVE_PLAYBACK: CommandPresentation(
@@ -1687,11 +1687,9 @@ LIST_VIEW: dict[str, Action] = {
     # MainWindow.xaml:427-428 i MainWindow.xaml.cs:22173 -- powrot do
     # Biblioteki z KAZDEGO nazwanego widoku (Ulubione, Historia, ...).
     "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
-    # Shift+Enter dopisuje bez usuwania; Ctrl+Shift+Enter przełącza
-    # członkostwo bloku priorytetowego. Ctrl+Shift+Q zmienia zwykłą kolejkę.
+    # Shift+Enter dopisuje bez usuwania; Ctrl+Shift+Q zmienia zwykłą kolejkę.
     "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
     "Shift+Return": Action.PLAY_NEXT_ONCE,
-    "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
     "Ctrl+Shift+U": Action.TOGGLE_FAVORITE,
     "Ctrl+Shift+P": Action.MANAGE_PLAYLIST_MEMBERSHIP,
     # Ctrl+B to ViewBookmarks oryginalu (MainWindow.xaml:489): WSZYSTKIE
@@ -1909,7 +1907,6 @@ PLAYER_VIEW: dict[str, Action] = {
     "Next": Action.QUEUE_NEXT,
     "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
     "Shift+Return": Action.PLAY_NEXT_ONCE,
-    "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
     "Ctrl+Shift+U": Action.TOGGLE_FAVORITE,
     "Ctrl+Shift+P": Action.MANAGE_PLAYLIST_MEMBERSHIP,
     "Alt+T": Action.QUICK_INFORMATION,
@@ -2215,7 +2212,6 @@ RADIOARCHIWISTA_SESSION_VIEW: dict[str, Action] = {
     "Ctrl+Q": Action.VIEW_SAVED_QUEUE,
     "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
     "Shift+Return": Action.PLAY_NEXT_ONCE,
-    "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
     "Ctrl+D": Action.RADIOARCHIWISTA_DOWNLOAD,
     "Ctrl+Shift+D": Action.RADIOARCHIWISTA_DOWNLOAD_FRAGMENT,
 }
@@ -3337,6 +3333,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
     # Polecenia bez własnego skrótu nadal należą do pełnej pomocy i palety.
     # Tekst „Bez skrótu” jest celową etykietą użytkową, nie identyfikatorem.
     for action in (
+        Action.TOGGLE_PLAY_NEXT,
         Action.SESSION_FRONTIER_SMART,
         Action.SESSION_RADIOARCHIWISTA,
         Action.SESSION_APPLE_MUSIC,

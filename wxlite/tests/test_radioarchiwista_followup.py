@@ -61,7 +61,6 @@ def test_archive_shortcuts_route_in_list_and_player() -> None:
         "Ctrl+L": Action.VIEW_LIBRARY,
         "Ctrl+Shift+Q": Action.ADD_TO_QUEUE,
         "Shift+Return": Action.PLAY_NEXT_ONCE,
-        "Ctrl+Shift+Return": Action.TOGGLE_PLAY_NEXT,
         "Space": Action.PLAY_PAUSE,
     }
     for player in (False, True):
@@ -111,7 +110,7 @@ def test_archive_queue_menu_and_copy_label() -> None:
     assert entries[Action.VIEW_LIBRARY].shortcut == "Ctrl+L"
     assert entries[Action.ADD_TO_QUEUE].shortcut == "Ctrl+Shift+Q"
     assert entries[Action.PLAY_NEXT_ONCE].shortcut == "Shift+Return"
-    assert entries[Action.TOGGLE_PLAY_NEXT].shortcut == "Ctrl+Shift+Return"
+    assert entries[Action.TOGGLE_PLAY_NEXT].shortcut is None
     assert entries[Action.COPY_ADDRESS].shortcut == "Ctrl+Shift+C"
     assert "link do nagrania" in entries[Action.COPY_ADDRESS].label
     assert "link do nagrania" in describe_action(
@@ -124,7 +123,9 @@ def test_archive_queue_menu_and_copy_label() -> None:
     for action in (Action.VIEW_LIBRARY, Action.VIEW_SAVED_QUEUE,
                    Action.ADD_TO_QUEUE, Action.PLAY_NEXT_ONCE,
                    Action.TOGGLE_PLAY_NEXT, Action.COPY_ADDRESS):
-        assert palette[action].shortcut == readable_shortcut(entries[action].shortcut)
+        expected = (readable_shortcut(entries[action].shortcut)
+                    if entries[action].shortcut else None)
+        assert palette[action].shortcut == expected
         assert palette[action].name == entries[action].label.replace("&", "").split(" (", 1)[0]
     row = Row("rarch:rec:a", "08:00", "recording", url="https://archive.org/a.mp3")
     assert row.address == "https://archive.org/a.mp3"
@@ -215,6 +216,7 @@ def test_archive_player_dispatches_named_bookmark_navigation_to_shared_host() ->
     frame.announcer = SimpleNamespace(say=spoken.append, show=lambda _text: None)
     frame.messages = MessagePolicy()
     frame._last_status = {}
+    frame._youtube_active_item_id = None
 
     LiteFrame._dispatch(frame, Action.NEXT_NAMED_BOOKMARK)
 
@@ -245,6 +247,7 @@ def test_archive_player_dispatches_percent_seek_to_shared_host() -> None:
     frame.announcer = SimpleNamespace(say=spoken.append)
     frame.messages = MessagePolicy()
     frame._last_status = {"positionSeconds": 0.0, "durationSeconds": 600.0}
+    frame._youtube_active_item_id = None
 
     LiteFrame._dispatch(frame, Action.SEEK_PERCENT_50)
 
@@ -265,6 +268,7 @@ def test_archive_player_percent_seek_without_duration_never_calls_host() -> None
     frame.announcer = SimpleNamespace(say=spoken.append)
     frame.messages = MessagePolicy(enabled=False, percentage_seek_messages=False)
     frame._last_status = {"positionSeconds": 10.0, "durationSeconds": None}
+    frame._youtube_active_item_id = None
 
     LiteFrame._dispatch(frame, Action.SEEK_PERCENT_50)
 

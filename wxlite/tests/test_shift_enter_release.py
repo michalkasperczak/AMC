@@ -6,7 +6,7 @@ from amc_wx_lite import menu_model
 def test_play_next_shift_enter_and_old_shortcut_free():
     for shortcuts in (LIST_VIEW, PLAYER_VIEW, RADIOARCHIWISTA_SESSION_VIEW):
         assert shortcuts["Shift+Return"] is Action.PLAY_NEXT_ONCE
-        assert shortcuts["Ctrl+Shift+Return"] is Action.TOGGLE_PLAY_NEXT
+        assert "Ctrl+Shift+Return" not in shortcuts
         assert shortcuts["Ctrl+Shift+Q"] is Action.ADD_TO_QUEUE
 
 
@@ -19,7 +19,7 @@ def test_play_next_menu_uses_shift_enter():
     one_shot = [item for item in walk(items) if getattr(item, "action", None) is Action.PLAY_NEXT_ONCE]
     toggle = [item for item in walk(items) if getattr(item, "action", None) is Action.TOGGLE_PLAY_NEXT]
     assert one_shot and all(item.shortcut == "Shift+Return" for item in one_shot)
-    assert toggle and all(item.shortcut == "Ctrl+Shift+Return" for item in toggle)
+    assert toggle and all(item.shortcut is None for item in toggle)
 
 
 def test_search_results_keyboard_uses_next_and_queue_without_old_alias():
@@ -41,8 +41,7 @@ def test_search_results_keyboard_uses_next_and_queue_without_old_alias():
         gui.SearchDialog._on_results_key(dialog, key(code, shift=True))
         gui.SearchDialog._on_results_key(dialog, key(code, ctrl=True, shift=True))
     gui.SearchDialog._on_results_key(dialog, key(ord("Q"), ctrl=True, shift=True))
-    assert actions == [SearchResultAction.PLAY_NEXT, SearchResultAction.PLAY_NEXT_TOGGLE,
-                       SearchResultAction.PLAY_NEXT, SearchResultAction.PLAY_NEXT_TOGGLE,
+    assert actions == [SearchResultAction.PLAY_NEXT, SearchResultAction.PLAY_NEXT,
                        SearchResultAction.QUEUE]
 
 
@@ -115,13 +114,29 @@ def test_one_shot_is_in_menu_palette_and_help_only_for_supported_sessions():
     for session in (SessionId.FILES, SessionId.PODCASTS, SessionId.RADIOARCHIWISTA):
         palette = {item.action: item for item in entries_for_session(session)}
         assert palette[Action.PLAY_NEXT_ONCE].shortcut == "Shift+Enter"
-        assert palette[Action.TOGGLE_PLAY_NEXT].shortcut == "Ctrl+Shift+Enter"
+        assert palette[Action.TOGGLE_PLAY_NEXT].shortcut is None
     for session in (SessionId.RADIO, SessionId.TIDAL, SessionId.SPOTIFY,
                     SessionId.WIIM, SessionId.SONOS, SessionId.HEOS):
         assert Action.PLAY_NEXT_ONCE not in {item.action for item in entries_for_session(session)}
     help_rows = describe("Pliki lokalne", {Action.PLAY_NEXT_ONCE, Action.TOGGLE_PLAY_NEXT})
     assert any(shortcut == "Shift+Enter" for shortcut, _ in help_rows)
-    assert any(shortcut == "Ctrl+Shift+Enter" for shortcut, _ in help_rows)
+    assert any(shortcut == "Bez skrótu" and "następne" in label
+               for shortcut, label in help_rows)
+    assert all(shortcut != "Ctrl+Shift+Enter" for shortcut, _ in help_rows)
     spoken = keyboard_help_announcement(
         Chord("Return", shift=True), Action.PLAY_NEXT_ONCE, "Pliki lokalne")
     assert "Shift+Enter" in spoken and "Dodaj zaznaczenie" in spoken
+
+
+def test_withdrawn_ctrl_shift_enter_is_unbound_in_every_supported_view():
+    from amc_wx_lite.shortcuts import resolve, Chord, normalize_shortcut_overrides
+
+    chord = Chord("Return", ctrl=True, shift=True)
+    assert normalize_shortcut_overrides(
+        {Action.TOGGLE_PLAY_NEXT.value: "Ctrl+Shift+Return"}
+    ) == {}
+    for player in (False, True):
+        for session_flags in ({}, {"podcast_session": True},
+                              {"radioarchiwista_session": True}):
+            assert resolve(chord, player_view=player, radio_session=False,
+                           **session_flags) is None

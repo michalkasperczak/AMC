@@ -1121,7 +1121,7 @@ def build_menus(
             MenuItem(
                 command_presentation(Action.TOGGLE_PLAY_NEXT).menu_label,
                 Action.TOGGLE_PLAY_NEXT,
-                shortcut="Ctrl+Shift+Return",
+                shortcut=None,
                 accelerator=False,
                 needs_selection=True,
                 needs_play_next_item=True,
@@ -2282,11 +2282,21 @@ def build_menus(
         ),
     )
 
+    def preset_assignment_label(slot: int) -> str:
+        # Każda pozycja ma własny klawisz dostępu bez dodatkowej litery
+        # w nazwie wypowiadanej przez czytnik.
+        label = f"Przypisz do presetu {slot % 10}"
+        letter = "przysdoetu"[slot - 1]
+        index = label.casefold().index(letter)
+        return label[:index] + "&" + label[index:]
+
     preset_assignments = Menu(
         "Prese&ty",
         tuple(
             MenuItem(
-                f"Uruchom preset {slot if slot <= 9 else 0 if slot == 10 else slot}",
+                (f"Uruchom preset &{slot % 10}" if slot <= 10
+                 else "Uru&chom preset 11" if slot == 11
+                 else "Uruc&hom preset 12"),
                 Action[f"PRESET_{slot}"],
                 shortcut=(
                     f"Ctrl+Shift+{slot}" if slot <= 9
@@ -2304,7 +2314,7 @@ def build_menus(
             for slot in range(1, 13)
         ) + (SEPARATOR,) + tuple(
             MenuItem(
-                f"Przypisz do presetu &{slot % 10}",
+                preset_assignment_label(slot),
                 Action[f"ASSIGN_PRESET_{slot}"],
                 shortcut=f"Ctrl+Alt+Shift+{slot % 10}",
                 visible_sessions=(

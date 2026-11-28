@@ -3109,9 +3109,6 @@ class SearchDialog(wx.Dialog):
         if code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and shift and not (ctrl or alt):
             self._complete_selected(SearchResultAction.PLAY_NEXT)
             return
-        if code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and ctrl and shift and not alt:
-            self._complete_selected(SearchResultAction.PLAY_NEXT_TOGGLE)
-            return
         if ctrl and shift and not alt and code in (ord("Q"), ord("q")):
             self._complete_selected(SearchResultAction.QUEUE)
             return

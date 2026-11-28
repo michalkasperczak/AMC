@@ -594,7 +594,7 @@ def test_queue_membership_menu_matches_supported_sessions() -> None:
         menu_model.SessionId.RADIOARCHIWISTA,
         menu_model.SessionId.HEOS,
     }
-    assert play_next.shortcut == "Ctrl+Shift+Return"
+    assert play_next.shortcut is None
     one_shot = next(entry for entry in all_items()
                     if entry.action is Action.PLAY_NEXT_ONCE)
     assert one_shot.shortcut == "Shift+Return"

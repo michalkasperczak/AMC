@@ -664,7 +664,7 @@ def test_queue_shortcuts_keep_one_shot_and_toggle_distinct() -> None:
             Chord("Return", ctrl=True, shift=True),
             player_view=player,
             radio_session=False,
-        ) is Action.TOGGLE_PLAY_NEXT
+        ) is None
 
 
 def test_podcast_library_and_queue_shortcuts_keep_their_full_amc_meaning() -> None:
