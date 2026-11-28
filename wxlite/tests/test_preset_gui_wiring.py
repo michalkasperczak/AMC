@@ -131,9 +131,11 @@ def test_english_preset_labels_menu_and_missing_target(tmp_path) -> None:
             item for item in menu_model.menus_for_session(SessionId.TIDAL)
             if item.title == "Pres&ets"
         )
-        assert len(menu.items) == 10
-        assert menu.items[0].label == "Assign selected item to preset 1 (&1)"
-        assert menu.items[9].label == "Assign selected item to preset 0 (&0)"
+        assert len(menu.items) == 23
+        assert menu.items[0].label == "&Run preset 1"
+        assert menu.items[9].label == "&Run preset 0"
+        assert menu.items[13].label == "Assign selected item to preset 1 (&1)"
+        assert menu.items[22].label == "Assign selected item to preset 0 (&0)"
         frame, spoken, _intents = _frame(tmp_path)
         frame._current_preset_target = lambda: None
         LiteFrame._assign_preset(frame, 3)

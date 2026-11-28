@@ -437,12 +437,25 @@ def target_from_row(session: SessionId, row: Row | None) -> PresetTarget | None:
             row.title,
             row.service_id,
         )
-    if row.kind == "playlist":
+    if session is SessionId.PODCASTS:
+        if row.kind == "podcast" and row.item_id:
+            return PresetTarget(row.item_id, "podcast-source", row.title, None)
+        if row.kind == "playlist" and row.item_id.startswith("podcast-playlist:"):
+            return PresetTarget(
+                row.item_id, "podcast-playlist", row.title,
+                row.item_id.removeprefix("podcast-playlist:"),
+            )
+        if row.kind == "episode" and row.item_id and row.path:
+            # Re-resolve the ID on activation; a saved URL or download path
+            # can change while the podcast library remains authoritative.
+            return PresetTarget(row.item_id, "podcast-episode", row.title, None)
+        return None
+    if session is SessionId.FILES and row.kind == "playlist" and row.item_id.startswith("playlist:"):
         playlist_id = row.item_id.split(":", 1)[1] if ":" in row.item_id else row.item_id
         return PresetTarget(row.item_id, "amcPlaylist", row.title, playlist_id)
-    if row.kind == "folder" and row.path:
+    if session is SessionId.FILES and row.kind == "folder" and row.path:
         return PresetTarget(row.item_id, "folder", row.title, row.path)
-    if row.kind == "track" and row.path:
+    if session is SessionId.FILES and row.kind == "track" and row.path:
         return PresetTarget(row.item_id, "track", row.title, row.path)
     return None
 

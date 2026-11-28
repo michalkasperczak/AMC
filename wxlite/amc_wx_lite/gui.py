@@ -22336,6 +22336,7 @@ class LiteFrame(wx.Frame):
                 SessionId.RADIO: "presets.assign.types.radio",
                 SessionId.RADIOARCHIWISTA: "presets.assign.types.archive",
                 SessionId.FILES: "presets.assign.types.files",
+                SessionId.PODCASTS: "presets.assign.types.podcasts",
             }
             types = i18n.tr(choice_keys.get(
                 session, "presets.assign.types.other"
@@ -22612,6 +22613,59 @@ class LiteFrame(wx.Frame):
                 self._last_preset_slot_by_session[session] = slot
                 self._activate_sonos_preset(entry, spoken)
                 return
+
+            kind = entry.target_kind.casefold()
+            if session is SessionId.PODCASTS:
+                if kind == "podcast-source":
+                    self._last_preset_slot_by_session[session] = slot
+                    self._open_podcast_view(OpenPodcastView(
+                        entry.target_id, entry.title,
+                    ))
+                    return
+                if kind == "podcast-playlist" or (
+                    kind == "amcplaylist"
+                    and entry.target_id.startswith("podcast-playlist:")
+                ):
+                    playlist_id = entry.location or entry.target_id.removeprefix(
+                        "podcast-playlist:"
+                    )
+                    self._last_preset_slot_by_session[session] = slot
+                    self._open_podcast_playlist_view(OpenPodcastPlaylistView(
+                        playlist_id=playlist_id, playlist_title=entry.title,
+                    ))
+                    return
+                if kind == "podcast-episode":
+                    def load_episode() -> Row | None:
+                        return self.podcasts.episode_row(entry.target_id)
+
+                    def play_episode(row: Row | None) -> None:
+                        if self.navigator.active is not SessionId.PODCASTS:
+                            return
+                        if row is None:
+                            self.announcer.say(i18n.tr(
+                                "presets.activate.podcastMissing", slot=spoken
+                            ))
+                        elif not row.path:
+                            self.announcer.say(i18n.tr(
+                                "presets.activate.podcastUnplayable", slot=spoken
+                            ))
+                        else:
+                            self._last_preset_slot_by_session[session] = slot
+                            self._run(self.navigator.activate_podcast_preset(
+                                row,
+                                open_player=self._session_open_player_on_preset(session),
+                            ))
+
+                    def episode_failed(_error: Exception) -> None:
+                        if self.navigator.active is SessionId.PODCASTS:
+                            self.announcer.say(i18n.tr(
+                                "presets.activate.podcastReadFailed", slot=spoken
+                            ))
+
+                    self.runner.submit(
+                        "podcast-preset", load_episode, play_episode, episode_failed
+                    )
+                    return
 
             spotify_target = (
                 profile_presets.spotify_entry_target(entry)

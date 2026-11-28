@@ -3205,7 +3205,7 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         for slot, action in ASSIGN_PRESET_ACTIONS.items()
     })
     labels.update({
-        action: f"Uruchom preset {slot} bieżącej sesji"
+        action: f"Uruchom preset {slot % 10 if slot <= 10 else slot} bieżącej sesji"
         for slot, action in PRESET_ACTIONS.items()
     })
     # Nazwy klawiszy w pomocy musza byc TAKIE, jak na klawiaturze. Wewnetrzne

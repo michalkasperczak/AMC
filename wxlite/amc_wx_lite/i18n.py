@@ -49,6 +49,10 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "presets.assign.types.radio": "stację radiową",
         "presets.assign.types.archive": "stację lub Najnowsze nagrania",
         "presets.assign.types.files": "plik, folder lub playlistę",
+        "presets.assign.types.podcasts": "podcast, kanał YouTube, playlistę lub odtwarzalny odcinek albo film",
+        "presets.activate.podcastMissing": "Odcinek lub film z presetu {slot} nie jest już dostępny w bibliotece",
+        "presets.activate.podcastUnplayable": "Odcinek lub film z presetu {slot} nie ma adresu do odtworzenia",
+        "presets.activate.podcastReadFailed": "Nie udało się odczytać odcinka lub filmu z presetu {slot}",
         "presets.assign.types.other": "element możliwy do zapisania",
         "presets.activate.tidalMissing": "Preset {slot} nie ma danych TIDAL potrzebnych do uruchomienia",
         "presets.activate.tidalEmpty": "Ten album lub playlista TIDAL nie zawiera dostępnych utworów do odtworzenia",
@@ -341,6 +345,10 @@ _CATALOGS: dict[str, dict[str, str]] = {
         "presets.assign.types.radio": "a radio station",
         "presets.assign.types.archive": "a station or Latest recordings",
         "presets.assign.types.files": "a file, folder, or playlist",
+        "presets.assign.types.podcasts": "a podcast, YouTube channel, playlist, or playable episode or video",
+        "presets.activate.podcastMissing": "The episode or video in preset {slot} is no longer in the library",
+        "presets.activate.podcastUnplayable": "The episode or video in preset {slot} has no playback address",
+        "presets.activate.podcastReadFailed": "Could not read the episode or video in preset {slot}",
         "presets.assign.types.other": "an item that can be saved",
         "presets.activate.tidalMissing": "Preset {slot} lacks the TIDAL details needed to start it",
         "presets.activate.tidalEmpty": "This TIDAL album or playlist has no playable tracks",
@@ -1848,6 +1856,10 @@ def english_action_name(action_value: str) -> str:
         direction, amount = volume_match.groups()
         verb = "Increase" if direction == "up" else "Decrease"
         return f"{verb} volume by {amount} percent"
+    preset_match = re.fullmatch(r"preset\.(\d+)", action_value)
+    if preset_match:
+        slot = int(preset_match.group(1))
+        return f"Run preset {slot % 10 if slot <= 10 else slot}"
     seek_match = re.fullmatch(r"seek\.percent\.(\d+)", action_value)
     if seek_match:
         return f"Go to {seek_match.group(1)} percent"

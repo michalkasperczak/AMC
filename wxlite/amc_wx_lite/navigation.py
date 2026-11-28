@@ -2525,6 +2525,28 @@ class Navigator:
             state.view = View.PLAYER
         return [PlayTrack(target.path, target.item_id, target.title), Announce(target.title)]
 
+    def activate_podcast_preset(
+        self, target: Row, *, open_player: bool
+    ) -> list[object]:
+        """Start one fresh episode without moving the list cursor."""
+        if target.kind != "episode" or not target.path:
+            return [Announce("Ten preset nie wskazuje odcinka do odtworzenia")]
+        state = self.sessions[SessionId.PODCASTS]
+        was_player = state.view is View.PLAYER
+        if not was_player:
+            state.player_entry_anchor_id = state.model.selected_id
+        state.list_anchor_id = target.item_id
+        state.now_playing_id = target.item_id
+        state.now_playing_title = target.title
+        state.pending_material_id = target.item_id
+        self._set_playback_source(state, (target,))
+        if was_player or open_player:
+            state.view = View.PLAYER
+        return [
+            PlayMedia(target.path, target.item_id, target.title),
+            Announce(target.title),
+        ]
+
     def go_to_parent(self) -> list[object]:
         """Backspace albo Enter na "..". Wracamy i stajemy na opuszczonym folderze.
 

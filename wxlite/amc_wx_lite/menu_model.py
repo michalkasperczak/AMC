@@ -2279,6 +2279,24 @@ def build_menus(
         "Prese&ty",
         tuple(
             MenuItem(
+                f"Uruchom preset {slot if slot <= 9 else 0 if slot == 10 else slot}",
+                Action[f"PRESET_{slot}"],
+                shortcut=(
+                    f"Ctrl+Shift+{slot}" if slot <= 9
+                    else "Ctrl+Shift+0" if slot == 10
+                    else "Ctrl+Shift+-" if slot == 11
+                    else "Ctrl+Shift+="
+                ),
+                visible_sessions=(
+                    SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS,
+                    SessionId.TIDAL, SessionId.SPOTIFY, SessionId.SONOS,
+                    SessionId.RADIOARCHIWISTA, SessionId.HEOS,
+                    SessionId.WIIM, SessionId.FRONTIER_SMART,
+                ),
+            )
+            for slot in range(1, 13)
+        ) + (SEPARATOR,) + tuple(
+            MenuItem(
                 f"Przypisz do presetu &{slot % 10}",
                 Action[f"ASSIGN_PRESET_{slot}"],
                 shortcut=f"Ctrl+Alt+Shift+{slot % 10}",

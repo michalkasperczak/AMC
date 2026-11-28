@@ -1231,6 +1231,11 @@ class PodcastSource:
             if database is not None:
                 database.close()
 
+    def episode_row(self, item_id: str) -> Row | None:
+        """Resolve one saved episode against the current podcast library."""
+        record = self._episode_records_by_ids([item_id]).get(item_id)
+        return _episode_row(record, aggregate=False) if record is not None else None
+
     def _episode_records_by_ids(
         self, item_ids: list[str]
     ) -> dict[str, _EpisodeRecord]:

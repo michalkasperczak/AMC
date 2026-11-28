@@ -1066,3 +1066,18 @@ def test_related_podcast_returns_only_user_facing_parent_data() -> None:
         assert related.subscription_id == "rss-id"
         assert related.title == "Audycja tygodnia"
         assert "episode-to-open" not in related.title
+def test_saved_episode_preset_resolves_fresh_youtube_row() -> None:
+    with _temporary_folder() as folder:
+        base = Path(folder)
+        path = _database(base)
+        _insert_episode(
+            path, item_id="preset-film", subscription_id="yt-id",
+            title="Film z kanału", ordinal=0, published=1,
+        )
+        source = PodcastSource(private_sandbox(base))
+        row = source.episode_row("preset-film")
+        assert row is not None
+        assert row.kind == "episode"
+        assert row.service_kind == "youtubeVideo"
+        assert row.path == "https://example.invalid/preset-film"
+        assert source.episode_row("missing-film") is None
