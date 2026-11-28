@@ -50,7 +50,9 @@ internal static class Program
                 return BadArguments;
             }
 
-            profile = LoadReleaseProfile(options.Source ?? options.Target);
+            profile = options.Source is not null
+                ? LoadReleaseProfile(options.Source)
+                : LoadInstalledReleaseProfile(options.Target);
 
             // Windows nie pozwala niezawodnie podmienić uruchomionego pliku
             // wykonywalnego. Gdy aktualizator startuje z katalogu AMC, najpierw
@@ -324,6 +326,23 @@ internal static class Program
 
     private static ReleaseProfileDescriptor LoadReleaseProfile(string source) =>
         ResolveReleaseProfile(ReadManifest(source));
+
+    // An installer starts with an already installed bundle. Its capabilities
+    // and sessions may be an older subset, whereas the incoming source bundle
+    // must still match the current catalog exactly.
+    internal static ReleaseProfileDescriptor LoadInstalledReleaseProfile(string target)
+    {
+        var installed = ReadManifest(target);
+        var profile = installed.ReleaseProfile switch
+        {
+            "test" => ReleaseProfileContract.Test,
+            "public" => ReleaseProfileContract.Public,
+            "" when installed.ReleaseProfileSchema == 0 => ReleaseProfileContract.Test,
+            _ => throw new InvalidDataException("manifest wskazuje nieznany profil wydania"),
+        };
+        ValidateInstalledProfile(target, profile);
+        return profile;
+    }
 
     private static Manifest ReadManifest(string root)
     {

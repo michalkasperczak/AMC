@@ -53,6 +53,9 @@ internal static class Program
         ("aktualizator odrzuca nieznany zakres starego profilu", UpdaterRejectsUnknownInstalledCapability),
         ("aktualizator odrzuca obcy profil", UpdaterRejectsDifferentProfile),
         ("aktualizator przyjmuje pełny instalator właściwego profilu", UpdaterAcceptsMatchingInstaller),
+        ("wstępna kontrola instalatora przyjmuje starszy AMC Public", InstallerPreflightAcceptsOlderPublic),
+        ("wstępna kontrola instalatora odrzuca obcy identyfikator instalacji", InstallerPreflightRejectsForeignInstallId),
+        ("wstępna kontrola instalatora odrzuca podszycie pod profil", InstallerPreflightRejectsProfileImpersonation),
         ("aktualizator odrzuca instalator innego profilu", UpdaterRejectsForeignInstaller),
         ("aktualizator odrzuca instalator o innej sumie", UpdaterRejectsInstallerWithWrongHash),
         ("aktualizator usuwa stare pliki hosta spoza manifestu", UpdaterRemovesObsoleteHostFiles),
@@ -771,6 +774,47 @@ internal static class Program
                 sha256,
                 target.Root,
                 ReleaseProfileContract.Test));
+    }
+
+    private static void InstallerPreflightAcceptsOlderPublic()
+    {
+        using var target = BundleFixture.Create(
+            profile: ReleaseProfileContract.Public,
+            capabilitiesOverride: ReleaseProfileContract.Public.Capabilities
+                .Where(value => value != "local-video-preview").ToArray());
+        var profile = AccessibleMediaController.PythonUpdater.Program
+            .LoadInstalledReleaseProfile(target.Root);
+        Equal("public", profile.ProfileId);
+        WithInstaller("AMC-Public-2026-11-28-0128.exe", (installer, sha256) =>
+            AccessibleMediaController.PythonUpdater.Program.VerifyInstaller(
+                installer, sha256, target.Root, profile));
+    }
+
+    private static void InstallerPreflightRejectsForeignInstallId()
+    {
+        using var target = BundleFixture.Create(profile: ReleaseProfileContract.Public);
+        ReplaceManifestValue(target.Root, "installId", "AMC.Public.win-x64", "AMC.Test.win-x64");
+        Throws("innego wydania", () => AccessibleMediaController.PythonUpdater.Program
+            .LoadInstalledReleaseProfile(target.Root));
+    }
+
+    private static void InstallerPreflightRejectsProfileImpersonation()
+    {
+        using var target = BundleFixture.Create(profile: ReleaseProfileContract.Public);
+        ReplaceManifestValue(target.Root, "releaseProfile", "public", "test");
+        Throws("innego wydania", () => AccessibleMediaController.PythonUpdater.Program
+            .LoadInstalledReleaseProfile(target.Root));
+    }
+
+    private static void ReplaceManifestValue(string root, string field, string original, string replacement)
+    {
+        var path = Path.Combine(root, "bundle-manifest.json");
+        var text = File.ReadAllText(path);
+        var oldValue = $"\"{field}\":\"{original}\"";
+        if (!text.Contains(oldValue, StringComparison.Ordinal))
+            throw new InvalidOperationException("Fixture nie zawiera pola " + field);
+        File.WriteAllText(path, text.Replace(
+            oldValue, $"\"{field}\":\"{replacement}\"", StringComparison.Ordinal));
     }
 
     private static void UpdaterRejectsForeignInstaller()
