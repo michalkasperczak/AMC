@@ -54,13 +54,14 @@ algorytm tempa. Dlatego:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 import math
 from typing import TYPE_CHECKING
 
 from .navigation import SessionId
 from .automatic_track_announcements import normalize_mode
 from .transport_parity import PLAYBACK_RATES, clamp_playback_rate
+from .transport_parity import MessagePolicy, PercentAnnouncement
 
 if TYPE_CHECKING:  # pragma: no cover - tylko dla kontroli typow
     from .state_store import Options
@@ -101,6 +102,14 @@ class SessionCapabilities:
     supports_player_entry_behavior: bool = False
     supports_preset_entry_behavior: bool = False
     supports_automatic_track_announcements: bool = False
+    supports_playback_messages: bool = False
+    playback_message_options: tuple[str, ...] = ()
+
+    @property
+    def message_option_ids(self) -> tuple[str, ...]:
+        if self.supports_playback_messages:
+            return PLAYBACK_MESSAGE_OPTION_IDS
+        return self.playback_message_options
 
     @property
     def has_options(self) -> bool:
@@ -113,6 +122,7 @@ class SessionCapabilities:
             self.supports_player_entry_behavior,
             self.supports_preset_entry_behavior,
             self.supports_automatic_track_announcements,
+            bool(self.message_option_ids),
         ))
 
 
@@ -128,6 +138,7 @@ _CAPABILITIES: dict[SessionId, SessionCapabilities] = {
         supports_player_entry_behavior=True,
         supports_preset_entry_behavior=True,
         supports_automatic_track_announcements=True,
+        supports_playback_messages=True,
     ),
     SessionId.RADIO: SessionCapabilities(
         # RadioMediaOutput ma tylko ConfigureTempoAlgorithm -- brak wykonawcy.
@@ -139,6 +150,7 @@ _CAPABILITIES: dict[SessionId, SessionCapabilities] = {
         supports_player_entry_behavior=True,
         supports_preset_entry_behavior=True,
         supports_automatic_track_announcements=True,
+        supports_playback_messages=True,
     ),
     SessionId.PODCASTS: SessionCapabilities(
         # Przed ``media.play`` frontend ustawia bazę tej sesji, a host nakłada
@@ -149,21 +161,33 @@ _CAPABILITIES: dict[SessionId, SessionCapabilities] = {
         supports_player_exit_pause=True,
         supports_player_entry_behavior=True,
         supports_automatic_track_announcements=True,
+        supports_playback_messages=True,
     ),
     # Web Playback SDK does not expose a durable speed command. Changing
     # an internal media element is transient and must not be advertised.
     SessionId.TIDAL: SessionCapabilities(
         False, False, False, True,
         supports_automatic_track_announcements=True,
+        supports_playback_messages=True,
     ),
     SessionId.SPOTIFY: SessionCapabilities(
         False, False, False, True, supports_player_entry_behavior=True,
         supports_automatic_track_announcements=True,
+        supports_playback_messages=True,
     ),
     SessionId.SONOS: SessionCapabilities(
-        False, False, False, True, supports_player_entry_behavior=True
+        False, False, False, True, supports_player_entry_behavior=True,
+        playback_message_options=(
+            "message_seek_messages", "message_volume_messages",
+            "message_playback_messages",
+        ),
     ),
-    SessionId.FRONTIER_SMART: SessionCapabilities(False, False, False, True),
+    SessionId.FRONTIER_SMART: SessionCapabilities(
+        False, False, False, True,
+        playback_message_options=(
+            "message_seek_messages", "message_volume_messages", "message_playback_messages",
+        ),
+    ),
     # Radio Archiwista gra przez ten sam tor media.play co Podcasty: prędkość,
     # wznowienie pozycji i obróbka audio działają identycznie.
     SessionId.RADIOARCHIWISTA: SessionCapabilities(
@@ -174,17 +198,27 @@ _CAPABILITIES: dict[SessionId, SessionCapabilities] = {
         supports_player_entry_behavior=True,
         supports_preset_entry_behavior=True,
         supports_automatic_track_announcements=True,
+        supports_playback_messages=True,
     ),
     # WiiM odtwarza na urzadzeniu i historycznie nie mial pauzy po wyjsciu.
     SessionId.WIIM: SessionCapabilities(
         False, False, False, False,
         supports_player_entry_behavior=True,
         supports_preset_entry_behavior=True,
+        playback_message_options=(
+            "message_seek_messages", "message_volume_messages", "message_playback_messages",
+        ),
     ),
-    # Etap AM-001 udostępnia wyłącznie listy. Bez silnika odtwarzania nie
-    # pokazujemy żadnej martwej opcji transportu ani dźwięku.
+    SessionId.HEOS: SessionCapabilities(
+        False, False, False, False,
+        playback_message_options=(
+            "message_seek_messages", "message_volume_messages", "message_playback_messages",
+        ),
+    ),
+    # Apple Music uses only the original Windows app for external transport.
     SessionId.APPLE_MUSIC: SessionCapabilities(
         False, False, False, False,
+        playback_message_options=("message_seek_messages", "message_playback_messages"),
     ),
 }
 
@@ -231,6 +265,13 @@ class SessionPlaybackOverrides:
     open_player_on_enter: bool | None = None
     open_player_on_preset: bool | None = None
     automatic_track_announcements: str | None = None
+    message_seek_messages: bool | None = None
+    message_arrow_seek_messages: bool | None = None
+    message_percentage_seek_messages: bool | None = None
+    message_volume_messages: bool | None = None
+    message_playback_messages: bool | None = None
+    message_bookmark_navigation_messages: bool | None = None
+    message_percent_announcement: str | None = None
 
     @property
     def is_empty(self) -> bool:
@@ -264,6 +305,12 @@ class SessionPlaybackOverrides:
             "pause_on_player_exit",
             "open_player_on_enter",
             "open_player_on_preset",
+            "message_seek_messages",
+            "message_arrow_seek_messages",
+            "message_percentage_seek_messages",
+            "message_volume_messages",
+            "message_playback_messages",
+            "message_bookmark_navigation_messages",
         ):
             value = raw.get(name)
             if type(value) is bool:
@@ -283,6 +330,11 @@ class SessionPlaybackOverrides:
         announcement_mode = raw.get("automatic_track_announcements")
         if announcement_mode in ("always", "active", "never"):
             result.automatic_track_announcements = announcement_mode
+        percent_mode = raw.get("message_percent_announcement")
+        if isinstance(percent_mode, str) and percent_mode in {
+            mode.value for mode in PercentAnnouncement
+        }:
+            result.message_percent_announcement = percent_mode
         return result
 
     def restricted_to(self, caps: SessionCapabilities) -> "SessionPlaybackOverrides":
@@ -318,6 +370,10 @@ class SessionPlaybackOverrides:
             automatic_track_announcements=self.automatic_track_announcements
             if caps.supports_automatic_track_announcements
             else None,
+            **{
+                name: getattr(self, name) if name in caps.message_option_ids else None
+                for name in PLAYBACK_MESSAGE_OPTION_IDS
+            },
         )
 
 
@@ -333,7 +389,33 @@ SESSION_OPTION_IDS: tuple[str, ...] = (
     "open_player_on_enter",
     "open_player_on_preset",
     "automatic_track_announcements",
+    "message_seek_messages",
+    "message_arrow_seek_messages",
+    "message_percentage_seek_messages",
+    "message_volume_messages",
+    "message_playback_messages",
+    "message_bookmark_navigation_messages",
+    "message_percent_announcement",
 )
+
+PLAYBACK_MESSAGE_OPTION_IDS = SESSION_OPTION_IDS[-7:]
+
+
+def resolve_session_message_policy(
+    global_policy: MessagePolicy, overrides: SessionPlaybackOverrides,
+) -> MessagePolicy:
+    """Effective speech switches for one session; never mutate global settings."""
+    chosen = {
+        name.removeprefix("message_"): value
+        for name in PLAYBACK_MESSAGE_OPTION_IDS[:-1]
+        if (value := getattr(overrides, name)) is not None
+    }
+    mode = overrides.message_percent_announcement
+    if isinstance(mode, str) and mode in {
+        choice.value for choice in PercentAnnouncement
+    }:
+        chosen["percent_announcement"] = PercentAnnouncement(mode)
+    return replace(global_policy, **chosen)
 
 
 def resolve_automatic_track_mode(options: "Options", overrides: SessionPlaybackOverrides) -> str:

@@ -3183,7 +3183,8 @@ def _help_entries() -> list[tuple[str, str, Action]]:
         # tego uzytkownik nie wie, czego dotkna zmiany.
         Action.SESSION_OPTIONS: (
             "Ustawienia sesji: uruchamianie materiału, pozycja, domyślna "
-            "prędkość, dźwięk, zapowiedzi nowych utworów, zachowanie po wyjściu i odczyt listy; "
+            "prędkość, dźwięk, zapowiedzi nowych utworów, komunikaty odtwarzacza, "
+            "zachowanie po wyjściu i odczyt listy; "
             "kolejność czytanych pól zmienisz Alt+strzałka w górę lub w dół, "
             "zależnie od możliwości sesji"
         ),

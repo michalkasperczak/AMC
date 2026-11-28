@@ -43,6 +43,7 @@ from amc_wx_lite.session_options import (
     scope_for_session,
 )
 from amc_wx_lite.state_store import LiteState, Options, StateStore
+from amc_wx_lite.transport_parity import MessagePolicy, PercentAnnouncement
 
 
 # ------------------------------------------------------- zdolnosci sesji
@@ -120,6 +121,64 @@ def test_speech_only_session_setting_needs_no_audio_engine():
     )
     assert result.saved
     assert state.session_overrides[SessionId.FILES.value].automatic_track_announcements == "active"
+
+
+def test_playback_speech_inherits_global_and_overrides_only_selected_fields():
+    from amc_wx_lite.session_options import resolve_session_message_policy
+
+    global_policy = MessagePolicy(
+        seek_messages=True, arrow_seek_messages=True,
+        playback_messages=True, percent_announcement=PercentAnnouncement.TIME,
+    )
+    inherited = resolve_session_message_policy(global_policy, SessionPlaybackOverrides())
+    assert inherited.announces_arrow_seek
+    assert inherited.announces_playback
+    assert inherited.percent_announcement is PercentAnnouncement.TIME
+
+    own = SessionPlaybackOverrides(
+        message_arrow_seek_messages=False,
+        message_playback_messages=False,
+        message_percent_announcement=PercentAnnouncement.PERCENT_AND_TIME.value,
+    )
+    effective = resolve_session_message_policy(global_policy, own)
+    assert not effective.announces_arrow_seek
+    assert not effective.announces_playback
+    assert effective.percent_announcement is PercentAnnouncement.PERCENT_AND_TIME
+    assert global_policy.announces_arrow_seek and global_policy.announces_playback
+    assert global_policy.percent_announcement is PercentAnnouncement.TIME
+
+
+def test_playback_speech_choices_roundtrip_and_invalid_values_inherit():
+    own = SessionPlaybackOverrides(
+        message_seek_messages=False,
+        message_volume_messages=True,
+        message_percent_announcement=PercentAnnouncement.TIME.value,
+    )
+    assert SessionPlaybackOverrides.from_payload(own.to_payload()) == own
+    invalid = SessionPlaybackOverrides.from_payload({
+        "message_seek_messages": "false",
+        "message_volume_messages": 1,
+        "message_percent_announcement": ["Time"],
+    })
+    assert invalid.is_empty
+
+
+def test_playback_speech_capabilities_match_actual_supported_sessions():
+    supported = {
+        SessionId.FILES, SessionId.RADIO, SessionId.PODCASTS,
+        SessionId.TIDAL, SessionId.SPOTIFY, SessionId.RADIOARCHIWISTA,
+    }
+    for session in SessionId:
+        assert capabilities_for(session).supports_playback_messages is (session in supported)
+    own = SessionPlaybackOverrides(message_playback_messages=False)
+    assert own.restricted_to(capabilities_for(SessionId.FILES)) == own
+    assert own.restricted_to(capabilities_for(SessionId.APPLE_MUSIC)) == own
+    assert SessionPlaybackOverrides(message_volume_messages=False).restricted_to(
+        capabilities_for(SessionId.APPLE_MUSIC)
+    ).is_empty
+    assert capabilities_for(SessionId.HEOS).message_option_ids == (
+        "message_seek_messages", "message_volume_messages", "message_playback_messages",
+    )
 
 
 def test_predkosc_sesji_i_wznowienie_nadpisuja_domyslne():

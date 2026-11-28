@@ -855,6 +855,7 @@ def test_dialog_ma_pelny_uzgodniony_zakres_opcji():
         "open_player_on_enter",
         "open_player_on_preset",
         "automatic_track_announcements",
+        *session_options.PLAYBACK_MESSAGE_OPTION_IDS,
     }
 
 

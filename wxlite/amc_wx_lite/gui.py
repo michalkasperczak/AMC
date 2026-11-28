@@ -7629,6 +7629,7 @@ class SessionOptionsDialog(wx.Dialog):
         *,
         remember_local_playback_positions: bool = True,
         reading_override: dict | None = None,
+        message_policy: MessagePolicy | None = None,
     ) -> None:
         super().__init__(parent, title=session_options.dialog_title(session))
         self._options = options
@@ -7637,6 +7638,7 @@ class SessionOptionsDialog(wx.Dialog):
         )
         self._overrides = overrides
         self._reading_override = reading_override
+        self._message_policy = message_policy or MessagePolicy()
         self._session = session
         self._caps = session_options.capabilities_for(session)
         panel = wx.Panel(self)
@@ -7691,6 +7693,7 @@ class SessionOptionsDialog(wx.Dialog):
         self.enter_behavior = None
         self.preset_behavior = None
         self.automatic_track_announcements = None
+        self.message_controls: dict[str, wx.Choice] = {}
 
         if self._caps.supports_player_entry_behavior:
             inherited_entry = (
@@ -7745,6 +7748,44 @@ class SessionOptionsDialog(wx.Dialog):
                 ((inherited_label, None), *zip(AUTOMATIC_TRACK_LABELS, AUTOMATIC_TRACK_MODES)),
                 overrides.automatic_track_announcements,
             )
+
+        if self._caps.message_option_ids:
+            message_fields = (
+                ("message_seek_messages", "Automatyczne komunikaty odtwarzacza"),
+                ("message_arrow_seek_messages", "Oznajmiaj przewijanie strzałkami oraz klawiszami Home i End"),
+                ("message_percentage_seek_messages", "Oznajmiaj skoki klawiszami cyfr"),
+                ("message_volume_messages", "Oznajmiaj zmiany głośności"),
+                ("message_playback_messages", "Oznajmiaj odtwarzanie i pauzę"),
+                ("message_bookmark_navigation_messages", "Oznajmiaj nawigację po zakładkach"),
+            )
+            for field_name, label in message_fields:
+                if field_name not in self._caps.message_option_ids:
+                    continue
+                global_value = getattr(self._message_policy, field_name.removeprefix("message_"))
+                inherited = "Jak ustawienie ogólne: " + (
+                    "włączone" if global_value else "wyłączone"
+                )
+                self.message_controls[field_name] = self._add_choice(
+                    panel, grid, label + " w tej sesji:", label + " w tej sesji",
+                    ((inherited, None), ("Włączone", True), ("Wyłączone", False)),
+                    getattr(overrides, field_name),
+                )
+            percent_labels = (
+                ("Tylko procent", PercentAnnouncement.PERCENT.value),
+                ("Tylko czas", PercentAnnouncement.TIME.value),
+                ("Procent i czas", PercentAnnouncement.PERCENT_AND_TIME.value),
+            )
+            global_percent = self._message_policy.percent_announcement.value
+            inherited_percent = next(
+                label for label, value in percent_labels if value == global_percent
+            )
+            if "message_percent_announcement" in self._caps.message_option_ids:
+                self.message_controls["message_percent_announcement"] = self._add_choice(
+                    panel, grid, "Przy skoku cyfrą podawaj w tej sesji:",
+                    "Treść komunikatu po skoku klawiszem cyfry w tej sesji",
+                    (("Jak ustawienie ogólne: " + inherited_percent, None), *percent_labels),
+                    overrides.message_percent_announcement,
+                )
 
         if self._caps.supports_resume_position:
             if self._session is SessionId.PODCASTS:
@@ -7927,6 +7968,10 @@ class SessionOptionsDialog(wx.Dialog):
             automatic_track_announcements=self._value(
                 self.automatic_track_announcements
             ),
+            **{
+                name: self._value(self.message_controls.get(name))
+                for name in session_options.PLAYBACK_MESSAGE_OPTION_IDS
+            },
         )
 
     @property
@@ -25845,7 +25890,10 @@ class LiteFrame(wx.Frame):
                 return
             self._wiim_snapshot = state
             if self.navigator.active is SessionId.WIIM:
-                self._apply_wiim_snapshot(state, announce=True)
+                self._apply_wiim_snapshot(state, announce=False)
+                message = str(state.get("message") or "").strip() or wiim_now_playing_label(state)
+                category = "volume" if "volume" in command.casefold() else "playback"
+                LiteFrame._announce_transport_message(self, SessionId.WIIM, category, message)
 
         self.runner.submit(
             "wiim-transport",
@@ -26269,7 +26317,11 @@ class LiteFrame(wx.Frame):
                 return
             self._frontier_smart_snapshot = state
             if self.navigator.active is SessionId.FRONTIER_SMART:
-                self._apply_frontier_smart_snapshot(state, announce=True)
+                self._apply_frontier_smart_snapshot(state, announce=False)
+                message = str(state.get("message") or "").strip() or frontier_smart_now_playing_label(state)
+                LiteFrame._announce_transport_message(
+                    self, SessionId.FRONTIER_SMART, "playback", message,
+                )
             if isinstance(pending_volume, int):
                 self._queue_frontier_smart_volume(pending_volume)
 
@@ -26334,7 +26386,12 @@ class LiteFrame(wx.Frame):
                 confirmed if isinstance(confirmed, int) else target
             )
             if self.navigator.active is SessionId.FRONTIER_SMART:
-                self._apply_frontier_smart_snapshot(state, announce=True)
+                policy = LiteFrame._session_messages(self, SessionId.FRONTIER_SMART)
+                announce = policy.announces_volume and policy.speaks_routine
+                self._apply_frontier_smart_snapshot(state, announce=announce)
+                if not announce:
+                    message = str(state.get("message") or "").strip() or frontier_smart_now_playing_label(state)
+                    self.announcer.show(message)
 
         def failed(error: Exception) -> None:
             self._frontier_smart_request_pending = False
@@ -26625,7 +26682,10 @@ class LiteFrame(wx.Frame):
             "heos-status", lambda: service.status(target.player_id), done, failed,
         )
 
-    def _heos_control(self, operation, message: str | Callable[[HeosStatus], str]) -> None:
+    def _heos_control(
+        self, operation, message: str | Callable[[HeosStatus], str],
+        *, category: str = "playback",
+    ) -> None:
         service = self._heos_service
         target = self._heos_state.selected_target
         if service is None or target is None:
@@ -26650,11 +26710,15 @@ class LiteFrame(wx.Frame):
                 if status is not None:
                     self._heos_apply_status(status, target)
                 if self.navigator.active is SessionId.HEOS:
-                    self.announcer.say(
-                        (message(status) if callable(message) else message)
-                        if status is not None else
-                        "HEOS przyjął polecenie, ale nie można odczytać aktualnego stanu"
-                    )
+                    if status is not None:
+                        spoken = message(status) if callable(message) else message
+                        LiteFrame._announce_transport_message(
+                            self, SessionId.HEOS, category, spoken,
+                        )
+                    else:
+                        self.announcer.say(
+                            "HEOS przyjął polecenie, ale nie można odczytać aktualnego stanu"
+                        )
                 if status is None:
                     self._heos_refresh_status(force=True)
 
@@ -26917,6 +26981,7 @@ class LiteFrame(wx.Frame):
                     if status.volume is not None
                     else "HEOS zmienił głośność, ale nie podał poziomu"
                 ),
+                category="volume",
             )
 
     # ---------------------------------------------------------------- Sonos
@@ -27264,13 +27329,14 @@ class LiteFrame(wx.Frame):
                 }:
                     confirmed_volume = state.get("volume")
                     if isinstance(confirmed_volume, int):
-                        text = self.messages.volume_text(confirmed_volume)
-                        if text is not None and self.messages.speaks_routine:
-                            self.announcer.say(text)
+                        text = LiteFrame._session_messages(self, SessionId.SONOS).volume_text(confirmed_volume)
+                        if text is not None:
+                            LiteFrame._announce_transport_message(self, SessionId.SONOS, "volume", text)
                 else:
                     message = str(state.get("message") or "").strip()
                     if message:
-                        self.announcer.say(message)
+                        category = "seek" if command == "seekRelative" else "playback"
+                        LiteFrame._announce_transport_message(self, SessionId.SONOS, category, message)
             self._finish_sonos_request()
 
         def failed(error: Exception) -> None:
@@ -32996,6 +33062,34 @@ class LiteFrame(wx.Frame):
 
     # ----------------------------------------------------------- odtwarzanie
 
+    def _session_messages(self, session: SessionId | None = None) -> MessagePolicy:
+        """Global speech settings with the current playback session's choices."""
+        source = session or self.navigator.active
+        overrides = session_options.effective_overrides(getattr(self, "state", None), source)
+        base = getattr(self, "__dict__", {}).get("messages")
+        if base is None:
+            base = MessagePolicy()
+        if not isinstance(base, MessagePolicy):
+            # Lightweight GUI test doubles supply a policy with only the used
+            # methods. Runtime frames always carry the full MessagePolicy.
+            return base
+        return session_options.resolve_session_message_policy(base, overrides)
+
+    def _announce_transport_message(
+        self, session: SessionId, category: str, message: str,
+    ) -> None:
+        """Keep the status readable when routine remote confirmation is muted."""
+        policy = LiteFrame._session_messages(self, session)
+        allowed = {
+            "playback": getattr(policy, "announces_playback", True),
+            "volume": getattr(policy, "announces_volume", True),
+            "seek": getattr(policy, "seek_messages", True),
+        }[category]
+        if allowed and getattr(policy, "speaks_routine", True):
+            self.announcer.say(message)
+        else:
+            self.announcer.show(message)
+
     def _session_default_rate(self, session: SessionId) -> float:
         """Biezace tempo sesji albo jej trwala baza; element moze je nadpisac."""
         if session is SessionId.SPOTIFY:
@@ -34382,9 +34476,9 @@ class LiteFrame(wx.Frame):
                 else format_duration(position)
             )
             if (
-                self.messages.seek_messages
-                and self.messages.bookmark_navigation_messages
-                and self.messages.speaks_routine
+                LiteFrame._session_messages(self).seek_messages
+                and LiteFrame._session_messages(self).bookmark_navigation_messages
+                and LiteFrame._session_messages(self).speaks_routine
             ):
                 self.announcer.say(text)
             else:
@@ -34953,7 +35047,7 @@ class LiteFrame(wx.Frame):
                 else target
             )
             self._last_status = {**self._last_status, "positionSeconds": position}
-            if self.messages.seek_messages and self.messages.speaks_routine:
+            if LiteFrame._session_messages(self).seek_messages and LiteFrame._session_messages(self).speaks_routine:
                 self.announcer.say(f"{label} fragmentu: {format_clip_time(position)}")
 
         self.runner.submit(
@@ -36725,7 +36819,12 @@ class LiteFrame(wx.Frame):
             message = str(result.get("message") or "nie odpowiada")
             if not message.startswith("Oryginalny Apple Music"):
                 message = f"Oryginalny Apple Music: {message}"
-            self.announcer.say(message)
+            if result.get("success") is False or "nie odpowiada" in message:
+                self.announcer.say(message)
+            else:
+                LiteFrame._announce_transport_message(
+                    self, SessionId.APPLE_MUSIC, "playback", message,
+                )
             self._refresh_apple_music_external_state(force=True)
 
         self.runner.submit(
@@ -37772,6 +37871,7 @@ class LiteFrame(wx.Frame):
                 self, "_remember_local_playback_positions", True
             ),
             reading_override=self.state.list_reading_overrides.get(current.value),
+            message_policy=getattr(self, "__dict__", {}).get("messages"),
         )
         chosen = None
         chosen_reading = None
@@ -38073,8 +38173,8 @@ class LiteFrame(wx.Frame):
                 refresh_activity(session)
             message = transport_confirmation(paused=paused)
             if (
-                self.messages.announces_playback
-                and self.messages.speaks_routine
+                LiteFrame._session_messages(self, session).announces_playback
+                and LiteFrame._session_messages(self, session).speaks_routine
             ):
                 self.announcer.say(message)
             else:
@@ -38191,8 +38291,9 @@ class LiteFrame(wx.Frame):
 
     def _announce_seek(self, payload: dict | None) -> None:
         """Komunikat po przewinieciu -- tylko jesli ustawienia na to pozwalaja."""
-        text = self.messages.arrow_seek_text((payload or {}).get("positionSeconds"))
-        if text is not None and self.messages.speaks_routine:
+        policy = LiteFrame._session_messages(self)
+        text = policy.arrow_seek_text((payload or {}).get("positionSeconds"))
+        if text is not None and policy.speaks_routine:
             self.announcer.say(text)
 
     def _seek_to_track_edge(self, to_end: bool) -> None:
@@ -38325,7 +38426,7 @@ class LiteFrame(wx.Frame):
 
     def _announce_track_edge(self, text: str) -> None:
         """cs:318 i cs:323 pytaja o TE SAME dwie bramki, co strzalki."""
-        if self.messages.announces_arrow_seek and self.messages.speaks_routine:
+        if LiteFrame._session_messages(self).announces_arrow_seek and LiteFrame._session_messages(self).speaks_routine:
             self.announcer.say(text)
 
     def _seek_from_input(self, *, percent: bool) -> None:
@@ -38424,7 +38525,7 @@ class LiteFrame(wx.Frame):
         if self._youtube_playback_active():
             duration = float(self._youtube_status.get("durationSeconds") or 0)
             if duration <= 0:
-                text = self.messages.percent_seek_text(
+                text = LiteFrame._session_messages(self).percent_seek_text(
                     percent, position_seconds=None, duration_seconds=None
                 )
                 if text is not None:
@@ -38482,7 +38583,7 @@ class LiteFrame(wx.Frame):
                 return
             # cs:546-551 -- brak czasu trwania to blad wykonania, mowiony
             # ZAWSZE, bo inaczej gest wygladalby na niedzialajacy.
-            text = self.messages.percent_seek_text(
+            text = LiteFrame._session_messages(self).percent_seek_text(
                 percent, position_seconds=None, duration_seconds=None
             )
             if text is not None:
@@ -38499,12 +38600,13 @@ class LiteFrame(wx.Frame):
     def _announce_seek_percent(
         self, percent: int, payload: dict | None, duration: float
     ) -> None:
-        text = self.messages.percent_seek_text(
+        policy = LiteFrame._session_messages(self)
+        text = policy.percent_seek_text(
             percent,
             position_seconds=(payload or {}).get("positionSeconds"),
             duration_seconds=duration,
         )
-        if text is not None and self.messages.speaks_routine:
+        if text is not None and policy.speaks_routine:
             self.announcer.say(text)
 
     def _seek_tidal_native_absolute(
@@ -38557,7 +38659,7 @@ class LiteFrame(wx.Frame):
                 self.announcer.say("Podany czas przekracza długość utworu TIDAL")
             elif outcome == "duration":
                 if percent is not None:
-                    text = self.messages.percent_seek_text(
+                    text = LiteFrame._session_messages(self, SessionId.TIDAL).percent_seek_text(
                         percent, position_seconds=None, duration_seconds=None
                     )
                     if text is not None:
@@ -38580,12 +38682,13 @@ class LiteFrame(wx.Frame):
 
     def _announce_radio_seek_percent(self, percent: int, payload: dict | None) -> None:
         result = payload or {}
-        text = self.messages.radio_percent_seek_text(
+        policy = LiteFrame._session_messages(self, SessionId.RADIO)
+        text = policy.radio_percent_seek_text(
             percent,
             position_seconds=result.get("bufferPositionSeconds"),
             duration_seconds=result.get("bufferedSeconds"),
         )
-        if text is not None and self.messages.speaks_routine:
+        if text is not None and policy.speaks_routine:
             self.announcer.say(text)
 
     def _adjust_volume(self, delta: int) -> None:
@@ -38636,8 +38739,9 @@ class LiteFrame(wx.Frame):
         self.options.volume = value
         # Glosnosc tez ma swoj przelacznik (CommandRouter.cs:566-575) i swoj
         # szablon "{value}%" -- nie wlasne zdanie "Glosnosc 70".
-        text = self.messages.volume_text(value)
-        if text is not None and self.messages.speaks_routine:
+        policy = LiteFrame._session_messages(self)
+        text = policy.volume_text(value)
+        if text is not None and policy.speaks_routine:
             self.announcer.say(text)
         if self._youtube_playback_active():
             self._youtube_surface.set_volume(value)

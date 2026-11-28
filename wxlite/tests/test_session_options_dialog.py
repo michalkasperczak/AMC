@@ -235,6 +235,7 @@ def _controls(dialog) -> dict:
         "enter": dialog.enter_behavior,
         "preset": dialog.preset_behavior,
         "automatic_tracks": dialog.automatic_track_announcements,
+        **dialog.message_controls,
     }
 
 
@@ -302,6 +303,7 @@ def test_liczba_kontrolek_zgadza_sie_ze_zdolnosciami():
         ) + (1 if caps.supports_player_entry_behavior else 0) + (
             1 if caps.supports_preset_entry_behavior else 0
         ) + (1 if caps.supports_automatic_track_announcements else 0)
+        expected += len(caps.message_option_ids)
         assert created == expected, f"{session.value}: {created} != {expected}"
 
 
@@ -491,6 +493,88 @@ def test_automatic_track_choice_reads_global_inheritance_and_separate_modes():
     ]
     assert control._amc_values == [None, "always", "active", "never"]
     assert dialog.overrides.automatic_track_announcements is None
+
+
+def test_playback_message_choices_have_spoken_labels_and_stable_values():
+    dialog = _build(SessionId.TIDAL, Options(), session_options.SessionPlaybackOverrides())
+    assert len(dialog.message_controls) == 7
+    for name, control in dialog.message_controls.items():
+        assert control.name and "&" not in control.name
+        assert control.choices[0].startswith("Jak ustawienie ogólne:")
+        assert control._amc_values[0] is None
+        assert control.focused is False
+        assert "SessionPlaybackOverrides" not in " ".join(control.choices)
+    assert dialog.enter_behavior is None
+    assert dialog.automatic_track_announcements.focused
+    percent = dialog.message_controls["message_percent_announcement"]
+    assert percent.choices[1:] == ["Tylko procent", "Tylko czas", "Procent i czas"]
+
+
+def test_playback_message_choice_save_reopen_and_return_to_inheritance():
+    from amc_wx_lite.transport_parity import PercentAnnouncement
+
+    dialog = _build(SessionId.FILES, Options(), session_options.SessionPlaybackOverrides())
+    playback = dialog.message_controls["message_playback_messages"]
+    playback.SetSelection(playback._amc_values.index(False))
+    percent = dialog.message_controls["message_percent_announcement"]
+    percent.SetSelection(percent._amc_values.index(PercentAnnouncement.TIME.value))
+    saved = dialog.overrides
+    assert saved.message_playback_messages is False
+    assert saved.message_percent_announcement == PercentAnnouncement.TIME.value
+    reopened = _build(SessionId.FILES, Options(), saved)
+    assert reopened.overrides == saved
+    own = reopened.message_controls["message_playback_messages"]
+    assert own.GetSelection() == own._amc_values.index(False)
+    own.SetSelection(0)
+    assert reopened.overrides.message_playback_messages is None
+
+
+def test_remote_sessions_only_offer_speech_switches_with_executors():
+    expected = {
+        SessionId.WIIM: {"message_seek_messages", "message_volume_messages", "message_playback_messages"},
+        SessionId.SONOS: {
+            "message_seek_messages", "message_volume_messages",
+            "message_playback_messages",
+        },
+        SessionId.HEOS: {"message_seek_messages", "message_volume_messages", "message_playback_messages"},
+        SessionId.FRONTIER_SMART: {"message_seek_messages", "message_volume_messages", "message_playback_messages"},
+        SessionId.APPLE_MUSIC: {"message_seek_messages", "message_playback_messages"},
+    }
+    for session, names in expected.items():
+        dialog = _build(session, Options(), session_options.SessionPlaybackOverrides())
+        assert set(dialog.message_controls) == names
+        for control in dialog.message_controls.values():
+            assert control.choices[0].startswith("Jak ustawienie ogólne:")
+            assert control.name.endswith("w tej sesji")
+
+
+def test_remote_transport_speech_respects_global_session_and_status_only():
+    from types import SimpleNamespace
+    from amc_wx_lite import gui
+    from amc_wx_lite.state_store import LiteState
+    from amc_wx_lite.transport_parity import MessagePolicy
+
+    spoken: list[str] = []
+    shown: list[str] = []
+    state = LiteState()
+    frame = SimpleNamespace(
+        state=state,
+        messages=MessagePolicy(),
+        navigator=SimpleNamespace(active=SessionId.HEOS),
+        announcer=SimpleNamespace(say=spoken.append, show=shown.append),
+    )
+    gui.LiteFrame._announce_transport_message(frame, SessionId.HEOS, "playback", "Pauza")
+    assert spoken == ["Pauza"]
+    state.session_overrides[SessionId.HEOS.value] = (
+        session_options.SessionPlaybackOverrides(message_playback_messages=False)
+    )
+    gui.LiteFrame._announce_transport_message(frame, SessionId.HEOS, "playback", "Odtwarzanie")
+    assert spoken == ["Pauza"] and shown == ["Odtwarzanie"]
+    gui.LiteFrame._announce_transport_message(frame, SessionId.SONOS, "playback", "Odtwarzanie")
+    assert spoken[-1] == "Odtwarzanie", "HEOS nie wycisza innej sesji"
+    frame.messages.seek_messages = False
+    gui.LiteFrame._announce_transport_message(frame, SessionId.SONOS, "playback", "Pauza")
+    assert shown[-1] == "Pauza", "sesja dziedziczy zmienione ustawienie ogólne"
 
 
 def test_zachowanie_entera_ma_jawne_etykiety_i_odseparowany_model():
